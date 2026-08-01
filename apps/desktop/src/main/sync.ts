@@ -1,51 +1,51 @@
-import { resolveConflict, taskDataSchema, type SyncChange, type SyncPullResponse } from "@reckon/shared";
-import type { PrismaClient, Task } from "../../generated/client";
+import { resolveConflict, vocabEntryDataSchema, type SyncChange, type SyncPullResponse } from "@reckon/shared";
+import type { PrismaClient, VocabEntry } from "../../generated/client";
 
 const SERVER_URL = "http://localhost:3000";
 
-function taskToChange(task: Task): SyncChange {
+function vocabToChange(entry: VocabEntry): SyncChange {
   return {
-    kind: "task",
-    id: task.id,
-    updatedAt: task.updatedAt.toISOString(),
-    deviceId: task.deviceId,
-    deletedAt: task.deletedAt ? task.deletedAt.toISOString() : null,
+    kind: "vocab",
+    id: entry.id,
+    updatedAt: entry.updatedAt.toISOString(),
+    deviceId: entry.deviceId,
+    deletedAt: entry.deletedAt ? entry.deletedAt.toISOString() : null,
     data: {
-      title: task.title,
-      notes: task.notes,
-      done: task.done,
-      dueDate: task.dueDate ? task.dueDate.toISOString() : null,
+      sourceText: entry.sourceText,
+      sourceLang: entry.sourceLang,
+      targetText: entry.targetText,
+      targetLang: entry.targetLang,
     },
   };
 }
 
-async function applyTaskChange(prisma: PrismaClient, change: SyncChange): Promise<boolean> {
-  const existing = await prisma.task.findUnique({ where: { id: change.id } });
+async function applyVocabChange(prisma: PrismaClient, change: SyncChange): Promise<boolean> {
+  const existing = await prisma.vocabEntry.findUnique({ where: { id: change.id } });
   if (existing) {
-    const winner = resolveConflict(taskToChange(existing), change);
+    const winner = resolveConflict(vocabToChange(existing), change);
     if (winner.deviceId === existing.deviceId && winner.updatedAt === existing.updatedAt.toISOString()) {
       return false;
     }
   }
 
-  const data = taskDataSchema.parse(change.data);
-  await prisma.task.upsert({
+  const data = vocabEntryDataSchema.parse(change.data);
+  await prisma.vocabEntry.upsert({
     where: { id: change.id },
     create: {
       id: change.id,
-      title: data.title,
-      notes: data.notes,
-      done: data.done,
-      dueDate: data.dueDate ? new Date(data.dueDate) : null,
+      sourceText: data.sourceText,
+      sourceLang: data.sourceLang,
+      targetText: data.targetText,
+      targetLang: data.targetLang,
       updatedAt: new Date(change.updatedAt),
       deviceId: change.deviceId,
       deletedAt: change.deletedAt ? new Date(change.deletedAt) : null,
     },
     update: {
-      title: data.title,
-      notes: data.notes,
-      done: data.done,
-      dueDate: data.dueDate ? new Date(data.dueDate) : null,
+      sourceText: data.sourceText,
+      sourceLang: data.sourceLang,
+      targetText: data.targetText,
+      targetLang: data.targetLang,
       updatedAt: new Date(change.updatedAt),
       deviceId: change.deviceId,
       deletedAt: change.deletedAt ? new Date(change.deletedAt) : null,
@@ -55,8 +55,8 @@ async function applyTaskChange(prisma: PrismaClient, change: SyncChange): Promis
 }
 
 export async function runSync(prisma: PrismaClient, deviceId: string): Promise<{ pushed: number; pulled: number }> {
-  const localTasks = await prisma.task.findMany();
-  const changes = localTasks.map(taskToChange);
+  const localEntries = await prisma.vocabEntry.findMany();
+  const changes = localEntries.map(vocabToChange);
 
   await fetch(`${SERVER_URL}/sync/push`, {
     method: "POST",
@@ -75,8 +75,8 @@ export async function runSync(prisma: PrismaClient, deviceId: string): Promise<{
 
   let pulled = 0;
   for (const change of remoteChanges) {
-    if (change.kind !== "task") continue;
-    if (await applyTaskChange(prisma, change)) pulled++;
+    if (change.kind !== "vocab") continue;
+    if (await applyVocabChange(prisma, change)) pulled++;
   }
 
   await prisma.syncState.update({ where: { id: 1 }, data: { lastPulledAt: new Date(serverTime) } });

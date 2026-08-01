@@ -5,42 +5,21 @@ generator client {
 
 // Local-first storage: every table mirrors the shared zod schemas in
 // @reckon/shared and carries updatedAt/deviceId/deletedAt so the sync
-// engine (Phase 3) can turn rows into SyncChange records untouched.
+// engine can turn rows into SyncChange records untouched.
 datasource db {
   provider = "sqlite"
   url      = env("DATABASE_URL")
 }
 
-model Task {
-  id        String    @id
-  title     String
-  notes     String?
-  done      Boolean   @default(false)
-  dueDate   DateTime?
-  updatedAt DateTime
-  deviceId  String
-  deletedAt DateTime?
-}
-
-model Note {
-  id        String    @id
-  title     String
-  body      String    @default("")
-  updatedAt DateTime
-  deviceId  String
-  deletedAt DateTime?
-}
-
-model Expense {
-  id        String    @id
-  amount    Float
-  currency  String    @default("VND")
-  category  String
-  memo      String?
-  spentAt   DateTime
-  updatedAt DateTime
-  deviceId  String
-  deletedAt DateTime?
+model VocabEntry {
+  id         String    @id
+  sourceText String
+  sourceLang String
+  targetText String
+  targetLang String
+  updatedAt  DateTime
+  deviceId   String
+  deletedAt  DateTime?
 }
 
 // Singleton row (id 1) tracking the last successful pull, so sync only

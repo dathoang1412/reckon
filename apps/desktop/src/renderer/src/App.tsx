@@ -1,40 +1,38 @@
 import { useEffect, useState } from "react";
 import { DeleteOutlined, SyncOutlined } from "@ant-design/icons";
-import { Button, Checkbox, ConfigProvider, Empty, Input, List, message, Space, Typography } from "antd";
-
-interface TaskRow {
-  id: string;
-  title: string;
-  done: boolean;
-}
+import { Button, ConfigProvider, Empty, Input, List, message, Space, Tag, Typography } from "antd";
+import type { VocabEntryRow } from "../../preload/index";
 
 export default function App() {
-  const [tasks, setTasks] = useState<TaskRow[]>([]);
-  const [title, setTitle] = useState("");
+  const [entries, setEntries] = useState<VocabEntryRow[]>([]);
+  const [text, setText] = useState("");
+  const [looking, setLooking] = useState(false);
   const [syncing, setSyncing] = useState(false);
 
   async function refresh() {
-    setTasks(await window.api.tasks.list());
+    setEntries(await window.api.vocab.list());
   }
 
   useEffect(() => {
     refresh();
   }, []);
 
-  async function handleAdd() {
-    if (!title.trim()) return;
-    await window.api.tasks.create(title.trim());
-    setTitle("");
-    await refresh();
-  }
-
-  async function handleToggle(id: string) {
-    await window.api.tasks.toggle(id);
-    await refresh();
+  async function handleLookup() {
+    if (!text.trim()) return;
+    setLooking(true);
+    try {
+      await window.api.vocab.lookup(text.trim());
+      setText("");
+      await refresh();
+    } catch (err) {
+      message.error(`Lookup failed: ${err instanceof Error ? err.message : String(err)}`);
+    } finally {
+      setLooking(false);
+    }
   }
 
   async function handleDelete(id: string) {
-    await window.api.tasks.delete(id);
+    await window.api.vocab.delete(id);
     await refresh();
   }
 
@@ -62,29 +60,39 @@ export default function App() {
             Sync now
           </Button>
         </Space>
+        <Typography.Paragraph type="secondary" style={{ marginTop: 8 }}>
+          Copy a word anywhere, press Ctrl+Shift+D — or look one up here.
+        </Typography.Paragraph>
         <Space.Compact style={{ width: "100%", margin: "16px 0" }}>
           <Input
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-            onPressEnter={handleAdd}
-            placeholder="New task"
+            value={text}
+            onChange={(e) => setText(e.target.value)}
+            onPressEnter={handleLookup}
+            placeholder="Look up a word or phrase"
           />
-          <Button type="primary" onClick={handleAdd}>
-            Add
+          <Button type="primary" loading={looking} onClick={handleLookup}>
+            Look up
           </Button>
         </Space.Compact>
         <List
-          dataSource={tasks}
-          locale={{ emptyText: <Empty description="No tasks yet" /> }}
-          renderItem={(task) => (
+          dataSource={entries}
+          locale={{ emptyText: <Empty description="No lookups yet" /> }}
+          renderItem={(entry) => (
             <List.Item
               actions={[
-                <Button key="delete" type="text" danger icon={<DeleteOutlined />} onClick={() => handleDelete(task.id)} />,
+                <Button key="delete" type="text" danger icon={<DeleteOutlined />} onClick={() => handleDelete(entry.id)} />,
               ]}
             >
-              <Checkbox checked={task.done} onChange={() => handleToggle(task.id)}>
-                <span style={{ textDecoration: task.done ? "line-through" : "none" }}>{task.title}</span>
-              </Checkbox>
+              <Space direction="vertical" size={0}>
+                <span>
+                  <Tag color="blue">{entry.sourceLang}</Tag>
+                  {entry.sourceText}
+                </span>
+                <span>
+                  <Tag color="green">{entry.targetLang}</Tag>
+                  {entry.targetText}
+                </span>
+              </Space>
             </List.Item>
           )}
         />

@@ -1,14 +1,24 @@
 import { contextBridge, ipcRenderer } from "electron";
 
+export interface VocabEntryRow {
+  id: string;
+  sourceText: string;
+  sourceLang: string;
+  targetText: string;
+  targetLang: string;
+}
+
 const api = {
-  tasks: {
-    list: () => ipcRenderer.invoke("tasks:list"),
-    create: (title: string) => ipcRenderer.invoke("tasks:create", title),
-    toggle: (id: string) => ipcRenderer.invoke("tasks:toggle", id),
-    delete: (id: string) => ipcRenderer.invoke("tasks:delete", id),
+  vocab: {
+    list: () => ipcRenderer.invoke("vocab:list") as Promise<VocabEntryRow[]>,
+    lookup: (text: string) => ipcRenderer.invoke("vocab:lookup", text) as Promise<VocabEntryRow>,
+    delete: (id: string) => ipcRenderer.invoke("vocab:delete", id) as Promise<VocabEntryRow>,
   },
   sync: {
     run: () => ipcRenderer.invoke("sync:run") as Promise<{ pushed: number; pulled: number }>,
+  },
+  onTranslationResult: (callback: (result: VocabEntryRow) => void) => {
+    ipcRenderer.on("translation:result", (_event, result: VocabEntryRow) => callback(result));
   },
 };
 

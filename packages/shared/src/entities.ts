@@ -9,33 +9,18 @@ export const syncMetaSchema = z.object({
   deletedAt: z.string().datetime().nullable().default(null),
 });
 
-export const taskSchema = syncMetaSchema.extend({
-  title: z.string().min(1).max(200),
-  notes: z.string().max(5000).nullable().default(null),
-  done: z.boolean().default(false),
-  dueDate: z.string().datetime().nullable().default(null),
+export const vocabEntrySchema = syncMetaSchema.extend({
+  sourceText: z.string().min(1).max(500),
+  sourceLang: z.string().min(2).max(5),
+  targetText: z.string().min(1).max(1000),
+  targetLang: z.string().min(2).max(5),
 });
-export type Task = z.infer<typeof taskSchema>;
+export type VocabEntry = z.infer<typeof vocabEntrySchema>;
 
-// The domain fields of a Task, without sync metadata — the shape of a
-// SyncChange's `data` payload, validated at the network boundary.
-export const taskDataSchema = taskSchema.omit({ id: true, updatedAt: true, deviceId: true, deletedAt: true });
-export type TaskData = z.infer<typeof taskDataSchema>;
+// The domain fields of a VocabEntry, without sync metadata — the shape of
+// a SyncChange's `data` payload, validated at the network boundary.
+export const vocabEntryDataSchema = vocabEntrySchema.omit({ id: true, updatedAt: true, deviceId: true, deletedAt: true });
+export type VocabEntryData = z.infer<typeof vocabEntryDataSchema>;
 
-export const noteSchema = syncMetaSchema.extend({
-  title: z.string().min(1).max(200),
-  body: z.string().max(50000).default(""),
-});
-export type Note = z.infer<typeof noteSchema>;
-
-export const expenseSchema = syncMetaSchema.extend({
-  amount: z.number().finite(),
-  currency: z.string().length(3).default("VND"),
-  category: z.string().min(1).max(100),
-  memo: z.string().max(500).nullable().default(null),
-  spentAt: z.string().datetime(),
-});
-export type Expense = z.infer<typeof expenseSchema>;
-
-export const entityKind = z.enum(["task", "note", "expense"]);
+export const entityKind = z.enum(["vocab"]);
 export type EntityKind = z.infer<typeof entityKind>;
