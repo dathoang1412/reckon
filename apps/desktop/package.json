@@ -14,8 +14,10 @@
     "prisma:migrate": "prisma migrate dev"
   },
   "dependencies": {
+    "@ant-design/icons": "^6.3.2",
     "@prisma/client": "^5.22.0",
     "@reckon/shared": "workspace:*",
+    "antd": "^6.5.3",
     "react": "^18.3.1",
     "react-dom": "^18.3.1"
   },

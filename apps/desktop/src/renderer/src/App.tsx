@@ -1,4 +1,6 @@
 import { useEffect, useState } from "react";
+import { DeleteOutlined } from "@ant-design/icons";
+import { Button, Checkbox, ConfigProvider, Empty, Input, List, Space, Typography } from "antd";
 
 interface TaskRow {
   id: string;
@@ -18,8 +20,7 @@ export default function App() {
     refresh();
   }, []);
 
-  async function handleAdd(e: React.FormEvent) {
-    e.preventDefault();
+  async function handleAdd() {
     if (!title.trim()) return;
     await window.api.tasks.create(title.trim());
     setTitle("");
@@ -37,26 +38,36 @@ export default function App() {
   }
 
   return (
-    <main style={{ fontFamily: "system-ui, sans-serif", maxWidth: 480, margin: "2rem auto" }}>
-      <h1>Reckon</h1>
-      <form onSubmit={handleAdd} style={{ display: "flex", gap: 8 }}>
-        <input
-          value={title}
-          onChange={(e) => setTitle(e.target.value)}
-          placeholder="New task"
-          style={{ flex: 1, padding: 8 }}
+    <ConfigProvider theme={{ token: { colorPrimary: "#1677ff" } }}>
+      <div style={{ maxWidth: 480, margin: "2rem auto", padding: "0 1rem" }}>
+        <Typography.Title level={2}>Reckon</Typography.Title>
+        <Space.Compact style={{ width: "100%", marginBottom: 16 }}>
+          <Input
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            onPressEnter={handleAdd}
+            placeholder="New task"
+          />
+          <Button type="primary" onClick={handleAdd}>
+            Add
+          </Button>
+        </Space.Compact>
+        <List
+          dataSource={tasks}
+          locale={{ emptyText: <Empty description="No tasks yet" /> }}
+          renderItem={(task) => (
+            <List.Item
+              actions={[
+                <Button key="delete" type="text" danger icon={<DeleteOutlined />} onClick={() => handleDelete(task.id)} />,
+              ]}
+            >
+              <Checkbox checked={task.done} onChange={() => handleToggle(task.id)}>
+                <span style={{ textDecoration: task.done ? "line-through" : "none" }}>{task.title}</span>
+              </Checkbox>
+            </List.Item>
+          )}
         />
-        <button type="submit">Add</button>
-      </form>
-      <ul style={{ listStyle: "none", padding: 0, marginTop: "1rem" }}>
-        {tasks.map((task) => (
-          <li key={task.id} style={{ display: "flex", alignItems: "center", gap: 8, padding: "4px 0" }}>
-            <input type="checkbox" checked={task.done} onChange={() => handleToggle(task.id)} />
-            <span style={{ flex: 1, textDecoration: task.done ? "line-through" : "none" }}>{task.title}</span>
-            <button onClick={() => handleDelete(task.id)}>Delete</button>
-          </li>
-        ))}
-      </ul>
-    </main>
+      </div>
+    </ConfigProvider>
   );
 }
