@@ -1,10 +1,11 @@
 # syntax=docker/dockerfile:1
-FROM node:20-alpine AS base
+FROM node:22-alpine AS base
+RUN apk add --no-cache openssl
 RUN npm install -g pnpm@11.18.0
 WORKDIR /app
 
 FROM base AS deps
-COPY pnpm-workspace.yaml package.json pnpm-lock.yaml ./
+COPY pnpm-workspace.yaml package.json pnpm-lock.yaml tsconfig.base.json ./
 COPY packages/shared/package.json packages/shared/package.json
 COPY apps/server/package.json apps/server/package.json
 RUN pnpm install --frozen-lockfile --filter @reckon/server... --filter @reckon/shared
