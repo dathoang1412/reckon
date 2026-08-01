@@ -2,6 +2,10 @@ import { app, BrowserWindow, shell } from "electron";
 import path from "node:path";
 import { registerIpcHandlers } from "./ipc";
 
+// Keep userData (and thus the SQLite file path) stable across dev/packaged
+// runs instead of depending on Electron's inferred name from package.json.
+app.setName("reckon");
+
 function createWindow(): void {
   const win = new BrowserWindow({
     width: 1000,

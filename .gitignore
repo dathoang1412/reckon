@@ -9,6 +9,8 @@ build/
 !.env.example
 *.sqlite
 *.sqlite-journal
+*.db
+*.db-journal
 .turbo/
 coverage/
 .DS_Store
