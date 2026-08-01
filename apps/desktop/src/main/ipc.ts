@@ -3,6 +3,7 @@ import { randomUUID } from "node:crypto";
 import { taskSchema } from "@reckon/shared";
 import { getPrisma } from "./db";
 import { getDeviceId } from "./deviceId";
+import { runSync } from "./sync";
 
 export function registerIpcHandlers(): void {
   const prisma = getPrisma();
@@ -35,5 +36,9 @@ export function registerIpcHandlers(): void {
       where: { id },
       data: { deletedAt: new Date(), updatedAt: new Date(), deviceId },
     });
+  });
+
+  ipcMain.handle("sync:run", async () => {
+    return runSync(prisma, deviceId);
   });
 }

@@ -42,3 +42,10 @@ model Expense {
   deviceId  String
   deletedAt DateTime?
 }
+
+// Singleton row (id 1) tracking the last successful pull, so sync only
+// asks the server for changes since then.
+model SyncState {
+  id           Int       @id @default(1)
+  lastPulledAt DateTime?
+}

@@ -1,0 +1,5 @@
+-- CreateTable
+CREATE TABLE "SyncState" (
+    "id" INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT DEFAULT 1,
+    "lastPulledAt" DATETIME
+);

@@ -17,6 +17,11 @@ export const taskSchema = syncMetaSchema.extend({
 });
 export type Task = z.infer<typeof taskSchema>;
 
+// The domain fields of a Task, without sync metadata — the shape of a
+// SyncChange's `data` payload, validated at the network boundary.
+export const taskDataSchema = taskSchema.omit({ id: true, updatedAt: true, deviceId: true, deletedAt: true });
+export type TaskData = z.infer<typeof taskDataSchema>;
+
 export const noteSchema = syncMetaSchema.extend({
   title: z.string().min(1).max(200),
   body: z.string().max(50000).default(""),
