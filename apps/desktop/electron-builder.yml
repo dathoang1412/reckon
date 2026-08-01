@@ -1,0 +1,16 @@
+appId: com.reckon.desktop
+productName: Reckon
+directories:
+  output: release
+files:
+  - out/**/*
+  - package.json
+asarUnpack:
+  - node_modules/.prisma/**/*
+  - node_modules/@prisma/client/**/*
+win:
+  target: nsis
+mac:
+  target: dmg
+linux:
+  target: AppImage

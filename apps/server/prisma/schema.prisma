@@ -1,0 +1,25 @@
+generator client {
+  provider = "prisma-client-js"
+  output   = "../generated/client"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// Generic store for every syncable entity (task/note/expense/...).
+// Keeping the server schema entity-agnostic means adding a new local
+// entity type never requires a server migration — only the `kind`
+// string and the shape of `data` change.
+model SyncRecord {
+  kind      String
+  recordId  String
+  deviceId  String
+  updatedAt DateTime
+  deletedAt DateTime?
+  data      Json
+
+  @@id([kind, recordId])
+  @@index([updatedAt])
+}
