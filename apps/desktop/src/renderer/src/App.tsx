@@ -1,13 +1,15 @@
 import { useEffect, useState } from "react";
-import { DeleteOutlined, SyncOutlined } from "@ant-design/icons";
+import { DeleteOutlined, ReadOutlined, SyncOutlined } from "@ant-design/icons";
 import { Button, ConfigProvider, Empty, Input, List, message, Space, Tag, Typography } from "antd";
 import type { VocabEntryRow } from "../../preload/index";
+import Review from "./Review";
 
 export default function App() {
   const [entries, setEntries] = useState<VocabEntryRow[]>([]);
   const [text, setText] = useState("");
   const [looking, setLooking] = useState(false);
   const [syncing, setSyncing] = useState(false);
+  const [view, setView] = useState<"list" | "review">("list");
 
   async function refresh() {
     setEntries(await window.api.vocab.list());
@@ -49,6 +51,17 @@ export default function App() {
     }
   }
 
+  if (view === "review") {
+    return (
+      <ConfigProvider theme={{ token: { colorPrimary: "#1677ff" } }}>
+        <div style={{ maxWidth: 480, margin: "0 auto", padding: "1rem" }}>
+          <Button onClick={() => setView("list")}>← Quay lại</Button>
+        </div>
+        <Review />
+      </ConfigProvider>
+    );
+  }
+
   return (
     <ConfigProvider theme={{ token: { colorPrimary: "#1677ff" } }}>
       <div style={{ maxWidth: 480, margin: "2rem auto", padding: "0 1rem" }}>
@@ -56,9 +69,14 @@ export default function App() {
           <Typography.Title level={2} style={{ margin: 0 }}>
             Reckon
           </Typography.Title>
-          <Button icon={<SyncOutlined spin={syncing} />} loading={syncing} onClick={handleSync}>
-            Sync now
-          </Button>
+          <Space>
+            <Button icon={<ReadOutlined />} onClick={() => setView("review")}>
+              Ôn tập
+            </Button>
+            <Button icon={<SyncOutlined spin={syncing} />} loading={syncing} onClick={handleSync}>
+              Sync now
+            </Button>
+          </Space>
         </Space>
         <Typography.Paragraph type="secondary" style={{ marginTop: 8 }}>
           Copy a word anywhere, press Ctrl+Shift+D — or look one up here.

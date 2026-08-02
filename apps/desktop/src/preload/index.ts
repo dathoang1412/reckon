@@ -8,6 +8,10 @@ export interface VocabEntryRow {
   targetLang: string;
 }
 
+export interface DueEntryRow extends VocabEntryRow {
+  dueAt: string | null;
+}
+
 const api = {
   vocab: {
     list: () => ipcRenderer.invoke("vocab:list") as Promise<VocabEntryRow[]>,
@@ -16,6 +20,11 @@ const api = {
   },
   sync: {
     run: () => ipcRenderer.invoke("sync:run") as Promise<{ pushed: number; pulled: number }>,
+  },
+  review: {
+    due: (limit?: number) => ipcRenderer.invoke("review:due", limit) as Promise<DueEntryRow[]>,
+    rate: (vocabId: string, remembered: boolean) =>
+      ipcRenderer.invoke("review:rate", vocabId, remembered) as Promise<void>,
   },
   onTranslationResult: (callback: (result: VocabEntryRow) => void) => {
     ipcRenderer.on("translation:result", (_event, result: VocabEntryRow) => callback(result));
