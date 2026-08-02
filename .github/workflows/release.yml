@@ -8,6 +8,11 @@ on:
 jobs:
   build-and-release:
     runs-on: windows-latest
+    # Default GITHUB_TOKEN is read-only on many repos; creating a release
+    # needs contents:write explicitly granted here rather than relying on
+    # the repo's default Actions permissions setting.
+    permissions:
+      contents: write
     steps:
       - uses: actions/checkout@v4
 
