@@ -7,6 +7,37 @@ import path from "node:path";
 export const SERVER_PORT = 49235;
 
 let serverProcess: ChildProcess | null = null;
+let serverConfirmedReady = false;
+
+// NestJS takes a few hundred ms to boot (module init, Prisma connect); a
+// fetch fired right after spawn() would hit ECONNREFUSED. Poll /health
+// instead of guessing a fixed delay.
+async function waitForHealth(timeoutMs: number): Promise<void> {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    try {
+      const res = await fetch(`http://localhost:${SERVER_PORT}/health`);
+      if (res.ok) return;
+    } catch {
+      // Not listening yet — keep polling.
+    }
+    await new Promise((resolve) => setTimeout(resolve, 150));
+  }
+  throw new Error(`sync backend did not become ready within ${timeoutMs}ms`);
+}
+
+// Callers (e.g. runSync) should await this before hitting the server so
+// they get a clear "not ready" error instead of a raw fetch failure. This
+// re-polls on every call until the first success rather than caching one
+// boot-time promise — a slow first boot (e.g. antivirus scanning the
+// freshly-extracted binary) must not permanently poison every later sync
+// with the same stale timeout once the backend actually comes up.
+export async function waitForServerReady(): Promise<void> {
+  if (!serverProcess) throw new Error("sync backend is not running");
+  if (serverConfirmedReady) return;
+  await waitForHealth(20_000);
+  serverConfirmedReady = true;
+}
 
 function serverEntryPath(): string {
   // Packaged builds ship a self-contained copy of @reckon/server (built +
@@ -32,19 +63,30 @@ export function startServer(): void {
     ? [process.execPath, { ...process.env, ELECTRON_RUN_AS_NODE: "1" }]
     : ["node", { ...process.env }];
 
+  // The desktop app's own DATABASE_URL (its local SQLite Prisma client)
+  // must not leak into the sync server's env — it'd shadow the Postgres
+  // DATABASE_URL the server's own .env is meant to provide, since Prisma
+  // treats an already-set env var as authoritative over its .env file.
+  const serverEnv: NodeJS.ProcessEnv = { ...env };
+  delete serverEnv.DATABASE_URL;
+
   serverProcess = spawn(command, [entry], {
     cwd,
-    env: { ...env, PORT: String(SERVER_PORT) },
+    env: { ...serverEnv, PORT: String(SERVER_PORT) },
     stdio: "inherit",
   });
+
+  serverConfirmedReady = false;
 
   serverProcess.on("exit", (code) => {
     console.error(`[server] sync backend exited unexpectedly (code ${code})`);
     serverProcess = null;
+    serverConfirmedReady = false;
   });
 }
 
 export function stopServer(): void {
   serverProcess?.kill();
   serverProcess = null;
+  serverConfirmedReady = false;
 }

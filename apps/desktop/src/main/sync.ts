@@ -1,6 +1,6 @@
 import { resolveConflict, vocabEntryDataSchema, type SyncChange, type SyncPullResponse } from "@reckon/shared";
 import type { PrismaClient, VocabEntry } from "../../generated/client";
-import { SERVER_PORT } from "./server";
+import { SERVER_PORT, waitForServerReady } from "./server";
 
 const SERVER_URL = `http://localhost:${SERVER_PORT}`;
 
@@ -56,6 +56,8 @@ async function applyVocabChange(prisma: PrismaClient, change: SyncChange): Promi
 }
 
 export async function runSync(prisma: PrismaClient, deviceId: string): Promise<{ pushed: number; pulled: number }> {
+  await waitForServerReady();
+
   const localEntries = await prisma.vocabEntry.findMany();
   const changes = localEntries.map(vocabToChange);
 

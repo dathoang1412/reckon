@@ -14,7 +14,7 @@
     "build": "pnpm -r build",
     "lint": "pnpm -r lint",
     "test": "pnpm -r test",
-    "bundle:server": "pnpm --filter @reckon/server build && node -e \"require('fs').rmSync('apps/desktop/server-bundle',{recursive:true,force:true})\" && pnpm --filter @reckon/server deploy --prod --legacy --config.confirmModulesPurge=false apps/desktop/server-bundle && node -e \"require('fs').rmSync('apps/desktop/server-bundle/node_modules/.pnpm/node_modules/@reckon/server',{force:true})\"",
+    "bundle:server": "pnpm --filter @reckon/server build && node -e \"require('fs').rmSync('apps/desktop/server-bundle',{recursive:true,force:true})\" && pnpm --filter @reckon/server deploy --prod --legacy --config.confirmModulesPurge=false --config.node-linker=hoisted apps/desktop/server-bundle",
     "package:desktop": "pnpm bundle:server && pnpm --filter @reckon/shared build && node apps/desktop/scripts/materialize-shared.cjs && pnpm --filter @reckon/desktop package"
   },
   "devDependencies": {
