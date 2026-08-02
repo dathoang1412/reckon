@@ -1,5 +1,6 @@
-import { app, BrowserWindow } from "electron";
+import { app, BrowserWindow, ipcMain, screen } from "electron";
 import path from "node:path";
+import type { DictionaryInfo } from "./dictionary";
 import type { TranslationResult } from "./translate";
 
 export interface ScreenPoint {
@@ -9,10 +10,21 @@ export interface ScreenPoint {
 
 let popupWindow: BrowserWindow | null = null;
 
+// Where the popup should anchor once the renderer reports its measured
+// size (see the "popup:resize" handler below) — captured at the moment the
+// hotkey fires (before the async translate/DB round-trip), not later,
+// otherwise the popup ends up wherever the cursor drifted to while the
+// lookup was in flight instead of where the user's selection was.
+let anchor: ScreenPoint = { x: 0, y: 0 };
+
 function createPopupWindow(): BrowserWindow {
   const win = new BrowserWindow({
-    width: 340,
-    height: 180,
+    // Matches the content's own maxWidth (see Popup.tsx) so the very first
+    // measurement isn't clipped by a smaller starting viewport — the
+    // window stays hidden until it's resized to the real measured size
+    // anyway, so this initial size is otherwise irrelevant.
+    width: 420,
+    height: 500,
     frame: false,
     alwaysOnTop: true,
     skipTaskbar: true,
@@ -38,25 +50,55 @@ function createPopupWindow(): BrowserWindow {
   return win;
 }
 
-// Position is captured by the caller at the moment the hotkey fires
-// (before the async translate/DB round-trip), not here — otherwise the
-// popup ends up wherever the cursor drifted to while the lookup was in
-// flight instead of where the user's selection was.
-export function showPopup(result: TranslationResult, { x, y }: ScreenPoint): void {
+// The renderer measures its own rendered content once after layout (see
+// Popup.tsx) and reports it here — a fixed window size either wastes space
+// when there's no dictionary data or clips a long one, so the window is
+// sized to fit after the fact instead of guessed up front. Also where the
+// window actually gets shown, so it never flashes at the wrong size.
+//
+// This must stay a one-shot report from the renderer, not a live
+// ResizeObserver: the content div is `width: fit-content`, so its measured
+// size depends on the window's current viewport — resizing the window in
+// response to a live observer would itself trigger another resize
+// notification, feeding back into itself until the window collapses to
+// whatever the smallest stable size is (one word per line).
+ipcMain.on("popup:resize", (event, size: { width: number; height: number }) => {
+  const win = BrowserWindow.fromWebContents(event.sender);
+  if (!win || win !== popupWindow) return;
+
+  const area = screen.getDisplayNearestPoint(anchor).workArea;
+  const width = Math.max(160, Math.min(Math.ceil(size.width), area.width));
+  const height = Math.max(80, Math.min(Math.ceil(size.height), area.height));
+
+  let x = anchor.x;
+  let y = anchor.y;
+  if (x + width > area.x + area.width) x = area.x + area.width - width;
+  if (x < area.x) x = area.x;
+  if (y + height > area.y + area.height) y = area.y + area.height - height;
+  if (y < area.y) y = area.y;
+
+  win.setContentSize(width, height);
+  win.setPosition(x, y);
+  win.show();
+  win.focus();
+});
+
+export function showPopup(result: TranslationResult, point: ScreenPoint, dictionary: DictionaryInfo | null): void {
+  anchor = point;
+  const payload = { result, dictionary };
+
   if (!popupWindow) {
     popupWindow = createPopupWindow();
     const win = popupWindow;
-    win.setPosition(x, y);
     win.webContents.once("did-finish-load", () => {
-      win.webContents.send("translation:result", result);
-      win.show();
-      win.focus();
+      win.webContents.send("translation:result", payload);
     });
     return;
   }
 
-  popupWindow.setPosition(x, y);
-  popupWindow.webContents.send("translation:result", result);
-  popupWindow.show();
-  popupWindow.focus();
+  // Hidden until the resize handler above re-shows it at the new content's
+  // size/position — otherwise the old content would flash at its old size
+  // for a frame while the new content loads.
+  popupWindow.hide();
+  popupWindow.webContents.send("translation:result", payload);
 }

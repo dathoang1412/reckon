@@ -20,9 +20,22 @@ model VocabEntry {
   definition String?
   note       String?
   tags       String?
+  // References VocabSet.id — not a Prisma relation, matching the rest of
+  // this schema's loosely-coupled, sync-friendly style.
+  setId      String?
   updatedAt  DateTime
   deviceId   String
   deletedAt  DateTime?
+}
+
+// A user-named grouping of VocabEntry rows. One set per entry (VocabEntry
+// only carries a single setId), not multi-tag membership.
+model VocabSet {
+  id        String    @id
+  name      String
+  updatedAt DateTime
+  deviceId  String
+  deletedAt DateTime?
 }
 
 // Singleton row (id 1) tracking the last successful pull, so sync only

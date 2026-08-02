@@ -1,0 +1,54 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+
+jobs:
+  build-and-release:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11.18.0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      # apps/server/.env is gitignored (it holds the shared Postgres
+      # connection string) — the packaged app bundles it verbatim, so the
+      # secret has to land there before packaging, not just in the job env.
+      - name: Write server .env
+        shell: bash
+        run: |
+          mkdir -p apps/server
+          echo "DATABASE_URL=${{ secrets.SERVER_DATABASE_URL }}" > apps/server/.env
+          echo "PORT=3000" >> apps/server/.env
+
+      # Neither generated/client directory is committed (they contain a
+      # large native query engine binary) — package:desktop packages
+      # whatever is on disk, so both must exist before it runs, not just
+      # before each side's own build step.
+      - name: Generate Prisma clients
+        run: |
+          pnpm --filter @reckon/server exec prisma generate
+          pnpm --filter @reckon/desktop exec prisma generate
+
+      - name: Build installer
+        run: pnpm package:desktop
+
+      - name: Publish release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            apps/desktop/release/*.exe
+            apps/desktop/release/*.exe.blockmap
+          generate_release_notes: true

@@ -7,7 +7,7 @@ import { runMigrations } from "./migrate";
 import { readSelectedText } from "./selection";
 import { getHotkey } from "./settings";
 import { startServer, stopServer, waitForServerReady } from "./server";
-import { lookupAndSaveVocab } from "./vocab";
+import { previewVocab, saveVocab } from "./vocab";
 import { showPopup } from "./popup";
 import { createSplashWindow, closeSplashWindow } from "./splash";
 import { TRAY_ICON_DATA_URL } from "./icon";
@@ -30,8 +30,9 @@ async function onHotkeyTriggered(): Promise<void> {
   const text = await readSelectedText();
   if (!text) return;
   try {
-    const entry = await lookupAndSaveVocab(getPrisma(), getDeviceId(), text);
-    showPopup(entry, cursorPosition);
+    const { result, dictionary } = await previewVocab(text);
+    const entry = await saveVocab(getPrisma(), getDeviceId(), result);
+    showPopup(entry, cursorPosition, dictionary);
     // Keep the main window's list live if it's open (or just hidden in
     // the tray) instead of only refreshing on next manual reload.
     mainWindow?.webContents.send("vocab:created", entry);

@@ -14,6 +14,10 @@ export const vocabEntrySchema = syncMetaSchema.extend({
   sourceLang: z.string().min(2).max(5),
   targetText: z.string().min(1).max(1000),
   targetLang: z.string().min(2).max(5),
+  // References a VocabSet's id — a plain string, not a relation, matching
+  // this schema's loosely-coupled sync design (no cross-entity integrity
+  // is enforced over the wire).
+  setId: z.string().uuid().nullable().default(null),
 });
 export type VocabEntry = z.infer<typeof vocabEntrySchema>;
 
@@ -22,5 +26,15 @@ export type VocabEntry = z.infer<typeof vocabEntrySchema>;
 export const vocabEntryDataSchema = vocabEntrySchema.omit({ id: true, updatedAt: true, deviceId: true, deletedAt: true });
 export type VocabEntryData = z.infer<typeof vocabEntryDataSchema>;
 
-export const entityKind = z.enum(["vocab"]);
+// A user-named grouping of VocabEntry rows (e.g. "TOEIC", "Everyday") —
+// one set per entry, like folders rather than multi-tags.
+export const vocabSetSchema = syncMetaSchema.extend({
+  name: z.string().min(1).max(100),
+});
+export type VocabSet = z.infer<typeof vocabSetSchema>;
+
+export const vocabSetDataSchema = vocabSetSchema.omit({ id: true, updatedAt: true, deviceId: true, deletedAt: true });
+export type VocabSetData = z.infer<typeof vocabSetDataSchema>;
+
+export const entityKind = z.enum(["vocab", "vocabSet"]);
 export type EntityKind = z.infer<typeof entityKind>;

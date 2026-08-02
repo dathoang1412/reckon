@@ -1,10 +1,13 @@
 import { ipcMain } from "electron";
 import { getPrisma } from "./db";
 import { getDeviceId } from "./deviceId";
+import { lookupEnglishWord } from "./dictionary";
 import { listDueEntries, rateReview } from "./review";
 import { getHotkey, setHotkey } from "./settings";
 import { runSync } from "./sync";
-import { deleteVocabEntry, listVocabEntries, lookupAndSaveVocab } from "./vocab";
+import type { TranslationResult } from "./translate";
+import { deleteVocabEntry, listVocabEntries, previewVocab, saveVocab, setVocabEntrySet } from "./vocab";
+import { createVocabSet, deleteVocabSet, listVocabSets, renameVocabSet } from "./vocabSet";
 
 interface IpcHandlerDeps {
   // Actually (re-)registers the OS-level global shortcut — kept in index.ts
@@ -20,12 +23,40 @@ export function registerIpcHandlers({ registerHotkey }: IpcHandlerDeps): void {
     return listVocabEntries(prisma);
   });
 
-  ipcMain.handle("vocab:lookup", async (_event, text: string) => {
-    return lookupAndSaveVocab(prisma, deviceId, text);
+  ipcMain.handle("vocab:preview", async (_event, text: string) => {
+    return previewVocab(text);
+  });
+
+  ipcMain.handle("vocab:save", async (_event, result: TranslationResult) => {
+    return saveVocab(prisma, deviceId, result);
   });
 
   ipcMain.handle("vocab:delete", async (_event, id: string) => {
     return deleteVocabEntry(prisma, deviceId, id);
+  });
+
+  ipcMain.handle("vocab:setSet", async (_event, id: string, setId: string | null) => {
+    return setVocabEntrySet(prisma, deviceId, id, setId);
+  });
+
+  ipcMain.handle("vocabSet:list", async () => {
+    return listVocabSets(prisma);
+  });
+
+  ipcMain.handle("vocabSet:create", async (_event, name: string) => {
+    return createVocabSet(prisma, deviceId, name);
+  });
+
+  ipcMain.handle("vocabSet:rename", async (_event, id: string, name: string) => {
+    return renameVocabSet(prisma, deviceId, id, name);
+  });
+
+  ipcMain.handle("vocabSet:delete", async (_event, id: string) => {
+    return deleteVocabSet(prisma, deviceId, id);
+  });
+
+  ipcMain.handle("dictionary:lookup", async (_event, word: string) => {
+    return lookupEnglishWord(word);
   });
 
   ipcMain.handle("sync:run", async () => {

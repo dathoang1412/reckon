@@ -6,17 +6,64 @@ export interface VocabEntryRow {
   sourceLang: string;
   targetText: string;
   targetLang: string;
+  setId: string | null;
 }
 
 export interface DueEntryRow extends VocabEntryRow {
   dueAt: string | null;
 }
 
+export interface VocabSetRow {
+  id: string;
+  name: string;
+}
+
+export interface DictionaryDefinition {
+  partOfSpeech: string;
+  definition: string;
+  example?: string;
+}
+
+export interface DictionaryInfo {
+  phonetic?: string;
+  audioUrl?: string;
+  definitions: DictionaryDefinition[];
+}
+
+export interface TranslationResultPayload {
+  result: VocabEntryRow;
+  dictionary: DictionaryInfo | null;
+}
+
+export interface TranslationResultData {
+  sourceText: string;
+  sourceLang: string;
+  targetText: string;
+  targetLang: string;
+}
+
+export interface VocabPreview {
+  result: TranslationResultData;
+  dictionary: DictionaryInfo | null;
+}
+
 const api = {
   vocab: {
     list: () => ipcRenderer.invoke("vocab:list") as Promise<VocabEntryRow[]>,
-    lookup: (text: string) => ipcRenderer.invoke("vocab:lookup", text) as Promise<VocabEntryRow>,
+    preview: (text: string) => ipcRenderer.invoke("vocab:preview", text) as Promise<VocabPreview>,
+    save: (result: TranslationResultData) => ipcRenderer.invoke("vocab:save", result) as Promise<VocabEntryRow>,
     delete: (id: string) => ipcRenderer.invoke("vocab:delete", id) as Promise<VocabEntryRow>,
+    setSet: (id: string, setId: string | null) =>
+      ipcRenderer.invoke("vocab:setSet", id, setId) as Promise<VocabEntryRow>,
+  },
+  vocabSet: {
+    list: () => ipcRenderer.invoke("vocabSet:list") as Promise<VocabSetRow[]>,
+    create: (name: string) => ipcRenderer.invoke("vocabSet:create", name) as Promise<VocabSetRow>,
+    rename: (id: string, name: string) => ipcRenderer.invoke("vocabSet:rename", id, name) as Promise<VocabSetRow>,
+    delete: (id: string) => ipcRenderer.invoke("vocabSet:delete", id) as Promise<VocabSetRow>,
+  },
+  dictionary: {
+    lookup: (word: string) => ipcRenderer.invoke("dictionary:lookup", word) as Promise<DictionaryInfo | null>,
   },
   sync: {
     run: () => ipcRenderer.invoke("sync:run") as Promise<{ pushed: number; pulled: number }>,
@@ -30,8 +77,11 @@ const api = {
     getHotkey: () => ipcRenderer.invoke("settings:getHotkey") as Promise<string>,
     setHotkey: (accelerator: string) => ipcRenderer.invoke("settings:setHotkey", accelerator) as Promise<boolean>,
   },
-  onTranslationResult: (callback: (result: VocabEntryRow) => void) => {
-    ipcRenderer.on("translation:result", (_event, result: VocabEntryRow) => callback(result));
+  popup: {
+    resize: (size: { width: number; height: number }) => ipcRenderer.send("popup:resize", size),
+  },
+  onTranslationResult: (callback: (payload: TranslationResultPayload) => void) => {
+    ipcRenderer.on("translation:result", (_event, payload: TranslationResultPayload) => callback(payload));
   },
   onVocabCreated: (callback: (entry: VocabEntryRow) => void) => {
     ipcRenderer.on("vocab:created", (_event, entry: VocabEntryRow) => callback(entry));
