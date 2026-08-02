@@ -3,6 +3,7 @@ import path from "node:path";
 import { registerIpcHandlers } from "./ipc";
 import { getPrisma } from "./db";
 import { getDeviceId } from "./deviceId";
+import { runMigrations } from "./migrate";
 import { lookupAndSaveVocab } from "./vocab";
 import { showPopup } from "./popup";
 import { TRAY_ICON_DATA_URL } from "./icon";
@@ -62,13 +63,18 @@ function createTray(): void {
   });
 }
 
-app.whenReady().then(() => {
+app.whenReady().then(async () => {
+  const prisma = getPrisma();
+  const deviceId = getDeviceId();
+
+  // Must finish before any handler can touch the database — packaged
+  // builds have no `prisma migrate deploy` CLI available, so this is
+  // the only place schema changes get applied on a user's machine.
+  await runMigrations(prisma);
+
   registerIpcHandlers();
   createWindow();
   createTray();
-
-  const prisma = getPrisma();
-  const deviceId = getDeviceId();
 
   globalShortcut.register(HOTKEY, async () => {
     const text = clipboard.readText().trim();

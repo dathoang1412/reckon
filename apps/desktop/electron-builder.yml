@@ -4,10 +4,15 @@ directories:
   output: release
 files:
   - out/**/*
+  - generated/**/*
   - package.json
+extraResources:
+  - from: prisma/migrations
+    to: prisma/migrations
 asarUnpack:
   - node_modules/.prisma/**/*
   - node_modules/@prisma/client/**/*
+  - generated/client/**/*
 win:
   target: nsis
 mac:
