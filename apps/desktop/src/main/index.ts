@@ -5,6 +5,7 @@ import { getPrisma } from "./db";
 import { getDeviceId } from "./deviceId";
 import { runMigrations } from "./migrate";
 import { readSelectedText } from "./selection";
+import { startServer, stopServer } from "./server";
 import { lookupAndSaveVocab } from "./vocab";
 import { showPopup } from "./popup";
 import { TRAY_ICON_DATA_URL } from "./icon";
@@ -73,6 +74,7 @@ app.whenReady().then(async () => {
   // the only place schema changes get applied on a user's machine.
   await runMigrations(prisma);
 
+  startServer();
   registerIpcHandlers();
   createWindow();
   createTray();
@@ -109,6 +111,7 @@ app.whenReady().then(async () => {
 
 app.on("will-quit", () => {
   globalShortcut.unregisterAll();
+  stopServer();
 });
 
 app.on("window-all-closed", () => {

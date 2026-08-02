@@ -1,7 +1,8 @@
 import { resolveConflict, vocabEntryDataSchema, type SyncChange, type SyncPullResponse } from "@reckon/shared";
 import type { PrismaClient, VocabEntry } from "../../generated/client";
+import { SERVER_PORT } from "./server";
 
-const SERVER_URL = "http://localhost:3000";
+const SERVER_URL = `http://localhost:${SERVER_PORT}`;
 
 function vocabToChange(entry: VocabEntry): SyncChange {
   return {
