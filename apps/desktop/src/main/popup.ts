@@ -1,6 +1,11 @@
-import { app, BrowserWindow, screen } from "electron";
+import { app, BrowserWindow } from "electron";
 import path from "node:path";
 import type { TranslationResult } from "./translate";
+
+export interface ScreenPoint {
+  x: number;
+  y: number;
+}
 
 let popupWindow: BrowserWindow | null = null;
 
@@ -33,9 +38,11 @@ function createPopupWindow(): BrowserWindow {
   return win;
 }
 
-export function showPopup(result: TranslationResult): void {
-  const { x, y } = screen.getCursorScreenPosition();
-
+// Position is captured by the caller at the moment the hotkey fires
+// (before the async translate/DB round-trip), not here — otherwise the
+// popup ends up wherever the cursor drifted to while the lookup was in
+// flight instead of where the user's selection was.
+export function showPopup(result: TranslationResult, { x, y }: ScreenPoint): void {
   if (!popupWindow) {
     popupWindow = createPopupWindow();
     const win = popupWindow;

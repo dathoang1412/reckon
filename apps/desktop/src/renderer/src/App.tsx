@@ -19,6 +19,12 @@ export default function App() {
     refresh();
   }, []);
 
+  useEffect(() => {
+    window.api.onVocabCreated((entry) => {
+      setEntries((prev) => (prev.some((e) => e.id === entry.id) ? prev : [entry, ...prev]));
+    });
+  }, []);
+
   async function handleLookup() {
     if (!text.trim()) return;
     setLooking(true);

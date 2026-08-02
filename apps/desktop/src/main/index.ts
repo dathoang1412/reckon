@@ -1,4 +1,4 @@
-import { app, BrowserWindow, globalShortcut, Menu, nativeImage, shell, Tray } from "electron";
+import { app, BrowserWindow, globalShortcut, Menu, nativeImage, screen, shell, Tray } from "electron";
 import path from "node:path";
 import { registerIpcHandlers } from "./ipc";
 import { getPrisma } from "./db";
@@ -77,17 +77,30 @@ app.whenReady().then(async () => {
   createWindow();
   createTray();
 
-  globalShortcut.register(HOTKEY, async () => {
+  const registered = globalShortcut.register(HOTKEY, async () => {
+    // Captured before the async selection/translate/DB round-trip so the
+    // popup lands where the user's selection was, not wherever the cursor
+    // has drifted to by the time the lookup finishes.
+    const cursorPosition = screen.getCursorScreenPoint();
+
     const text = await readSelectedText();
     if (!text) return;
     try {
       const entry = await lookupAndSaveVocab(prisma, deviceId, text);
-      showPopup(entry);
-    } catch {
-      // Translation API unreachable or text unsupported — silently skip,
-      // the user can retry.
+      showPopup(entry, cursorPosition);
+      // Keep the main window's list live if it's open (or just hidden in
+      // the tray) instead of only refreshing on next manual reload.
+      mainWindow?.webContents.send("vocab:created", entry);
+    } catch (err) {
+      console.error("[hotkey] lookup failed:", err);
     }
   });
+
+  if (!registered) {
+    console.error(
+      `[hotkey] Failed to register ${HOTKEY} — another running app has probably already claimed it at the OS level.`,
+    );
+  }
 
   app.on("activate", () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();

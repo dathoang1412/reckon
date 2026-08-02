@@ -29,6 +29,9 @@ const api = {
   onTranslationResult: (callback: (result: VocabEntryRow) => void) => {
     ipcRenderer.on("translation:result", (_event, result: VocabEntryRow) => callback(result));
   },
+  onVocabCreated: (callback: (entry: VocabEntryRow) => void) => {
+    ipcRenderer.on("vocab:created", (_event, entry: VocabEntryRow) => callback(entry));
+  },
 };
 
 contextBridge.exposeInMainWorld("api", api);
