@@ -1,9 +1,10 @@
-import { app, BrowserWindow, clipboard, globalShortcut, Menu, nativeImage, shell, Tray } from "electron";
+import { app, BrowserWindow, globalShortcut, Menu, nativeImage, shell, Tray } from "electron";
 import path from "node:path";
 import { registerIpcHandlers } from "./ipc";
 import { getPrisma } from "./db";
 import { getDeviceId } from "./deviceId";
 import { runMigrations } from "./migrate";
+import { readSelectedText } from "./selection";
 import { lookupAndSaveVocab } from "./vocab";
 import { showPopup } from "./popup";
 import { TRAY_ICON_DATA_URL } from "./icon";
@@ -77,7 +78,7 @@ app.whenReady().then(async () => {
   createTray();
 
   globalShortcut.register(HOTKEY, async () => {
-    const text = clipboard.readText().trim();
+    const text = await readSelectedText();
     if (!text) return;
     try {
       const entry = await lookupAndSaveVocab(prisma, deviceId, text);

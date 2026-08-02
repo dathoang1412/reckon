@@ -13,6 +13,7 @@ asarUnpack:
   - node_modules/.prisma/**/*
   - node_modules/@prisma/client/**/*
   - generated/client/**/*
+  - node_modules/@nut-tree-fork/**/*
 win:
   target: nsis
 mac:
