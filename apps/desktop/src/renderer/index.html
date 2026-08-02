@@ -9,6 +9,11 @@
       body {
         margin: 0;
         padding: 0;
+        /* Every window manages its own scroll region internally (App's
+           list, Popup's content div) — without this, a window whose
+           content is even a pixel taller than its viewport shows a second,
+           document-level scrollbar stacked next to the intentional one. */
+        overflow: hidden;
       }
     </style>
   </head>

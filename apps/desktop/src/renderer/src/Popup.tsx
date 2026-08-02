@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { SoundOutlined } from "@ant-design/icons";
 import { Button, ConfigProvider, Space, Tag, Typography } from "antd";
 import type { TranslationResultPayload } from "../../preload/index";
@@ -22,15 +22,17 @@ export default function Popup() {
   // resize triggers another measurement, feeding back into itself. A
   // single post-layout measurement is enough since the payload already
   // carries the dictionary data too (nothing arrives after the fact).
-  useEffect(() => {
+  //
+  // Must be useLayoutEffect (synchronous, no requestAnimationFrame): the
+  // window is hidden between lookups (see popup.ts), and Chromium pauses
+  // rAF for hidden/occluded windows — a second lookup's rAF callback would
+  // simply never fire, so the resize (and the show() it triggers) would
+  // never happen and the popup would stay hidden forever after the first.
+  useLayoutEffect(() => {
     if (!payload) return;
     const el = contentRef.current;
     if (!el) return;
-
-    const frame = requestAnimationFrame(() => {
-      window.api.popup.resize({ width: el.scrollWidth, height: el.scrollHeight });
-    });
-    return () => cancelAnimationFrame(frame);
+    window.api.popup.resize({ width: el.scrollWidth, height: el.scrollHeight });
   }, [payload]);
 
   if (!payload) {

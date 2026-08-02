@@ -10,6 +10,11 @@ export interface ScreenPoint {
 
 let popupWindow: BrowserWindow | null = null;
 
+// Matches the content's own maxWidth (see Popup.tsx) so a measurement never
+// starts out narrower than the content is allowed to be.
+const BASELINE_WIDTH = 420;
+const BASELINE_HEIGHT = 500;
+
 // Where the popup should anchor once the renderer reports its measured
 // size (see the "popup:resize" handler below) — captured at the moment the
 // hotkey fires (before the async translate/DB round-trip), not later,
@@ -19,12 +24,11 @@ let anchor: ScreenPoint = { x: 0, y: 0 };
 
 function createPopupWindow(): BrowserWindow {
   const win = new BrowserWindow({
-    // Matches the content's own maxWidth (see Popup.tsx) so the very first
-    // measurement isn't clipped by a smaller starting viewport — the
-    // window stays hidden until it's resized to the real measured size
-    // anyway, so this initial size is otherwise irrelevant.
-    width: 420,
-    height: 500,
+    // The window stays hidden until it's resized to the real measured
+    // size anyway, so this initial size only matters as the baseline the
+    // very first measurement happens at (see BASELINE_WIDTH/HEIGHT).
+    width: BASELINE_WIDTH,
+    height: BASELINE_HEIGHT,
     frame: false,
     alwaysOnTop: true,
     skipTaskbar: true,
@@ -33,6 +37,11 @@ function createPopupWindow(): BrowserWindow {
     webPreferences: {
       preload: path.join(__dirname, "../preload/index.js"),
       sandbox: false,
+      // This window is hidden between lookups (see showPopup's reuse
+      // path), and Chromium throttles timers/rAF for hidden windows by
+      // default — that's exactly what broke the resize round-trip on
+      // every lookup after the first.
+      backgroundThrottling: false,
     },
   });
 
@@ -98,7 +107,12 @@ export function showPopup(result: TranslationResult, point: ScreenPoint, diction
 
   // Hidden until the resize handler above re-shows it at the new content's
   // size/position — otherwise the old content would flash at its old size
-  // for a frame while the new content loads.
+  // for a frame while the new content loads. Also reset back to the
+  // generous baseline size first: leaving the *previous* lookup's (maybe
+  // much narrower) size in place would force this content's own
+  // measurement to word-wrap within that leftover width, under-measuring
+  // the height it actually needs at its true (wider) final size.
+  popupWindow.setContentSize(BASELINE_WIDTH, BASELINE_HEIGHT);
   popupWindow.hide();
   popupWindow.webContents.send("translation:result", payload);
 }
