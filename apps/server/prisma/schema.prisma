@@ -12,9 +12,15 @@ datasource db {
 // Keeping the server schema entity-agnostic means adding a new local
 // entity type never requires a server migration — only the `kind`
 // string and the shape of `data` change.
+//
+// userId is nullable and unenforced for now: no auth exists yet, so
+// every record still lives in one shared space. Once auth lands, the
+// primary key likely needs to become (userId, kind, recordId) to stop
+// ids colliding across users — deferred until that logic is built.
 model SyncRecord {
   kind      String
   recordId  String
+  userId    String?
   deviceId  String
   updatedAt DateTime
   deletedAt DateTime?
@@ -22,4 +28,24 @@ model SyncRecord {
 
   @@id([kind, recordId])
   @@index([updatedAt])
+  @@index([userId])
+}
+
+model User {
+  id        String   @id @default(uuid())
+  email     String   @unique
+  createdAt DateTime @default(now())
+  devices   Device[]
+}
+
+// id matches the client-generated deviceId already used throughout
+// the sync engine, so wiring auth in later just means stamping each
+// device row with the authenticated user instead of introducing a
+// new identifier.
+model Device {
+  id         String    @id
+  userId     String
+  user       User      @relation(fields: [userId], references: [id])
+  label      String?
+  lastSeenAt DateTime?
 }

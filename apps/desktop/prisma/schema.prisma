@@ -17,6 +17,9 @@ model VocabEntry {
   sourceLang String
   targetText String
   targetLang String
+  definition String?
+  note       String?
+  tags       String?
   updatedAt  DateTime
   deviceId   String
   deletedAt  DateTime?
@@ -27,4 +30,17 @@ model VocabEntry {
 model SyncState {
   id           Int       @id @default(1)
   lastPulledAt DateTime?
+}
+
+// Spaced-repetition state for a VocabEntry. Kept as a separate table
+// (not a relation) so it stays optional per entry, matching the rest
+// of the schema's loosely-coupled style — a row only exists once a
+// user starts reviewing that word.
+model ReviewState {
+  vocabId        String    @id
+  easeFactor     Float     @default(2.5)
+  intervalDays   Int       @default(0)
+  repetitions    Int       @default(0)
+  dueAt          DateTime
+  lastReviewedAt DateTime?
 }
