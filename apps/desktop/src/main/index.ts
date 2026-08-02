@@ -5,6 +5,7 @@ import { getPrisma } from "./db";
 import { getDeviceId } from "./deviceId";
 import { runMigrations } from "./migrate";
 import { readSelectedText } from "./selection";
+import { getHotkey } from "./settings";
 import { startServer, stopServer, waitForServerReady } from "./server";
 import { lookupAndSaveVocab } from "./vocab";
 import { showPopup } from "./popup";
@@ -15,11 +16,49 @@ import { TRAY_ICON_DATA_URL } from "./icon";
 // runs instead of depending on Electron's inferred name from package.json.
 app.setName("reckon");
 
-const HOTKEY = "CommandOrControl+Shift+D";
-
 let mainWindow: BrowserWindow | null = null;
 let tray: Tray | null = null;
 let isQuitting = false;
+let currentHotkey: string | null = null;
+
+async function onHotkeyTriggered(): Promise<void> {
+  // Captured before the async selection/translate/DB round-trip so the
+  // popup lands where the user's selection was, not wherever the cursor
+  // has drifted to by the time the lookup finishes.
+  const cursorPosition = screen.getCursorScreenPoint();
+
+  const text = await readSelectedText();
+  if (!text) return;
+  try {
+    const entry = await lookupAndSaveVocab(getPrisma(), getDeviceId(), text);
+    showPopup(entry, cursorPosition);
+    // Keep the main window's list live if it's open (or just hidden in
+    // the tray) instead of only refreshing on next manual reload.
+    mainWindow?.webContents.send("vocab:created", entry);
+  } catch (err) {
+    console.error("[hotkey] lookup failed:", err);
+  }
+}
+
+// Reused both at startup and whenever the settings page registers a new
+// accelerator. Falls back to re-registering the previous binding if the
+// requested one is already claimed at the OS level, so the app never ends
+// up with no working hotkey at all.
+function registerHotkey(accelerator: string): boolean {
+  const previous = currentHotkey;
+  if (previous) globalShortcut.unregister(previous);
+
+  const ok = globalShortcut.register(accelerator, onHotkeyTriggered);
+  if (ok) {
+    currentHotkey = accelerator;
+  } else {
+    console.error(
+      `[hotkey] Failed to register ${accelerator} — another running app has probably already claimed it at the OS level.`,
+    );
+    if (previous) globalShortcut.register(previous, onHotkeyTriggered);
+  }
+  return ok;
+}
 
 function createWindow(): void {
   mainWindow = new BrowserWindow({
@@ -95,7 +134,6 @@ if (!app.requestSingleInstanceLock()) {
     createSplashWindow();
 
     const prisma = getPrisma();
-    const deviceId = getDeviceId();
 
     // Must finish before any handler can touch the database — packaged
     // builds have no `prisma migrate deploy` CLI available, so this is
@@ -114,35 +152,12 @@ if (!app.requestSingleInstanceLock()) {
       console.error("[startup] sync backend not ready yet:", err);
     }
 
-    registerIpcHandlers();
+    registerIpcHandlers({ registerHotkey });
     createWindow();
     mainWindow?.once("ready-to-show", () => closeSplashWindow());
     createTray();
 
-    const registered = globalShortcut.register(HOTKEY, async () => {
-      // Captured before the async selection/translate/DB round-trip so the
-      // popup lands where the user's selection was, not wherever the cursor
-      // has drifted to by the time the lookup finishes.
-      const cursorPosition = screen.getCursorScreenPoint();
-
-      const text = await readSelectedText();
-      if (!text) return;
-      try {
-        const entry = await lookupAndSaveVocab(prisma, deviceId, text);
-        showPopup(entry, cursorPosition);
-        // Keep the main window's list live if it's open (or just hidden in
-        // the tray) instead of only refreshing on next manual reload.
-        mainWindow?.webContents.send("vocab:created", entry);
-      } catch (err) {
-        console.error("[hotkey] lookup failed:", err);
-      }
-    });
-
-    if (!registered) {
-      console.error(
-        `[hotkey] Failed to register ${HOTKEY} — another running app has probably already claimed it at the OS level.`,
-      );
-    }
+    registerHotkey(getHotkey());
 
     app.on("activate", () => {
       if (BrowserWindow.getAllWindows().length === 0) createWindow();

@@ -1,15 +1,17 @@
 import { useEffect, useState } from "react";
-import { DeleteOutlined, ReadOutlined, SyncOutlined } from "@ant-design/icons";
+import { DeleteOutlined, ReadOutlined, SettingOutlined, SoundOutlined, SyncOutlined } from "@ant-design/icons";
 import { Button, ConfigProvider, Empty, Input, List, message, Space, Tag, Typography } from "antd";
 import type { VocabEntryRow } from "../../preload/index";
 import Review from "./Review";
+import Settings from "./Settings";
+import { speak } from "./speak";
 
 export default function App() {
   const [entries, setEntries] = useState<VocabEntryRow[]>([]);
   const [text, setText] = useState("");
   const [looking, setLooking] = useState(false);
   const [syncing, setSyncing] = useState(false);
-  const [view, setView] = useState<"list" | "review">("list");
+  const [view, setView] = useState<"list" | "review" | "settings">("list");
 
   async function refresh() {
     setEntries(await window.api.vocab.list());
@@ -68,6 +70,10 @@ export default function App() {
     );
   }
 
+  if (view === "settings") {
+    return <Settings onBack={() => setView("list")} />;
+  }
+
   return (
     <ConfigProvider theme={{ token: { colorPrimary: "#1677ff" } }}>
       <div style={{ maxWidth: 480, margin: "2rem auto", padding: "0 1rem" }}>
@@ -82,6 +88,7 @@ export default function App() {
             <Button icon={<SyncOutlined spin={syncing} />} loading={syncing} onClick={handleSync}>
               Sync now
             </Button>
+            <Button icon={<SettingOutlined />} onClick={() => setView("settings")} />
           </Space>
         </Space>
         <Typography.Paragraph type="secondary" style={{ marginTop: 8 }}>
@@ -111,10 +118,22 @@ export default function App() {
                 <span>
                   <Tag color="blue">{entry.sourceLang}</Tag>
                   {entry.sourceText}
+                  <Button
+                    type="text"
+                    size="small"
+                    icon={<SoundOutlined />}
+                    onClick={() => speak(entry.sourceText, entry.sourceLang)}
+                  />
                 </span>
                 <span>
                   <Tag color="green">{entry.targetLang}</Tag>
                   {entry.targetText}
+                  <Button
+                    type="text"
+                    size="small"
+                    icon={<SoundOutlined />}
+                    onClick={() => speak(entry.targetText, entry.targetLang)}
+                  />
                 </span>
               </Space>
             </List.Item>

@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
-import { CheckOutlined, CloseOutlined } from "@ant-design/icons";
+import { CheckOutlined, CloseOutlined, SoundOutlined } from "@ant-design/icons";
 import { Button, Card, Empty, Progress, Space, Tag, Typography } from "antd";
 import type { DueEntryRow } from "../../preload/index";
+import { speak } from "./speak";
 
 export default function Review() {
   const [queue, setQueue] = useState<DueEntryRow[] | null>(null);
@@ -50,15 +51,21 @@ export default function Review() {
       <Card style={{ marginTop: 16, minHeight: 180, textAlign: "center" }}>
         <Space direction="vertical" size={12} style={{ width: "100%" }}>
           <Tag color="blue">{current.sourceLang}</Tag>
-          <Typography.Title level={3} style={{ margin: 0 }}>
-            {current.sourceText}
-          </Typography.Title>
+          <Space align="center">
+            <Typography.Title level={3} style={{ margin: 0 }}>
+              {current.sourceText}
+            </Typography.Title>
+            <Button icon={<SoundOutlined />} onClick={() => speak(current.sourceText, current.sourceLang)} />
+          </Space>
           {revealed ? (
             <>
               <Tag color="green">{current.targetLang}</Tag>
-              <Typography.Title level={4} style={{ margin: 0 }}>
-                {current.targetText}
-              </Typography.Title>
+              <Space align="center">
+                <Typography.Title level={4} style={{ margin: 0 }}>
+                  {current.targetText}
+                </Typography.Title>
+                <Button icon={<SoundOutlined />} onClick={() => speak(current.targetText, current.targetLang)} />
+              </Space>
             </>
           ) : (
             <Button onClick={() => setRevealed(true)}>Hiện đáp án</Button>

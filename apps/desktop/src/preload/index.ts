@@ -26,6 +26,10 @@ const api = {
     rate: (vocabId: string, remembered: boolean) =>
       ipcRenderer.invoke("review:rate", vocabId, remembered) as Promise<void>,
   },
+  settings: {
+    getHotkey: () => ipcRenderer.invoke("settings:getHotkey") as Promise<string>,
+    setHotkey: (accelerator: string) => ipcRenderer.invoke("settings:setHotkey", accelerator) as Promise<boolean>,
+  },
   onTranslationResult: (callback: (result: VocabEntryRow) => void) => {
     ipcRenderer.on("translation:result", (_event, result: VocabEntryRow) => callback(result));
   },
