@@ -14,7 +14,7 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>
     <ConfigProvider theme={themeConfig}>
       {isSplash ? <Splash /> : isPopup ? <Popup /> : <App />}
-      <Toaster position="top-right" toastOptions={{ duration: 3000, style: { fontFamily: FONT_FAMILY } }} />
+      <Toaster position="bottom-right" toastOptions={{ duration: 3000, style: { fontFamily: FONT_FAMILY } }} />
     </ConfigProvider>
   </React.StrictMode>,
 );
