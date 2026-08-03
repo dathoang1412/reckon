@@ -3,7 +3,6 @@ import { useRecordHotkeys } from "react-hotkeys-hook";
 import { Button, Space, Typography } from "antd";
 import toast from "react-hot-toast";
 import PageShell from "../components/PageShell";
-import SubPageHeader from "../components/SubPageHeader";
 
 const MODIFIER_ORDER = ["ctrl", "meta", "alt", "shift"];
 
@@ -133,7 +132,7 @@ function Keycap({ children }: { children: ReactNode }) {
   );
 }
 
-export default function Settings({ onBack, onLogout }: { onBack: () => void; onLogout: () => void }) {
+export default function Settings({ onLogout }: { onLogout: () => void }) {
   const [savedHotkey, setSavedHotkey] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [email, setEmail] = useState<string | null>(null);
@@ -179,8 +178,6 @@ export default function Settings({ onBack, onLogout }: { onBack: () => void; onL
 
   return (
     <PageShell>
-      <SubPageHeader title="Cài đặt" onBack={onBack} />
-
       <Typography.Paragraph type="secondary" style={{ marginTop: 8 }}>
         Bôi đen một đoạn văn bản rồi bấm tổ hợp phím này để tra từ nhanh.
       </Typography.Paragraph>

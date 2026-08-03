@@ -1,11 +1,11 @@
 import { useEffect, useState } from "react";
-import { DeleteOutlined, ReadOutlined, SettingOutlined, SoundOutlined, SyncOutlined } from "@ant-design/icons";
+import { DeleteOutlined, SoundOutlined } from "@ant-design/icons";
 import { Button, Card, Empty, Input, List, Select, Space, Tag, Typography } from "antd";
 import toast from "react-hot-toast";
 import type { VocabEntryRow, VocabPreview, VocabSetRow } from "../../../preload/index";
+import AppHeader, { type AppView } from "../components/AppHeader";
 import DictionaryPanel from "../components/DictionaryPanel";
 import SetsBar from "../components/SetsBar";
-import SubPageHeader from "../components/SubPageHeader";
 import VocabDetailModal from "../components/VocabDetailModal";
 import { dayKey, dayLabel, timeLabel } from "../lib/date";
 import { speak } from "../lib/speak";
@@ -28,7 +28,7 @@ export default function App() {
   const [saving, setSaving] = useState(false);
   const [preview, setPreview] = useState<VocabPreview | null>(null);
   const [syncing, setSyncing] = useState(false);
-  const [view, setView] = useState<"list" | "review" | "settings">("list");
+  const [view, setView] = useState<AppView>("list");
 
   // Local read only (no network) — see authSession.ts — so login gating
   // never blocks app startup on connectivity, just on "have we ever
@@ -138,19 +138,6 @@ export default function App() {
     return <Login onSuccess={() => setAuthed(true)} />;
   }
 
-  if (view === "review") {
-    return (
-      <div style={{ maxWidth: 480, margin: "0 auto", padding: "1rem" }}>
-        <SubPageHeader title="Ôn tập" onBack={() => setView("list")} />
-        <Review />
-      </div>
-    );
-  }
-
-  if (view === "settings") {
-    return <Settings onBack={() => setView("list")} onLogout={() => setAuthed(false)} />;
-  }
-
   const bySet = activeSet === null ? entries : entries.filter((e) => e.setId === activeSet);
   const query = searchQuery.trim().toLowerCase();
   const visibleEntries = query
@@ -185,208 +172,214 @@ export default function App() {
   return (
     <>
       <div style={{ height: "100vh", display: "flex", flexDirection: "column" }}>
-        <div
-          style={{
-            width: "100%",
-            maxWidth: 720,
-            margin: "0 auto",
-            padding: "1.5rem 1.5rem 0",
-            display: "flex",
-            flexDirection: "column",
-            flex: 1,
-            minHeight: 0,
-          }}
-        >
-          <Space align="center" style={{ width: "100%", justifyContent: "space-between", flexWrap: "wrap" }}>
-            <Typography.Title level={2} style={{ margin: 0 }}>
-              Reckon
-            </Typography.Title>
-            <Space wrap>
-              <Button icon={<ReadOutlined />} onClick={() => setView("review")}>
-                Ôn tập
-              </Button>
-              <Button icon={<SyncOutlined spin={syncing} />} loading={syncing} onClick={handleSync}>
-                Sync now
-              </Button>
-              <Button icon={<SettingOutlined />} onClick={() => setView("settings")} />
-            </Space>
-          </Space>
-          <Typography.Paragraph type="secondary" style={{ marginTop: 8 }}>
-            Copy a word anywhere, press the hotkey — or look one up here.
-          </Typography.Paragraph>
+        <AppHeader view={view} onChangeView={setView} onSync={handleSync} syncing={syncing} />
 
-          <Space.Compact style={{ width: "100%", margin: "16px 0" }}>
-            <Input
-              value={text}
-              onChange={(e) => setText(e.target.value)}
-              onPressEnter={handleSearch}
-              placeholder="Look up a word or phrase"
-            />
-            <Button type="primary" loading={looking} onClick={handleSearch}>
-              Look up
-            </Button>
-          </Space.Compact>
-
-          {/* Everything below the lookup box shares one scroll region — the
-              preview card can grow arbitrarily tall (long dictionary
-              entries), and without this it could push the entries list
-              past the window's bottom edge with no way to reach it, since
-              only this region (not the whole window) scrolls. */}
+        {view === "review" && (
           <div style={{ flex: 1, minHeight: 0, overflowY: "auto" }}>
-            {preview && (
-              <Card size="small" style={{ marginBottom: 16 }}>
-                <Space align="start" style={{ width: "100%", justifyContent: "space-between" }}>
-                  <Space direction="vertical" size={4}>
-                    <span>
-                      <Tag color="blue">{preview.result.sourceLang}</Tag>
-                      {preview.result.sourceText}
-                      {preview.result.sourceLang !== "vi" && (
-                        <Button
-                          type="text"
-                          size="small"
-                          icon={<SoundOutlined />}
-                          onClick={() => speak(preview.result.sourceText, preview.result.sourceLang)}
-                        />
+            <div style={{ maxWidth: 480, width: "100%", margin: "0 auto", padding: "1rem" }}>
+              <Review />
+            </div>
+          </div>
+        )}
+
+        {view === "settings" && (
+          <div style={{ flex: 1, minHeight: 0, overflowY: "auto" }}>
+            <Settings onLogout={() => setAuthed(false)} />
+          </div>
+        )}
+
+        {view === "list" && (
+          <div
+            style={{
+              width: "100%",
+              maxWidth: 720,
+              margin: "0 auto",
+              padding: "1.5rem 1.5rem 0",
+              display: "flex",
+              flexDirection: "column",
+              flex: 1,
+              minHeight: 0,
+            }}
+          >
+            <Typography.Paragraph type="secondary" style={{ marginTop: 0 }}>
+              Copy a word anywhere, press the hotkey — or look one up here.
+            </Typography.Paragraph>
+
+            <Space.Compact style={{ width: "100%", margin: "16px 0" }}>
+              <Input
+                value={text}
+                onChange={(e) => setText(e.target.value)}
+                onPressEnter={handleSearch}
+                placeholder="Look up a word or phrase"
+              />
+              <Button type="primary" loading={looking} onClick={handleSearch}>
+                Look up
+              </Button>
+            </Space.Compact>
+
+            {/* Everything below the lookup box shares one scroll region — the
+                preview card can grow arbitrarily tall (long dictionary
+                entries), and without this it could push the entries list
+                past the window's bottom edge with no way to reach it, since
+                only this region (not the whole window) scrolls. */}
+            <div style={{ flex: 1, minHeight: 0, overflowY: "auto" }}>
+              {preview && (
+                <Card size="small" style={{ marginBottom: 16 }}>
+                  <Space align="start" style={{ width: "100%", justifyContent: "space-between" }}>
+                    <Space direction="vertical" size={4}>
+                      <span>
+                        <Tag color="blue">{preview.result.sourceLang}</Tag>
+                        {preview.result.sourceText}
+                        {preview.result.sourceLang !== "vi" && (
+                          <Button
+                            type="text"
+                            size="small"
+                            icon={<SoundOutlined />}
+                            onClick={() => speak(preview.result.sourceText, preview.result.sourceLang)}
+                          />
+                        )}
+                      </span>
+                      <span>
+                        <Tag color="green">{preview.result.targetLang}</Tag>
+                        {preview.result.targetText}
+                        {preview.result.targetLang !== "vi" && (
+                          <Button
+                            type="text"
+                            size="small"
+                            icon={<SoundOutlined />}
+                            onClick={() => speak(preview.result.targetText, preview.result.targetLang)}
+                          />
+                        )}
+                      </span>
+                      {preview.result.targetMeanings.length > 1 && (
+                        <Space size={[4, 4]} wrap>
+                          {preview.result.targetMeanings.slice(1).map((meaning) => (
+                            <Tag key={meaning} color="default">
+                              {meaning}
+                            </Tag>
+                          ))}
+                        </Space>
                       )}
-                    </span>
-                    <span>
-                      <Tag color="green">{preview.result.targetLang}</Tag>
-                      {preview.result.targetText}
-                      {preview.result.targetLang !== "vi" && (
-                        <Button
-                          type="text"
-                          size="small"
-                          icon={<SoundOutlined />}
-                          onClick={() => speak(preview.result.targetText, preview.result.targetLang)}
-                        />
-                      )}
-                    </span>
-                    {preview.result.targetMeanings.length > 1 && (
-                      <Space size={[4, 4]} wrap>
-                        {preview.result.targetMeanings.slice(1).map((meaning) => (
-                          <Tag key={meaning} color="default">
-                            {meaning}
-                          </Tag>
-                        ))}
-                      </Space>
-                    )}
+                    </Space>
+                    <Button type="primary" loading={saving} onClick={handleSavePreview}>
+                      Lưu
+                    </Button>
                   </Space>
-                  <Button type="primary" loading={saving} onClick={handleSavePreview}>
-                    Lưu
-                  </Button>
-                </Space>
-                {preview.dictionary && <DictionaryPanel dictionary={preview.dictionary} />}
-              </Card>
-            )}
+                  {preview.dictionary && <DictionaryPanel dictionary={preview.dictionary} />}
+                </Card>
+              )}
 
-            <Input.Search
-              allowClear
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Tìm trong từ đã lưu..."
-              style={{ marginBottom: 16 }}
-            />
+              <Input.Search
+                allowClear
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Tìm trong từ đã lưu..."
+                style={{ marginBottom: 16 }}
+              />
 
-            <SetsBar
-              sets={sets}
-              countAll={entries.length}
-              countFor={(setId) => entries.filter((e) => e.setId === setId).length}
-              activeSet={activeSet}
-              onSelect={setActiveSet}
-              onCreate={handleCreateSet}
-              onRename={handleRenameSet}
-              onDelete={handleDeleteSet}
-            />
+              <SetsBar
+                sets={sets}
+                countAll={entries.length}
+                countFor={(setId) => entries.filter((e) => e.setId === setId).length}
+                activeSet={activeSet}
+                onSelect={setActiveSet}
+                onCreate={handleCreateSet}
+                onRename={handleRenameSet}
+                onDelete={handleDeleteSet}
+              />
 
-            {visibleEntries.length === 0 && <Empty description={query ? "Không tìm thấy từ nào" : "No lookups yet"} />}
-            {entryGroups.map((group) => (
-              <div key={group.key}>
-                <Typography.Text type="secondary" strong style={{ display: "block", margin: "12px 0 4px" }}>
-                  {group.label}
-                </Typography.Text>
-                <List
-                  dataSource={group.items}
-                  renderItem={(entry) => (
-                    <List.Item
-                      actions={[
-                        <Select
-                          key="set"
-                          size="small"
-                          variant="borderless"
-                          value={entry.setId ?? UNASSIGNED}
-                          options={setOptions}
-                          onChange={(value) => handleAssignSet(entry.id, value)}
-                          style={{ width: 140 }}
-                        />,
-                        <Button
-                          key="delete"
-                          type="text"
-                          danger
-                          icon={<DeleteOutlined />}
-                          onClick={() => handleDelete(entry.id)}
-                        />,
-                      ]}
-                    >
-                      {/* onClick lives here, not on List.Item — the actions
+              {visibleEntries.length === 0 && (
+                <Empty description={query ? "Không tìm thấy từ nào" : "No lookups yet"} />
+              )}
+              {entryGroups.map((group) => (
+                <div key={group.key}>
+                  <Typography.Text type="secondary" strong style={{ display: "block", margin: "12px 0 4px" }}>
+                    {group.label}
+                  </Typography.Text>
+                  <List
+                    dataSource={group.items}
+                    renderItem={(entry) => (
+                      <List.Item
+                        actions={[
+                          <Select
+                            key="set"
+                            size="small"
+                            variant="borderless"
+                            value={entry.setId ?? UNASSIGNED}
+                            options={setOptions}
+                            onChange={(value) => handleAssignSet(entry.id, value)}
+                            style={{ width: 140 }}
+                          />,
+                          <Button
+                            key="delete"
+                            type="text"
+                            danger
+                            icon={<DeleteOutlined />}
+                            onClick={() => handleDelete(entry.id)}
+                          />,
+                        ]}
+                      >
+                        {/* onClick lives here, not on List.Item — the actions
                           above (esp. Select's portaled dropdown) are a sibling
                           render slot, not a DOM/React descendant of this div,
                           so clicking them can never reach this handler. */}
-                      <Space
-                        direction="vertical"
-                        size={0}
-                        className="entry-row"
-                        style={{ cursor: "pointer", width: "100%", padding: "4px 8px", borderRadius: 6 }}
-                        onClick={() => setDetailEntry(entry)}
-                      >
-                        <span>
-                          <Tag color="blue">{entry.sourceLang}</Tag>
-                          {entry.sourceText}
-                          {entry.sourceLang !== "vi" && (
-                            <Button
-                              type="text"
-                              size="small"
-                              icon={<SoundOutlined />}
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                speak(entry.sourceText, entry.sourceLang);
-                              }}
-                            />
-                          )}
-                        </span>
-                        <span>
-                          <Tag color="green">{entry.targetLang}</Tag>
-                          {entry.targetText}
-                          {entry.targetLang !== "vi" && (
-                            <Button
-                              type="text"
-                              size="small"
-                              icon={<SoundOutlined />}
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                speak(entry.targetText, entry.targetLang);
-                              }}
-                            />
-                          )}
-                          {entry.targetMeanings.length > 1 && (
-                            <Typography.Text type="secondary" style={{ marginLeft: 4 }}>
-                              ({entry.targetMeanings.slice(1).join(", ")})
+                        <Space
+                          direction="vertical"
+                          size={0}
+                          className="entry-row"
+                          style={{ cursor: "pointer", width: "100%", padding: "4px 8px", borderRadius: 6 }}
+                          onClick={() => setDetailEntry(entry)}
+                        >
+                          <span>
+                            <Tag color="blue">{entry.sourceLang}</Tag>
+                            {entry.sourceText}
+                            {entry.sourceLang !== "vi" && (
+                              <Button
+                                type="text"
+                                size="small"
+                                icon={<SoundOutlined />}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  speak(entry.sourceText, entry.sourceLang);
+                                }}
+                              />
+                            )}
+                          </span>
+                          <span>
+                            <Tag color="green">{entry.targetLang}</Tag>
+                            {entry.targetText}
+                            {entry.targetLang !== "vi" && (
+                              <Button
+                                type="text"
+                                size="small"
+                                icon={<SoundOutlined />}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  speak(entry.targetText, entry.targetLang);
+                                }}
+                              />
+                            )}
+                            {entry.targetMeanings.length > 1 && (
+                              <Typography.Text type="secondary" style={{ marginLeft: 4 }}>
+                                ({entry.targetMeanings.slice(1).join(", ")})
+                              </Typography.Text>
+                            )}
+                            <Typography.Text
+                              type="secondary"
+                              style={{ marginLeft: 8, fontSize: styleTokens.secondaryFontSize }}
+                            >
+                              {timeLabel(entry.createdAt)}
                             </Typography.Text>
-                          )}
-                          <Typography.Text
-                            type="secondary"
-                            style={{ marginLeft: 8, fontSize: styleTokens.secondaryFontSize }}
-                          >
-                            {timeLabel(entry.createdAt)}
-                          </Typography.Text>
-                        </span>
-                      </Space>
-                    </List.Item>
-                  )}
-                />
-              </div>
-            ))}
+                          </span>
+                        </Space>
+                      </List.Item>
+                    )}
+                  />
+                </div>
+              ))}
+            </div>
           </div>
-        </div>
+        )}
       </div>
 
       <VocabDetailModal entry={detailEntry} onClose={() => setDetailEntry(null)} onUpdate={handleUpdateEntry} />
