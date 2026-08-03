@@ -11,6 +11,15 @@ export interface VocabEntryRow {
   targetLang: string;
   setId: string | null;
   createdAt: string;
+  note: string | null;
+  tags: string[];
+  definition: string | null;
+}
+
+export interface VocabEntryPatch {
+  note?: string | null;
+  tags?: string[];
+  definition?: string | null;
 }
 
 export interface DueEntryRow extends VocabEntryRow {
@@ -52,6 +61,10 @@ export interface VocabPreview {
   dictionary: DictionaryInfo | null;
 }
 
+export interface AuthSession {
+  email: string;
+}
+
 const api = {
   vocab: {
     list: () => ipcRenderer.invoke("vocab:list") as Promise<VocabEntryRow[]>,
@@ -60,6 +73,8 @@ const api = {
     delete: (id: string) => ipcRenderer.invoke("vocab:delete", id) as Promise<VocabEntryRow>,
     setSet: (id: string, setId: string | null) =>
       ipcRenderer.invoke("vocab:setSet", id, setId) as Promise<VocabEntryRow>,
+    update: (id: string, patch: VocabEntryPatch) =>
+      ipcRenderer.invoke("vocab:update", id, patch) as Promise<VocabEntryRow>,
   },
   vocabSet: {
     list: () => ipcRenderer.invoke("vocabSet:list") as Promise<VocabSetRow[]>,
@@ -79,8 +94,17 @@ const api = {
   sync: {
     run: () => ipcRenderer.invoke("sync:run") as Promise<{ pushed: number; pulled: number }>,
   },
+  auth: {
+    signup: (email: string, password: string) =>
+      ipcRenderer.invoke("auth:signup", email, password) as Promise<AuthSession>,
+    login: (email: string, password: string) =>
+      ipcRenderer.invoke("auth:login", email, password) as Promise<AuthSession>,
+    logout: () => ipcRenderer.invoke("auth:logout") as Promise<void>,
+    getSession: () => ipcRenderer.invoke("auth:getSession") as Promise<AuthSession | null>,
+  },
   review: {
-    due: (limit?: number) => ipcRenderer.invoke("review:due", limit) as Promise<DueEntryRow[]>,
+    due: (limit?: number, setId?: string | null) =>
+      ipcRenderer.invoke("review:due", limit, setId) as Promise<DueEntryRow[]>,
     rate: (vocabId: string, remembered: boolean) =>
       ipcRenderer.invoke("review:rate", vocabId, remembered) as Promise<void>,
   },

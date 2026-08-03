@@ -13,10 +13,12 @@ datasource db {
 // entity type never requires a server migration — only the `kind`
 // string and the shape of `data` change.
 //
-// userId is nullable and unenforced for now: no auth exists yet, so
-// every record still lives in one shared space. Once auth lands, the
-// primary key likely needs to become (userId, kind, recordId) to stop
-// ids colliding across users — deferred until that logic is built.
+// userId is nullable, and the PK is intentionally still (kind, recordId)
+// even after auth landed: ids are client-generated UUIDs, so cross-user
+// collision risk is effectively zero, and avoiding a PK migration means
+// pre-auth records (userId = NULL) are left alone instead of requiring a
+// backfill. Records written from here on always carry userId. Moving to a
+// real (userId, kind, recordId) PK is deferred until it's actually needed.
 model SyncRecord {
   kind      String
   recordId  String
@@ -32,10 +34,11 @@ model SyncRecord {
 }
 
 model User {
-  id        String   @id @default(uuid())
-  email     String   @unique
-  createdAt DateTime @default(now())
-  devices   Device[]
+  id           String   @id @default(uuid())
+  email        String   @unique
+  passwordHash String
+  createdAt    DateTime @default(now())
+  devices      Device[]
 }
 
 // id matches the client-generated deviceId already used throughout

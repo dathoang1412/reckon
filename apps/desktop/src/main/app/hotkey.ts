@@ -1,6 +1,7 @@
 import { BrowserWindow, globalShortcut, screen } from "electron";
 import { getPrisma } from "../db/client";
 import { parseTargetMeanings, previewVocab, saveVocab } from "../services/vocab";
+import { getSession } from "../utils/authSession";
 import { getDeviceId } from "../utils/deviceId";
 import { readSelectedText } from "../utils/selection";
 import { showPopup } from "../windows/popup";
@@ -10,6 +11,14 @@ export interface HotkeyManager {
 }
 
 async function onHotkeyTriggered(getMainWindow: () => BrowserWindow | null): Promise<void> {
+  // Login is mandatory app-wide, including this hotkey path — if there's no
+  // session, surface the (already-rendered) login screen instead of running
+  // a lookup that would just save data with no account attached to it.
+  if (!getSession()) {
+    getMainWindow()?.show();
+    return;
+  }
+
   // Captured before the async selection/translate/DB round-trip so the
   // popup lands where the user's selection was, not wherever the cursor
   // has drifted to by the time the lookup finishes.

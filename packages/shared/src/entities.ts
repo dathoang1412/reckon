@@ -26,6 +26,15 @@ export const vocabEntrySchema = syncMetaSchema.extend({
   // updatedAt) so it survives sync and stays stable across devices instead
   // of resetting to "now" on whichever device last pulled it.
   createdAt: z.string().datetime(),
+  // Personal mnemonic/context note, user-authored.
+  note: z.string().max(2000).nullable().default(null),
+  // Free-form labels for filtering, independent of setId's single-folder
+  // grouping. Defaults to empty for older synced records that predate this
+  // field, same as targetMeanings above.
+  tags: z.array(z.string().min(1).max(50)).default([]),
+  // User-authored definition — most useful for words the built-in English
+  // dictionary lookup found nothing for.
+  definition: z.string().max(2000).nullable().default(null),
 });
 export type VocabEntry = z.infer<typeof vocabEntrySchema>;
 

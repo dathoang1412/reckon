@@ -130,14 +130,21 @@ function Keycap({ children }: { children: ReactNode }) {
   );
 }
 
-export default function Settings({ onBack }: { onBack: () => void }) {
+export default function Settings({ onBack, onLogout }: { onBack: () => void; onLogout: () => void }) {
   const [savedHotkey, setSavedHotkey] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [email, setEmail] = useState<string | null>(null);
   const [keys, { start, stop, resetKeys, isRecording }] = useRecordHotkeys();
 
   useEffect(() => {
     window.api.settings.getHotkey().then(setSavedHotkey);
+    window.api.auth.getSession().then((session) => setEmail(session?.email ?? null));
   }, []);
+
+  async function handleLogout() {
+    await window.api.auth.logout();
+    onLogout();
+  }
 
   // Stop listening for keys if the user navigates away mid-recording.
   useEffect(() => stop, [stop]);
@@ -215,6 +222,16 @@ export default function Settings({ onBack }: { onBack: () => void }) {
               </Button>
             </>
           )}
+        </Space>
+
+        <Typography.Title level={4} style={{ marginTop: 32 }}>
+          Tài khoản
+        </Typography.Title>
+        <Space align="center" style={{ width: "100%", justifyContent: "space-between" }}>
+          <Typography.Text type="secondary">{email}</Typography.Text>
+          <Button danger onClick={handleLogout}>
+            Đăng xuất
+          </Button>
         </Space>
       </div>
     </ConfigProvider>

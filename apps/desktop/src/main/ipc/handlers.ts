@@ -1,6 +1,8 @@
 import { ipcMain } from "electron";
 import { getPrisma } from "../db/client";
 import { getDeviceId } from "../utils/deviceId";
+import { login, signup } from "../services/auth";
+import { clearSession, getSession } from "../utils/authSession";
 import { lookupEnglishWord } from "../services/dictionary";
 import { listDueEntries, rateReview } from "../services/review";
 import { getHotkey, setHotkey } from "../utils/settings";
@@ -10,10 +12,13 @@ import type { TranslationResult } from "../services/translate";
 import {
   deleteVocabEntry,
   listVocabEntries,
+  parseTags,
   parseTargetMeanings,
   previewVocab,
   saveVocab,
   setVocabEntrySet,
+  updateVocabEntry,
+  type VocabEntryPatch,
 } from "../services/vocab";
 import { createVocabSet, deleteVocabSet, listVocabSets, renameVocabSet } from "../services/vocabSet";
 
@@ -24,14 +29,21 @@ interface IpcHandlerDeps {
   registerHotkey: (accelerator: string) => boolean;
 }
 
-// Prisma stores targetMeanings as a JSON string column, and createdAt as a
-// Date; the renderer works with the parsed string[] shape and an ISO string
-// (see preload's VocabEntryRow) so it doesn't need to deal with structured
-// clone semantics for dates crossing the IPC boundary.
-function toVocabEntryRow<T extends { targetText: string; targetMeanings: string | null; createdAt: Date }>(
+// Prisma stores targetMeanings/tags as JSON string columns, and createdAt as
+// a Date; the renderer works with the parsed string[] shapes and an ISO
+// string (see preload's VocabEntryRow) so it doesn't need to deal with
+// structured clone semantics for dates crossing the IPC boundary.
+function toVocabEntryRow<
+  T extends { targetText: string; targetMeanings: string | null; tags: string | null; createdAt: Date },
+>(
   entry: T,
-): Omit<T, "targetMeanings" | "createdAt"> & { targetMeanings: string[]; createdAt: string } {
-  return { ...entry, targetMeanings: parseTargetMeanings(entry), createdAt: entry.createdAt.toISOString() };
+): Omit<T, "targetMeanings" | "tags" | "createdAt"> & { targetMeanings: string[]; tags: string[]; createdAt: string } {
+  return {
+    ...entry,
+    targetMeanings: parseTargetMeanings(entry),
+    tags: parseTags(entry),
+    createdAt: entry.createdAt.toISOString(),
+  };
 }
 
 export function registerIpcHandlers({ registerHotkey }: IpcHandlerDeps): void {
@@ -57,6 +69,10 @@ export function registerIpcHandlers({ registerHotkey }: IpcHandlerDeps): void {
 
   ipcMain.handle("vocab:setSet", async (_event, id: string, setId: string | null) => {
     return toVocabEntryRow(await setVocabEntrySet(prisma, deviceId, id, setId));
+  });
+
+  ipcMain.handle("vocab:update", async (_event, id: string, patch: VocabEntryPatch) => {
+    return toVocabEntryRow(await updateVocabEntry(prisma, deviceId, id, patch));
   });
 
   ipcMain.handle("vocabSet:list", async () => {
@@ -88,13 +104,32 @@ export function registerIpcHandlers({ registerHotkey }: IpcHandlerDeps): void {
     return runSync(prisma, deviceId);
   });
 
-  ipcMain.handle("review:due", async (_event, limit?: number) => {
-    const entries = await listDueEntries(prisma, limit);
+  ipcMain.handle("review:due", async (_event, limit?: number, setId?: string | null) => {
+    const entries = await listDueEntries(prisma, limit, setId);
     return entries.map(toVocabEntryRow);
   });
 
   ipcMain.handle("review:rate", async (_event, vocabId: string, remembered: boolean) => {
     await rateReview(prisma, vocabId, remembered);
+  });
+
+  ipcMain.handle("auth:signup", async (_event, email: string, password: string) => {
+    const { email: signedUpEmail } = await signup(email, password);
+    return { email: signedUpEmail };
+  });
+
+  ipcMain.handle("auth:login", async (_event, email: string, password: string) => {
+    const { email: loggedInEmail } = await login(email, password);
+    return { email: loggedInEmail };
+  });
+
+  ipcMain.handle("auth:logout", () => {
+    clearSession();
+  });
+
+  ipcMain.handle("auth:getSession", () => {
+    const session = getSession();
+    return session ? { email: session.email } : null;
   });
 
   ipcMain.handle("settings:getHotkey", () => getHotkey());

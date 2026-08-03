@@ -18,14 +18,18 @@
     "@nestjs/platform-express": "^10.4.22",
     "@prisma/client": "^5.22.0",
     "@reckon/shared": "workspace:*",
+    "bcryptjs": "^3.0.3",
     "chalk": "^4.1.2",
+    "jsonwebtoken": "^9.0.3",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.2",
     "zod": "^3.25.76"
   },
   "devDependencies": {
     "@nestjs/cli": "^10.4.9",
+    "@types/bcryptjs": "^3.0.0",
     "@types/express": "^5.0.6",
+    "@types/jsonwebtoken": "^9.0.10",
     "@types/node": "^22.20.1",
     "prisma": "^5.22.0",
     "typescript": "^5.9.3",

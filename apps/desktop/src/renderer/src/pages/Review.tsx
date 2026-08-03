@@ -1,21 +1,33 @@
 import { useEffect, useState } from "react";
 import { CheckOutlined, CloseOutlined, SoundOutlined } from "@ant-design/icons";
-import { Button, Card, Empty, Progress, Space, Tag, Typography } from "antd";
-import type { DueEntryRow } from "../../../preload/index";
+import { Button, Card, Empty, Progress, Select, Space, Tag, Typography } from "antd";
+import type { DueEntryRow, VocabSetRow } from "../../../preload/index";
 import { speak } from "../lib/speak";
+
+// Mirrors App.tsx's activeSet convention (null = "Tất cả") — unlike the
+// service layer's setId param, this UI never exposes an "unassigned only"
+// option, so null is unambiguous here.
+const ALL_SETS = "__all__";
 
 export default function Review() {
   const [queue, setQueue] = useState<DueEntryRow[] | null>(null);
   const [total, setTotal] = useState(0);
   const [revealed, setRevealed] = useState(false);
   const [rating, setRating] = useState(false);
+  const [sets, setSets] = useState<VocabSetRow[]>([]);
+  const [setId, setSetId] = useState<string | null>(null);
 
   useEffect(() => {
-    window.api.review.due().then((due) => {
+    window.api.vocabSet.list().then(setSets);
+  }, []);
+
+  useEffect(() => {
+    setQueue(null);
+    window.api.review.due(20, setId ?? undefined).then((due) => {
       setQueue(due);
       setTotal(due.length);
     });
-  }, []);
+  }, [setId]);
 
   async function rate(remembered: boolean) {
     if (!queue || queue.length === 0) return;
@@ -29,12 +41,30 @@ export default function Review() {
     }
   }
 
-  if (queue === null) return null;
+  const setSelector = (
+    <Select
+      value={setId ?? ALL_SETS}
+      onChange={(value) => setSetId(value === ALL_SETS ? null : value)}
+      style={{ width: "100%", marginBottom: 16 }}
+      options={[{ value: ALL_SETS, label: "Tất cả" }, ...sets.map((s) => ({ value: s.id, label: s.name }))]}
+    />
+  );
+
+  if (queue === null) {
+    return (
+      <div style={{ maxWidth: 480, margin: "2rem auto", padding: "0 1rem" }}>
+        {setSelector}
+      </div>
+    );
+  }
 
   if (queue.length === 0) {
     return (
-      <div style={{ maxWidth: 480, margin: "4rem auto", padding: "0 1rem", textAlign: "center" }}>
-        <Empty description={total === 0 ? "Không có từ nào cần ôn" : "Đã ôn xong hết lượt này"} />
+      <div style={{ maxWidth: 480, margin: "2rem auto", padding: "0 1rem" }}>
+        {setSelector}
+        <div style={{ margin: "4rem 0", textAlign: "center" }}>
+          <Empty description={total === 0 ? "Không có từ nào cần ôn" : "Đã ôn xong hết lượt này"} />
+        </div>
       </div>
     );
   }
@@ -44,6 +74,7 @@ export default function Review() {
 
   return (
     <div style={{ maxWidth: 480, margin: "2rem auto", padding: "0 1rem" }}>
+      {setSelector}
       <Progress percent={Math.round((reviewed / total) * 100)} showInfo={false} />
       <Typography.Text type="secondary">
         {reviewed}/{total}

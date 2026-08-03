@@ -6,11 +6,17 @@ export interface DueEntry extends VocabEntry {
 }
 
 // A card is due if it has no review state yet (never studied) or its
-// scheduled dueAt has passed.
-export async function listDueEntries(prisma: PrismaClient, limit = 20): Promise<DueEntry[]> {
+// scheduled dueAt has passed. setId follows the same convention as
+// setVocabEntrySet/App.tsx's activeSet: undefined = all sets, null = only
+// unassigned entries, a string = only that set.
+export async function listDueEntries(
+  prisma: PrismaClient,
+  limit = 20,
+  setId?: string | null,
+): Promise<DueEntry[]> {
   const now = new Date();
   const entries = await prisma.vocabEntry.findMany({
-    where: { deletedAt: null },
+    where: { deletedAt: null, ...(setId !== undefined ? { setId } : {}) },
     orderBy: { updatedAt: "desc" },
   });
 

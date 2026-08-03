@@ -6,8 +6,9 @@ import {
   type SyncPullResponse,
 } from "@reckon/shared";
 import type { PrismaClient, VocabEntry, VocabSet } from "../../../generated/client";
+import { getSession } from "../utils/authSession";
 import { SERVER_PORT, waitForServerReady } from "./server";
-import { parseTargetMeanings } from "./vocab";
+import { parseTags, parseTargetMeanings } from "./vocab";
 
 const SERVER_URL = `http://localhost:${SERVER_PORT}`;
 
@@ -26,6 +27,9 @@ function vocabToChange(entry: VocabEntry): SyncChange {
       targetLang: entry.targetLang,
       setId: entry.setId,
       createdAt: entry.createdAt.toISOString(),
+      note: entry.note,
+      tags: parseTags(entry),
+      definition: entry.definition,
     },
   };
 }
@@ -51,6 +55,9 @@ async function applyVocabChange(prisma: PrismaClient, change: SyncChange): Promi
       targetLang: data.targetLang,
       setId: data.setId,
       createdAt: new Date(data.createdAt),
+      note: data.note,
+      tags: JSON.stringify(data.tags),
+      definition: data.definition,
       updatedAt: new Date(change.updatedAt),
       deviceId: change.deviceId,
       deletedAt: change.deletedAt ? new Date(change.deletedAt) : null,
@@ -63,6 +70,9 @@ async function applyVocabChange(prisma: PrismaClient, change: SyncChange): Promi
       targetLang: data.targetLang,
       setId: data.setId,
       createdAt: new Date(data.createdAt),
+      note: data.note,
+      tags: JSON.stringify(data.tags),
+      definition: data.definition,
       updatedAt: new Date(change.updatedAt),
       deviceId: change.deviceId,
       deletedAt: change.deletedAt ? new Date(change.deletedAt) : null,
@@ -112,24 +122,30 @@ async function applyVocabSetChange(prisma: PrismaClient, change: SyncChange): Pr
 }
 
 export async function runSync(prisma: PrismaClient, deviceId: string): Promise<{ pushed: number; pulled: number }> {
+  const session = getSession();
+  if (!session) throw new Error("Chưa đăng nhập — vui lòng đăng nhập trước khi đồng bộ.");
+  const authHeaders = { "Content-Type": "application/json", Authorization: `Bearer ${session.token}` };
+
   await waitForServerReady();
 
   const [localEntries, localSets] = await Promise.all([prisma.vocabEntry.findMany(), prisma.vocabSet.findMany()]);
   const changes = [...localEntries.map(vocabToChange), ...localSets.map(vocabSetToChange)];
 
-  await fetch(`${SERVER_URL}/sync/push`, {
+  const pushRes = await fetch(`${SERVER_URL}/sync/push`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: authHeaders,
     body: JSON.stringify({ deviceId, changes }),
   });
+  if (!pushRes.ok) throw new Error(`Đồng bộ (push) thất bại — HTTP ${pushRes.status}`);
 
   const state = await prisma.syncState.upsert({ where: { id: 1 }, create: { id: 1 }, update: {} });
 
   const pullRes = await fetch(`${SERVER_URL}/sync/pull`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: authHeaders,
     body: JSON.stringify({ deviceId, since: state.lastPulledAt?.toISOString() ?? null }),
   });
+  if (!pullRes.ok) throw new Error(`Đồng bộ (pull) thất bại — HTTP ${pullRes.status}`);
   const { changes: remoteChanges, serverTime }: SyncPullResponse = await pullRes.json();
 
   let pulled = 0;

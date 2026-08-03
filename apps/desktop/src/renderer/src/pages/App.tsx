@@ -7,22 +7,32 @@ import SetsBar from "../components/SetsBar";
 import VocabDetailModal from "../components/VocabDetailModal";
 import { dayKey, dayLabel, timeLabel } from "../lib/date";
 import { speak } from "../lib/speak";
+import Login from "./Login";
 import Review from "./Review";
 import Settings from "./Settings";
 
 const UNASSIGNED = "__unassigned__";
 
 export default function App() {
+  const [authed, setAuthed] = useState<boolean | null>(null);
   const [entries, setEntries] = useState<VocabEntryRow[]>([]);
   const [sets, setSets] = useState<VocabSetRow[]>([]);
   const [activeSet, setActiveSet] = useState<string | null>(null);
   const [detailEntry, setDetailEntry] = useState<VocabEntryRow | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
   const [text, setText] = useState("");
   const [looking, setLooking] = useState(false);
   const [saving, setSaving] = useState(false);
   const [preview, setPreview] = useState<VocabPreview | null>(null);
   const [syncing, setSyncing] = useState(false);
   const [view, setView] = useState<"list" | "review" | "settings">("list");
+
+  // Local read only (no network) — see authSession.ts — so login gating
+  // never blocks app startup on connectivity, just on "have we ever
+  // logged in and not logged out".
+  useEffect(() => {
+    window.api.auth.getSession().then((session) => setAuthed(!!session));
+  }, []);
 
   async function refresh() {
     setEntries(await window.api.vocab.list());
@@ -83,6 +93,11 @@ export default function App() {
     setEntries((prev) => prev.map((e) => (e.id === id ? { ...e, setId: resolved } : e)));
   }
 
+  function handleUpdateEntry(updated: VocabEntryRow) {
+    setEntries((prev) => prev.map((e) => (e.id === updated.id ? updated : e)));
+    setDetailEntry(updated);
+  }
+
   async function handleCreateSet(name: string) {
     await window.api.vocabSet.create(name);
     await refreshSets();
@@ -114,6 +129,12 @@ export default function App() {
     }
   }
 
+  if (authed === null) return null;
+
+  if (!authed) {
+    return <Login onSuccess={() => setAuthed(true)} />;
+  }
+
   if (view === "review") {
     return (
       <ConfigProvider theme={{ token: { colorPrimary: "#1677ff" } }}>
@@ -126,10 +147,20 @@ export default function App() {
   }
 
   if (view === "settings") {
-    return <Settings onBack={() => setView("list")} />;
+    return <Settings onBack={() => setView("list")} onLogout={() => setAuthed(false)} />;
   }
 
-  const visibleEntries = activeSet === null ? entries : entries.filter((e) => e.setId === activeSet);
+  const bySet = activeSet === null ? entries : entries.filter((e) => e.setId === activeSet);
+  const query = searchQuery.trim().toLowerCase();
+  const visibleEntries = query
+    ? bySet.filter(
+        (e) =>
+          e.sourceText.toLowerCase().includes(query) ||
+          e.targetText.toLowerCase().includes(query) ||
+          (e.note ?? "").toLowerCase().includes(query) ||
+          e.tags.some((tag) => tag.toLowerCase().includes(query)),
+      )
+    : bySet;
   const setOptions = [
     { value: UNASSIGNED, label: "Chưa phân loại" },
     ...sets.map((s) => ({ value: s.id, label: s.name })),
@@ -195,6 +226,12 @@ export default function App() {
             </Button>
           </Space.Compact>
 
+          {/* Everything below the lookup box shares one scroll region — the
+              preview card can grow arbitrarily tall (long dictionary
+              entries), and without this it could push the entries list
+              past the window's bottom edge with no way to reach it, since
+              only this region (not the whole window) scrolls. */}
+          <div style={{ flex: 1, minHeight: 0, overflowY: "auto" }}>
           {preview && (
             <Card size="small" style={{ marginBottom: 16 }}>
               <Space align="start" style={{ width: "100%", justifyContent: "space-between" }}>
@@ -241,6 +278,14 @@ export default function App() {
             </Card>
           )}
 
+          <Input.Search
+            allowClear
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="Tìm trong từ đã lưu..."
+            style={{ marginBottom: 16 }}
+          />
+
           <SetsBar
             sets={sets}
             countAll={entries.length}
@@ -252,8 +297,9 @@ export default function App() {
             onDelete={handleDeleteSet}
           />
 
-          <div style={{ flex: 1, minHeight: 0, overflowY: "auto" }}>
-            {visibleEntries.length === 0 && <Empty description="No lookups yet" />}
+          {visibleEntries.length === 0 && (
+            <Empty description={query ? "Không tìm thấy từ nào" : "No lookups yet"} />
+          )}
             {entryGroups.map((group) => (
               <div key={group.key}>
                 <Typography.Text type="secondary" strong style={{ display: "block", margin: "12px 0 4px" }}>
@@ -340,7 +386,7 @@ export default function App() {
         </div>
       </div>
 
-      <VocabDetailModal entry={detailEntry} onClose={() => setDetailEntry(null)} />
+      <VocabDetailModal entry={detailEntry} onClose={() => setDetailEntry(null)} onUpdate={handleUpdateEntry} />
     </ConfigProvider>
   );
 }

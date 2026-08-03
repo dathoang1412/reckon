@@ -71,3 +71,39 @@ export function setVocabEntrySet(
     data: { setId, updatedAt: new Date(), deviceId },
   });
 }
+
+// tags stores as a JSON-encoded column, same reasoning/shape as
+// targetMeanings above — SQLite has no native array type.
+export function parseTags(entry: { tags: string | null }): string[] {
+  if (!entry.tags) return [];
+  try {
+    const parsed = JSON.parse(entry.tags);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+export interface VocabEntryPatch {
+  note?: string | null;
+  tags?: string[];
+  definition?: string | null;
+}
+
+export function updateVocabEntry(
+  prisma: PrismaClient,
+  deviceId: string,
+  id: string,
+  patch: VocabEntryPatch,
+): Promise<VocabEntry> {
+  return prisma.vocabEntry.update({
+    where: { id },
+    data: {
+      note: patch.note,
+      tags: patch.tags ? JSON.stringify(patch.tags) : undefined,
+      definition: patch.definition,
+      updatedAt: new Date(),
+      deviceId,
+    },
+  });
+}
