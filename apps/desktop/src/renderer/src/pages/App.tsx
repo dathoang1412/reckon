@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { DeleteOutlined, ReadOutlined, SettingOutlined, SoundOutlined, SyncOutlined } from "@ant-design/icons";
-import { Button, Card, Empty, Input, List, message, Select, Space, Tag, Typography } from "antd";
+import { Button, Card, Empty, Input, List, Select, Space, Tag, Typography } from "antd";
+import toast from "react-hot-toast";
 import type { VocabEntryRow, VocabPreview, VocabSetRow } from "../../../preload/index";
 import DictionaryPanel from "../components/DictionaryPanel";
 import SetsBar from "../components/SetsBar";
@@ -62,7 +63,7 @@ export default function App() {
     try {
       setPreview(await window.api.vocab.preview(text.trim()));
     } catch (err) {
-      message.error(`Tra từ thất bại: ${err instanceof Error ? err.message : String(err)}`);
+      toast.error(`Tra từ thất bại: ${err instanceof Error ? err.message : String(err)}`);
     } finally {
       setLooking(false);
     }
@@ -76,9 +77,9 @@ export default function App() {
       setText("");
       setPreview(null);
       await refresh();
-      message.success("Đã lưu");
+      toast.success("Đã lưu");
     } catch (err) {
-      message.error(`Lưu thất bại: ${err instanceof Error ? err.message : String(err)}`);
+      toast.error(`Lưu thất bại: ${err instanceof Error ? err.message : String(err)}`);
     } finally {
       setSaving(false);
     }
@@ -121,11 +122,11 @@ export default function App() {
     setSyncing(true);
     try {
       const result = await window.api.sync.run();
-      message.success(`Synced — pushed ${result.pushed}, pulled ${result.pulled}`);
+      toast.success(`Synced — pushed ${result.pushed}, pulled ${result.pulled}`);
       await refresh();
       await refreshSets();
     } catch (err) {
-      message.error(`Sync failed: ${err instanceof Error ? err.message : String(err)}`);
+      toast.error(`Sync failed: ${err instanceof Error ? err.message : String(err)}`);
     } finally {
       setSyncing(false);
     }

@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { Button, Form, Input, Typography, message } from "antd";
+import { Button, Form, Input, Typography } from "antd";
+import toast from "react-hot-toast";
 import PageShell from "../components/PageShell";
 import { COLOR_PRIMARY } from "../theme";
 
@@ -17,7 +18,7 @@ export default function Login({ onSuccess }: { onSuccess: () => void }) {
       }
       onSuccess();
     } catch (err) {
-      message.error(err instanceof Error ? err.message : String(err));
+      toast.error(err instanceof Error ? err.message : String(err));
     } finally {
       setSubmitting(false);
     }

@@ -1,6 +1,7 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { useRecordHotkeys } from "react-hotkeys-hook";
-import { Button, Space, Typography, message } from "antd";
+import { Button, Space, Typography } from "antd";
+import toast from "react-hot-toast";
 import PageShell from "../components/PageShell";
 import SubPageHeader from "../components/SubPageHeader";
 
@@ -154,7 +155,7 @@ export default function Settings({ onBack, onLogout }: { onBack: () => void; onL
   async function handleSave() {
     const accelerator = toAccelerator(keys);
     if (!accelerator) {
-      message.error("Cần bấm thêm một phím chính, không chỉ Ctrl/Shift/Alt.");
+      toast.error("Cần bấm thêm một phím chính, không chỉ Ctrl/Shift/Alt.");
       return;
     }
     setSaving(true);
@@ -164,9 +165,9 @@ export default function Settings({ onBack, onLogout }: { onBack: () => void; onL
         setSavedHotkey(accelerator);
         stop();
         resetKeys();
-        message.success("Đã lưu phím tắt mới");
+        toast.success("Đã lưu phím tắt mới");
       } else {
-        message.error("Tổ hợp phím này đang được ứng dụng khác dùng — thử tổ hợp khác nhé.");
+        toast.error("Tổ hợp phím này đang được ứng dụng khác dùng — thử tổ hợp khác nhé.");
       }
     } finally {
       setSaving(false);

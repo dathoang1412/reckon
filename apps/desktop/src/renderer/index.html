@@ -40,22 +40,6 @@
       .entry-row:hover {
         background-color: #f5f6fa;
       }
-
-      /* antd's message hardcodes placement:'top' deep inside the library
-         (no public option to change it) — it always centers itself via
-         left:50%/transform:translateX(-50%), regardless of which DOM
-         container it's mounted into (a getContainer trick doesn't beat
-         this). Overriding the class it always renders with directly is
-         the only reliable way to move it. Dropping the transform loses
-         the vertical slide-in animation (now just fades via antd's own
-         opacity transition) — an acceptable trade for actually landing in
-         the corner instead of the still-centered "trick" attempts before. */
-      .ant-message {
-        top: 24px !important;
-        left: auto !important;
-        right: 24px !important;
-        transform: none !important;
-      }
     </style>
   </head>
   <body>

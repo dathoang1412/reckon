@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { CloseOutlined, SoundOutlined } from "@ant-design/icons";
-import { Button, Input, message, Modal, Select, Space, Spin, Tag, Typography } from "antd";
+import { Button, Input, Modal, Select, Space, Spin, Tag, Typography } from "antd";
+import toast from "react-hot-toast";
 import type { DictionaryInfo, VocabEntryRow } from "../../../preload/index";
 import DictionaryPanel from "./DictionaryPanel";
 import { dayLabel, timeLabel } from "../lib/date";
@@ -59,9 +60,9 @@ export default function VocabDetailModal({
         tags,
       });
       onUpdate(updated);
-      message.success("Đã lưu");
+      toast.success("Đã lưu");
     } catch (err) {
-      message.error(`Lưu thất bại: ${err instanceof Error ? err.message : String(err)}`);
+      toast.error(`Lưu thất bại: ${err instanceof Error ? err.message : String(err)}`);
     } finally {
       setSavingEdit(false);
     }
