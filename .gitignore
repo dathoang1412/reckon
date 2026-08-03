@@ -13,6 +13,11 @@ build/
 *.db-journal
 .turbo/
 coverage/
+# electron-builder reads apps/desktop/build/ as a source dir for the app
+# icon (icon.png), not a build output — keep it out of the generic build/
+# ignore above.
+!apps/desktop/build/
+!apps/desktop/build/icon.png
 apps/desktop/server-bundle/
 .DS_Store
 Thumbs.db

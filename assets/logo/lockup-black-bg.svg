@@ -1,0 +1,11 @@
+<svg viewBox="0 0 420 100" xmlns="http://www.w3.org/2000/svg">
+  <rect x="0" y="0" width="420" height="100" fill="#000000"/>
+  <g transform="translate(0,0)">
+    <rect x="0" y="0" width="100" height="100" rx="22" fill="#000000" stroke="#1a1a1a"/>
+    <path d="M35,75 V25 H50 A15,15 0 0 1 50,55 H35 M50,55 L67,76"
+          fill="none" stroke="#FFFFFF" stroke-width="9"
+          stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
+  <text x="128" y="63" font-family="Arial, Helvetica, sans-serif" font-weight="700"
+        font-size="42" letter-spacing="-1" fill="#FFFFFF">Reckon</text>
+</svg>
