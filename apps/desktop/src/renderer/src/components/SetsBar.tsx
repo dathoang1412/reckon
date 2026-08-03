@@ -1,60 +1,64 @@
 import { useState } from "react";
 import { MoreOutlined, PlusOutlined } from "@ant-design/icons";
-import { Card, Dropdown, Input, Modal, Space, Typography, type MenuProps } from "antd";
+import { Button, Dropdown, Input, Modal, Typography, type MenuProps } from "antd";
 import type { VocabSetRow } from "../../../preload/index";
+import { COLOR_PRIMARY, styleTokens } from "../theme";
 
-interface DeckCardProps {
+interface DeckRowProps {
   label: string;
   count: number;
+  lastActivity: string | null;
   active: boolean;
   onClick: () => void;
   onRename?: () => void;
   onDelete?: () => void;
 }
 
-function DeckCard({ label, count, active, onClick, onRename, onDelete }: DeckCardProps) {
+function DeckRow({ label, count, lastActivity, active, onClick, onRename, onDelete }: DeckRowProps) {
   const menuItems: MenuProps["items"] = [
     onRename && { key: "rename", label: "Đổi tên" },
     onDelete && { key: "delete", label: "Xoá", danger: true },
   ].filter(Boolean) as MenuProps["items"];
 
   return (
-    <Card
-      size="small"
-      hoverable
+    <div
       onClick={onClick}
       style={{
-        minWidth: 108,
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "space-between",
+        gap: 8,
+        padding: "6px 10px",
+        borderRadius: 8,
         cursor: "pointer",
-        borderColor: active ? "#1677ff" : undefined,
-        background: active ? "#e6f4ff" : undefined,
+        background: active ? `${COLOR_PRIMARY}14` : "transparent",
+        borderLeft: `3px solid ${active ? COLOR_PRIMARY : "transparent"}`,
       }}
-      styles={{ body: { padding: "8px 12px" } }}
     >
-      <Space align="start" style={{ justifyContent: "space-between", width: "100%" }}>
-        <Space direction="vertical" size={0}>
-          <Typography.Text strong={active}>{label}</Typography.Text>
-          <Typography.Text type="secondary" style={{ fontSize: 12 }}>
-            {count} từ
-          </Typography.Text>
-        </Space>
-        {menuItems && menuItems.length > 0 && (
-          <Dropdown
-            trigger={["click"]}
-            menu={{
-              items: menuItems,
-              onClick: ({ key, domEvent }) => {
-                domEvent.stopPropagation();
-                if (key === "rename") onRename?.();
-                if (key === "delete") onDelete?.();
-              },
-            }}
-          >
-            <MoreOutlined onClick={(e) => e.stopPropagation()} />
-          </Dropdown>
-        )}
-      </Space>
-    </Card>
+      <div style={{ minWidth: 0 }}>
+        <Typography.Text strong={active} ellipsis style={{ display: "block" }}>
+          {label}
+        </Typography.Text>
+        <Typography.Text type="secondary" style={{ fontSize: styleTokens.secondaryFontSize, whiteSpace: "nowrap" }}>
+          {count} từ{lastActivity ? ` · ${lastActivity}` : ""}
+        </Typography.Text>
+      </div>
+      {menuItems && menuItems.length > 0 && (
+        <Dropdown
+          trigger={["click"]}
+          menu={{
+            items: menuItems,
+            onClick: ({ key, domEvent }) => {
+              domEvent.stopPropagation();
+              if (key === "rename") onRename?.();
+              if (key === "delete") onDelete?.();
+            },
+          }}
+        >
+          <MoreOutlined onClick={(e) => e.stopPropagation()} style={{ flexShrink: 0, padding: "0 4px" }} />
+        </Dropdown>
+      )}
+    </div>
   );
 }
 
@@ -62,6 +66,9 @@ export interface SetsBarProps {
   sets: VocabSetRow[];
   countAll: number;
   countFor: (setId: string) => number;
+  // Human-readable label for the most recent word saved into this set
+  // (or across everything, for null) — e.g. "Hôm nay", null when empty.
+  latestDateFor: (setId: string | null) => string | null;
   activeSet: string | null;
   onSelect: (setId: string | null) => void;
   onCreate: (name: string) => Promise<void>;
@@ -73,6 +80,7 @@ export default function SetsBar({
   sets,
   countAll,
   countFor,
+  latestDateFor,
   activeSet,
   onSelect,
   onCreate,
@@ -95,13 +103,39 @@ export default function SetsBar({
 
   return (
     <>
-      <Space size={10} wrap style={{ marginBottom: 16 }}>
-        <DeckCard label="Tất cả" count={countAll} active={activeSet === null} onClick={() => onSelect(null)} />
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
+        <Typography.Text
+          type="secondary"
+          strong
+          style={{ fontSize: styleTokens.secondaryFontSize, textTransform: "uppercase", letterSpacing: 0.4 }}
+        >
+          Bộ từ
+        </Typography.Text>
+        <Button
+          type="text"
+          size="small"
+          icon={<PlusOutlined />}
+          onClick={() => {
+            setName("");
+            setDialog({ mode: "create" });
+          }}
+        />
+      </div>
+
+      <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+        <DeckRow
+          label="Tất cả"
+          count={countAll}
+          lastActivity={latestDateFor(null)}
+          active={activeSet === null}
+          onClick={() => onSelect(null)}
+        />
         {sets.map((s) => (
-          <DeckCard
+          <DeckRow
             key={s.id}
             label={s.name}
             count={countFor(s.id)}
+            lastActivity={latestDateFor(s.id)}
             active={activeSet === s.id}
             onClick={() => onSelect(s.id)}
             onRename={() => {
@@ -111,19 +145,7 @@ export default function SetsBar({
             onDelete={() => onDelete(s.id)}
           />
         ))}
-        <Card
-          size="small"
-          hoverable
-          onClick={() => {
-            setName("");
-            setDialog({ mode: "create" });
-          }}
-          style={{ minWidth: 108, cursor: "pointer", borderStyle: "dashed" }}
-          styles={{ body: { padding: "8px 12px", textAlign: "center" } }}
-        >
-          <PlusOutlined /> Bộ mới
-        </Card>
-      </Space>
+      </div>
 
       <Modal
         open={dialog !== null}
@@ -133,7 +155,13 @@ export default function SetsBar({
         okButtonProps={{ disabled: !name.trim() }}
         destroyOnHidden
       >
-        <Input autoFocus value={name} onChange={(e) => setName(e.target.value)} onPressEnter={handleOk} placeholder="Tên bộ từ" />
+        <Input
+          autoFocus
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          onPressEnter={handleOk}
+          placeholder="Tên bộ từ"
+        />
       </Modal>
     </>
   );

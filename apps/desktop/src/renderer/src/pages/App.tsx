@@ -154,6 +154,16 @@ export default function App() {
     ...sets.map((s) => ({ value: s.id, label: s.name })),
   ];
 
+  // Most recent save date for a set (or across everything, for null) — more
+  // useful in the sidebar than a raw "set last renamed" timestamp, since it
+  // reflects actual vocab activity instead of bookkeeping.
+  function latestDateFor(setId: string | null): string | null {
+    const matching = setId === null ? entries : entries.filter((e) => e.setId === setId);
+    if (matching.length === 0) return null;
+    const latest = matching.reduce((a, b) => (a.createdAt > b.createdAt ? a : b));
+    return dayLabel(latest.createdAt);
+  }
+
   // Groups consecutive same-day entries under one header — entries stay in
   // their existing (updatedAt desc) order within a group instead of being
   // re-sorted by createdAt, so moving/editing an entry doesn't reshuffle it
@@ -192,191 +202,205 @@ export default function App() {
           <div
             style={{
               width: "100%",
-              maxWidth: 720,
+              maxWidth: 960,
               margin: "0 auto",
               padding: "1.5rem 1.5rem 0",
               display: "flex",
-              flexDirection: "column",
+              gap: 24,
               flex: 1,
               minHeight: 0,
             }}
           >
-            <Typography.Paragraph type="secondary" style={{ marginTop: 0 }}>
-              Copy a word anywhere, press the hotkey — or look one up here.
-            </Typography.Paragraph>
+            <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column" }}>
+              <Typography.Paragraph type="secondary" style={{ marginTop: 0 }}>
+                Copy a word anywhere, press the hotkey — or look one up here.
+              </Typography.Paragraph>
 
-            <Space.Compact style={{ width: "100%", margin: "16px 0" }}>
-              <Input
-                value={text}
-                onChange={(e) => setText(e.target.value)}
-                onPressEnter={handleSearch}
-                placeholder="Look up a word or phrase"
-              />
-              <Button type="primary" loading={looking} onClick={handleSearch}>
-                Look up
-              </Button>
-            </Space.Compact>
+              <Space.Compact style={{ width: "100%", margin: "16px 0" }}>
+                <Input
+                  value={text}
+                  onChange={(e) => setText(e.target.value)}
+                  onPressEnter={handleSearch}
+                  placeholder="Look up a word or phrase"
+                />
+                <Button type="primary" loading={looking} onClick={handleSearch}>
+                  Look up
+                </Button>
+              </Space.Compact>
 
-            {/* Everything below the lookup box shares one scroll region — the
-                preview card can grow arbitrarily tall (long dictionary
-                entries), and without this it could push the entries list
-                past the window's bottom edge with no way to reach it, since
-                only this region (not the whole window) scrolls. */}
-            <div style={{ flex: 1, minHeight: 0, overflowY: "auto" }}>
-              {preview && (
-                <Card size="small" style={{ marginBottom: 16 }}>
-                  <Space align="start" style={{ width: "100%", justifyContent: "space-between" }}>
-                    <Space direction="vertical" size={4}>
-                      <span>
-                        <Tag color="blue">{preview.result.sourceLang}</Tag>
-                        {preview.result.sourceText}
-                        {preview.result.sourceLang !== "vi" && (
-                          <Button
-                            type="text"
-                            size="small"
-                            icon={<SoundOutlined />}
-                            onClick={() => speak(preview.result.sourceText, preview.result.sourceLang)}
-                          />
+              {/* Everything below the lookup box shares one scroll region — the
+                  preview card can grow arbitrarily tall (long dictionary
+                  entries), and without this it could push the entries list
+                  past the window's bottom edge with no way to reach it, since
+                  only this region (not the whole window) scrolls. */}
+              <div style={{ flex: 1, minHeight: 0, overflowY: "auto" }}>
+                {preview && (
+                  <Card size="small" style={{ marginBottom: 16 }}>
+                    <Space align="start" style={{ width: "100%", justifyContent: "space-between" }}>
+                      <Space direction="vertical" size={4}>
+                        <span>
+                          <Tag color="blue">{preview.result.sourceLang}</Tag>
+                          {preview.result.sourceText}
+                          {preview.result.sourceLang !== "vi" && (
+                            <Button
+                              type="text"
+                              size="small"
+                              icon={<SoundOutlined />}
+                              onClick={() => speak(preview.result.sourceText, preview.result.sourceLang)}
+                            />
+                          )}
+                        </span>
+                        <span>
+                          <Tag color="green">{preview.result.targetLang}</Tag>
+                          {preview.result.targetText}
+                          {preview.result.targetLang !== "vi" && (
+                            <Button
+                              type="text"
+                              size="small"
+                              icon={<SoundOutlined />}
+                              onClick={() => speak(preview.result.targetText, preview.result.targetLang)}
+                            />
+                          )}
+                        </span>
+                        {preview.result.targetMeanings.length > 1 && (
+                          <Space size={[4, 4]} wrap>
+                            {preview.result.targetMeanings.slice(1).map((meaning) => (
+                              <Tag key={meaning} color="default">
+                                {meaning}
+                              </Tag>
+                            ))}
+                          </Space>
                         )}
-                      </span>
-                      <span>
-                        <Tag color="green">{preview.result.targetLang}</Tag>
-                        {preview.result.targetText}
-                        {preview.result.targetLang !== "vi" && (
-                          <Button
-                            type="text"
-                            size="small"
-                            icon={<SoundOutlined />}
-                            onClick={() => speak(preview.result.targetText, preview.result.targetLang)}
-                          />
-                        )}
-                      </span>
-                      {preview.result.targetMeanings.length > 1 && (
-                        <Space size={[4, 4]} wrap>
-                          {preview.result.targetMeanings.slice(1).map((meaning) => (
-                            <Tag key={meaning} color="default">
-                              {meaning}
-                            </Tag>
-                          ))}
-                        </Space>
-                      )}
+                      </Space>
+                      <Button type="primary" loading={saving} onClick={handleSavePreview}>
+                        Lưu
+                      </Button>
                     </Space>
-                    <Button type="primary" loading={saving} onClick={handleSavePreview}>
-                      Lưu
-                    </Button>
-                  </Space>
-                  {preview.dictionary && <DictionaryPanel dictionary={preview.dictionary} />}
-                </Card>
-              )}
+                    {preview.dictionary && <DictionaryPanel dictionary={preview.dictionary} />}
+                  </Card>
+                )}
 
-              <Input.Search
-                allowClear
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Tìm trong từ đã lưu..."
-                style={{ marginBottom: 16 }}
-              />
+                <Input.Search
+                  allowClear
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="Tìm trong từ đã lưu..."
+                  style={{ marginBottom: 16 }}
+                />
 
+                {visibleEntries.length === 0 && (
+                  <Empty description={query ? "Không tìm thấy từ nào" : "No lookups yet"} />
+                )}
+                {entryGroups.map((group) => (
+                  <div key={group.key}>
+                    <Typography.Text type="secondary" strong style={{ display: "block", margin: "12px 0 4px" }}>
+                      {group.label}
+                    </Typography.Text>
+                    <List
+                      dataSource={group.items}
+                      renderItem={(entry) => (
+                        <List.Item
+                          actions={[
+                            <Select
+                              key="set"
+                              size="small"
+                              variant="borderless"
+                              value={entry.setId ?? UNASSIGNED}
+                              options={setOptions}
+                              onChange={(value) => handleAssignSet(entry.id, value)}
+                              style={{ width: 140 }}
+                            />,
+                            <Button
+                              key="delete"
+                              type="text"
+                              danger
+                              icon={<DeleteOutlined />}
+                              onClick={() => handleDelete(entry.id)}
+                            />,
+                          ]}
+                        >
+                          {/* onClick lives here, not on List.Item — the actions
+                          above (esp. Select's portaled dropdown) are a sibling
+                          render slot, not a DOM/React descendant of this div,
+                          so clicking them can never reach this handler. */}
+                          <Space
+                            direction="vertical"
+                            size={0}
+                            className="entry-row"
+                            style={{ cursor: "pointer", width: "100%", padding: "4px 8px", borderRadius: 6 }}
+                            onClick={() => setDetailEntry(entry)}
+                          >
+                            <span>
+                              <Tag color="blue">{entry.sourceLang}</Tag>
+                              {entry.sourceText}
+                              {entry.sourceLang !== "vi" && (
+                                <Button
+                                  type="text"
+                                  size="small"
+                                  icon={<SoundOutlined />}
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    speak(entry.sourceText, entry.sourceLang);
+                                  }}
+                                />
+                              )}
+                            </span>
+                            <span>
+                              <Tag color="green">{entry.targetLang}</Tag>
+                              {entry.targetText}
+                              {entry.targetLang !== "vi" && (
+                                <Button
+                                  type="text"
+                                  size="small"
+                                  icon={<SoundOutlined />}
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    speak(entry.targetText, entry.targetLang);
+                                  }}
+                                />
+                              )}
+                              {entry.targetMeanings.length > 1 && (
+                                <Typography.Text type="secondary" style={{ marginLeft: 4 }}>
+                                  ({entry.targetMeanings.slice(1).join(", ")})
+                                </Typography.Text>
+                              )}
+                              <Typography.Text
+                                type="secondary"
+                                style={{ marginLeft: 8, fontSize: styleTokens.secondaryFontSize }}
+                              >
+                                {timeLabel(entry.createdAt)}
+                              </Typography.Text>
+                            </span>
+                          </Space>
+                        </List.Item>
+                      )}
+                    />
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div
+              style={{
+                width: 220,
+                flexShrink: 0,
+                borderLeft: `1px solid ${styleTokens.borderColorLight}`,
+                paddingLeft: 20,
+                paddingBottom: "1.5rem",
+                overflowY: "auto",
+              }}
+            >
               <SetsBar
                 sets={sets}
                 countAll={entries.length}
                 countFor={(setId) => entries.filter((e) => e.setId === setId).length}
+                latestDateFor={latestDateFor}
                 activeSet={activeSet}
                 onSelect={setActiveSet}
                 onCreate={handleCreateSet}
                 onRename={handleRenameSet}
                 onDelete={handleDeleteSet}
               />
-
-              {visibleEntries.length === 0 && (
-                <Empty description={query ? "Không tìm thấy từ nào" : "No lookups yet"} />
-              )}
-              {entryGroups.map((group) => (
-                <div key={group.key}>
-                  <Typography.Text type="secondary" strong style={{ display: "block", margin: "12px 0 4px" }}>
-                    {group.label}
-                  </Typography.Text>
-                  <List
-                    dataSource={group.items}
-                    renderItem={(entry) => (
-                      <List.Item
-                        actions={[
-                          <Select
-                            key="set"
-                            size="small"
-                            variant="borderless"
-                            value={entry.setId ?? UNASSIGNED}
-                            options={setOptions}
-                            onChange={(value) => handleAssignSet(entry.id, value)}
-                            style={{ width: 140 }}
-                          />,
-                          <Button
-                            key="delete"
-                            type="text"
-                            danger
-                            icon={<DeleteOutlined />}
-                            onClick={() => handleDelete(entry.id)}
-                          />,
-                        ]}
-                      >
-                        {/* onClick lives here, not on List.Item — the actions
-                          above (esp. Select's portaled dropdown) are a sibling
-                          render slot, not a DOM/React descendant of this div,
-                          so clicking them can never reach this handler. */}
-                        <Space
-                          direction="vertical"
-                          size={0}
-                          className="entry-row"
-                          style={{ cursor: "pointer", width: "100%", padding: "4px 8px", borderRadius: 6 }}
-                          onClick={() => setDetailEntry(entry)}
-                        >
-                          <span>
-                            <Tag color="blue">{entry.sourceLang}</Tag>
-                            {entry.sourceText}
-                            {entry.sourceLang !== "vi" && (
-                              <Button
-                                type="text"
-                                size="small"
-                                icon={<SoundOutlined />}
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  speak(entry.sourceText, entry.sourceLang);
-                                }}
-                              />
-                            )}
-                          </span>
-                          <span>
-                            <Tag color="green">{entry.targetLang}</Tag>
-                            {entry.targetText}
-                            {entry.targetLang !== "vi" && (
-                              <Button
-                                type="text"
-                                size="small"
-                                icon={<SoundOutlined />}
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  speak(entry.targetText, entry.targetLang);
-                                }}
-                              />
-                            )}
-                            {entry.targetMeanings.length > 1 && (
-                              <Typography.Text type="secondary" style={{ marginLeft: 4 }}>
-                                ({entry.targetMeanings.slice(1).join(", ")})
-                              </Typography.Text>
-                            )}
-                            <Typography.Text
-                              type="secondary"
-                              style={{ marginLeft: 8, fontSize: styleTokens.secondaryFontSize }}
-                            >
-                              {timeLabel(entry.createdAt)}
-                            </Typography.Text>
-                          </span>
-                        </Space>
-                      </List.Item>
-                    )}
-                  />
-                </div>
-              ))}
             </div>
           </div>
         )}
