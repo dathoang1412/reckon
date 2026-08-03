@@ -1,12 +1,14 @@
 import { useEffect, useState } from "react";
 import { DeleteOutlined, ReadOutlined, SettingOutlined, SoundOutlined, SyncOutlined } from "@ant-design/icons";
-import { Button, Card, ConfigProvider, Empty, Input, List, message, Select, Space, Tag, Typography } from "antd";
+import { Button, Card, Empty, Input, List, message, Select, Space, Tag, Typography } from "antd";
 import type { VocabEntryRow, VocabPreview, VocabSetRow } from "../../../preload/index";
 import DictionaryPanel from "../components/DictionaryPanel";
 import SetsBar from "../components/SetsBar";
+import SubPageHeader from "../components/SubPageHeader";
 import VocabDetailModal from "../components/VocabDetailModal";
 import { dayKey, dayLabel, timeLabel } from "../lib/date";
 import { speak } from "../lib/speak";
+import { styleTokens } from "../theme";
 import Login from "./Login";
 import Review from "./Review";
 import Settings from "./Settings";
@@ -137,12 +139,10 @@ export default function App() {
 
   if (view === "review") {
     return (
-      <ConfigProvider theme={{ token: { colorPrimary: "#1677ff" } }}>
-        <div style={{ maxWidth: 480, margin: "0 auto", padding: "1rem" }}>
-          <Button onClick={() => setView("list")}>← Quay lại</Button>
-        </div>
+      <div style={{ maxWidth: 480, margin: "0 auto", padding: "1rem" }}>
+        <SubPageHeader title="Ôn tập" onBack={() => setView("list")} />
         <Review />
-      </ConfigProvider>
+      </div>
     );
   }
 
@@ -182,7 +182,7 @@ export default function App() {
   }
 
   return (
-    <ConfigProvider theme={{ token: { colorPrimary: "#1677ff" } }}>
+    <>
       <div style={{ height: "100vh", display: "flex", flexDirection: "column" }}>
         <div
           style={{
@@ -232,74 +232,72 @@ export default function App() {
               past the window's bottom edge with no way to reach it, since
               only this region (not the whole window) scrolls. */}
           <div style={{ flex: 1, minHeight: 0, overflowY: "auto" }}>
-          {preview && (
-            <Card size="small" style={{ marginBottom: 16 }}>
-              <Space align="start" style={{ width: "100%", justifyContent: "space-between" }}>
-                <Space direction="vertical" size={4}>
-                  <span>
-                    <Tag color="blue">{preview.result.sourceLang}</Tag>
-                    {preview.result.sourceText}
-                    {preview.result.sourceLang !== "vi" && (
-                      <Button
-                        type="text"
-                        size="small"
-                        icon={<SoundOutlined />}
-                        onClick={() => speak(preview.result.sourceText, preview.result.sourceLang)}
-                      />
+            {preview && (
+              <Card size="small" style={{ marginBottom: 16 }}>
+                <Space align="start" style={{ width: "100%", justifyContent: "space-between" }}>
+                  <Space direction="vertical" size={4}>
+                    <span>
+                      <Tag color="blue">{preview.result.sourceLang}</Tag>
+                      {preview.result.sourceText}
+                      {preview.result.sourceLang !== "vi" && (
+                        <Button
+                          type="text"
+                          size="small"
+                          icon={<SoundOutlined />}
+                          onClick={() => speak(preview.result.sourceText, preview.result.sourceLang)}
+                        />
+                      )}
+                    </span>
+                    <span>
+                      <Tag color="green">{preview.result.targetLang}</Tag>
+                      {preview.result.targetText}
+                      {preview.result.targetLang !== "vi" && (
+                        <Button
+                          type="text"
+                          size="small"
+                          icon={<SoundOutlined />}
+                          onClick={() => speak(preview.result.targetText, preview.result.targetLang)}
+                        />
+                      )}
+                    </span>
+                    {preview.result.targetMeanings.length > 1 && (
+                      <Space size={[4, 4]} wrap>
+                        {preview.result.targetMeanings.slice(1).map((meaning) => (
+                          <Tag key={meaning} color="default">
+                            {meaning}
+                          </Tag>
+                        ))}
+                      </Space>
                     )}
-                  </span>
-                  <span>
-                    <Tag color="green">{preview.result.targetLang}</Tag>
-                    {preview.result.targetText}
-                    {preview.result.targetLang !== "vi" && (
-                      <Button
-                        type="text"
-                        size="small"
-                        icon={<SoundOutlined />}
-                        onClick={() => speak(preview.result.targetText, preview.result.targetLang)}
-                      />
-                    )}
-                  </span>
-                  {preview.result.targetMeanings.length > 1 && (
-                    <Space size={[4, 4]} wrap>
-                      {preview.result.targetMeanings.slice(1).map((meaning) => (
-                        <Tag key={meaning} color="default">
-                          {meaning}
-                        </Tag>
-                      ))}
-                    </Space>
-                  )}
+                  </Space>
+                  <Button type="primary" loading={saving} onClick={handleSavePreview}>
+                    Lưu
+                  </Button>
                 </Space>
-                <Button type="primary" loading={saving} onClick={handleSavePreview}>
-                  Lưu
-                </Button>
-              </Space>
-              {preview.dictionary && <DictionaryPanel dictionary={preview.dictionary} />}
-            </Card>
-          )}
+                {preview.dictionary && <DictionaryPanel dictionary={preview.dictionary} />}
+              </Card>
+            )}
 
-          <Input.Search
-            allowClear
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Tìm trong từ đã lưu..."
-            style={{ marginBottom: 16 }}
-          />
+            <Input.Search
+              allowClear
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Tìm trong từ đã lưu..."
+              style={{ marginBottom: 16 }}
+            />
 
-          <SetsBar
-            sets={sets}
-            countAll={entries.length}
-            countFor={(setId) => entries.filter((e) => e.setId === setId).length}
-            activeSet={activeSet}
-            onSelect={setActiveSet}
-            onCreate={handleCreateSet}
-            onRename={handleRenameSet}
-            onDelete={handleDeleteSet}
-          />
+            <SetsBar
+              sets={sets}
+              countAll={entries.length}
+              countFor={(setId) => entries.filter((e) => e.setId === setId).length}
+              activeSet={activeSet}
+              onSelect={setActiveSet}
+              onCreate={handleCreateSet}
+              onRename={handleRenameSet}
+              onDelete={handleDeleteSet}
+            />
 
-          {visibleEntries.length === 0 && (
-            <Empty description={query ? "Không tìm thấy từ nào" : "No lookups yet"} />
-          )}
+            {visibleEntries.length === 0 && <Empty description={query ? "Không tìm thấy từ nào" : "No lookups yet"} />}
             {entryGroups.map((group) => (
               <div key={group.key}>
                 <Typography.Text type="secondary" strong style={{ display: "block", margin: "12px 0 4px" }}>
@@ -335,7 +333,8 @@ export default function App() {
                       <Space
                         direction="vertical"
                         size={0}
-                        style={{ cursor: "pointer" }}
+                        className="entry-row"
+                        style={{ cursor: "pointer", width: "100%", padding: "4px 8px", borderRadius: 6 }}
                         onClick={() => setDetailEntry(entry)}
                       >
                         <span>
@@ -372,7 +371,10 @@ export default function App() {
                               ({entry.targetMeanings.slice(1).join(", ")})
                             </Typography.Text>
                           )}
-                          <Typography.Text type="secondary" style={{ marginLeft: 8, fontSize: 12 }}>
+                          <Typography.Text
+                            type="secondary"
+                            style={{ marginLeft: 8, fontSize: styleTokens.secondaryFontSize }}
+                          >
                             {timeLabel(entry.createdAt)}
                           </Typography.Text>
                         </span>
@@ -387,6 +389,6 @@ export default function App() {
       </div>
 
       <VocabDetailModal entry={detailEntry} onClose={() => setDetailEntry(null)} onUpdate={handleUpdateEntry} />
-    </ConfigProvider>
+    </>
   );
 }

@@ -18,6 +18,28 @@
            document-level scrollbar stacked next to the intentional one. */
         overflow: hidden;
       }
+
+      /* Popup content fades in on each lookup instead of popping in
+         instantly — the window itself is shown right after this mounts
+         (see windows/popup.ts), so this is the first thing the user sees. */
+      @keyframes fadeIn {
+        from {
+          opacity: 0;
+        }
+        to {
+          opacity: 1;
+        }
+      }
+      .fade-in {
+        animation: fadeIn 120ms ease-out;
+      }
+
+      .entry-row {
+        transition: background-color 120ms ease-out;
+      }
+      .entry-row:hover {
+        background-color: #f5f6fa;
+      }
     </style>
   </head>
   <body>

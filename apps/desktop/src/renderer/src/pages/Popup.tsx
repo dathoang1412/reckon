@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { SoundOutlined } from "@ant-design/icons";
-import { Button, ConfigProvider, Space, Tag, Typography } from "antd";
+import { Button, Space, Tag, Typography } from "antd";
 import type { TranslationResultPayload } from "../../../preload/index";
 import DictionaryPanel from "../components/DictionaryPanel";
 import { speak } from "../lib/speak";
@@ -37,67 +37,64 @@ export default function Popup() {
 
   if (!payload) {
     return (
-      <ConfigProvider theme={{ token: { colorPrimary: "#1677ff" } }}>
-        <div style={{ padding: 16, fontFamily: "system-ui, sans-serif" }}>
-          <Typography.Text type="secondary">Waiting for lookup…</Typography.Text>
-        </div>
-      </ConfigProvider>
+      <div style={{ padding: 16, fontFamily: "system-ui, sans-serif" }}>
+        <Typography.Text type="secondary">Waiting for lookup…</Typography.Text>
+      </div>
     );
   }
 
   const { result, dictionary } = payload;
 
   return (
-    <ConfigProvider theme={{ token: { colorPrimary: "#1677ff" } }}>
-      <div
-        ref={contentRef}
-        style={{
-          padding: 16,
-          fontFamily: "system-ui, sans-serif",
-          width: "fit-content",
-          maxWidth: 420,
-          maxHeight: "80vh",
-          overflowY: "auto",
-        }}
-      >
-        <Tag color="blue">{result.sourceLang}</Tag>
-        <Space align="center" style={{ margin: "8px 0" }}>
-          <Typography.Paragraph style={{ margin: 0 }}>{result.sourceText}</Typography.Paragraph>
-          {result.sourceLang !== "vi" && (
-            <Button
-              type="text"
-              size="small"
-              icon={<SoundOutlined />}
-              onClick={() => speak(result.sourceText, result.sourceLang)}
-            />
-          )}
-        </Space>
-        <Tag color="green">{result.targetLang}</Tag>
-        <Space align="center" style={{ margin: "8px 0 0" }}>
-          <Typography.Paragraph strong style={{ margin: 0 }}>
-            {result.targetText}
-          </Typography.Paragraph>
-          {result.targetLang !== "vi" && (
-            <Button
-              type="text"
-              size="small"
-              icon={<SoundOutlined />}
-              onClick={() => speak(result.targetText, result.targetLang)}
-            />
-          )}
-        </Space>
-        {result.targetMeanings.length > 1 && (
-          <Space size={[4, 4]} wrap style={{ marginTop: 4 }}>
-            {result.targetMeanings.slice(1).map((meaning) => (
-              <Tag key={meaning} color="default">
-                {meaning}
-              </Tag>
-            ))}
-          </Space>
+    <div
+      ref={contentRef}
+      className="fade-in"
+      style={{
+        padding: 16,
+        fontFamily: "system-ui, sans-serif",
+        width: "fit-content",
+        maxWidth: 420,
+        maxHeight: "80vh",
+        overflowY: "auto",
+      }}
+    >
+      <Tag color="blue">{result.sourceLang}</Tag>
+      <Space align="center" style={{ margin: "8px 0" }}>
+        <Typography.Paragraph style={{ margin: 0 }}>{result.sourceText}</Typography.Paragraph>
+        {result.sourceLang !== "vi" && (
+          <Button
+            type="text"
+            size="small"
+            icon={<SoundOutlined />}
+            onClick={() => speak(result.sourceText, result.sourceLang)}
+          />
         )}
+      </Space>
+      <Tag color="green">{result.targetLang}</Tag>
+      <Space align="center" style={{ margin: "8px 0 0" }}>
+        <Typography.Paragraph strong style={{ margin: 0 }}>
+          {result.targetText}
+        </Typography.Paragraph>
+        {result.targetLang !== "vi" && (
+          <Button
+            type="text"
+            size="small"
+            icon={<SoundOutlined />}
+            onClick={() => speak(result.targetText, result.targetLang)}
+          />
+        )}
+      </Space>
+      {result.targetMeanings.length > 1 && (
+        <Space size={[4, 4]} wrap style={{ marginTop: 4 }}>
+          {result.targetMeanings.slice(1).map((meaning) => (
+            <Tag key={meaning} color="default">
+              {meaning}
+            </Tag>
+          ))}
+        </Space>
+      )}
 
-        {dictionary && <DictionaryPanel dictionary={dictionary} />}
-      </div>
-    </ConfigProvider>
+      {dictionary && <DictionaryPanel dictionary={dictionary} />}
+    </div>
   );
 }

@@ -5,6 +5,7 @@ import type { DictionaryInfo, VocabEntryRow } from "../../../preload/index";
 import DictionaryPanel from "./DictionaryPanel";
 import { dayLabel, timeLabel } from "../lib/date";
 import { speak } from "../lib/speak";
+import { styleTokens } from "../theme";
 
 export default function VocabDetailModal({
   entry,
@@ -92,7 +93,7 @@ export default function VocabDetailModal({
             <Button type="text" size="small" icon={<CloseOutlined />} onClick={onClose} />
           </div>
           <div style={{ maxHeight: "70vh", overflowY: "auto", paddingRight: 4 }}>
-            <Typography.Text type="secondary" style={{ fontSize: 12 }}>
+            <Typography.Text type="secondary" style={{ fontSize: styleTokens.secondaryFontSize }}>
               {dayLabel(entry.createdAt)} · {timeLabel(entry.createdAt)}
             </Typography.Text>
             <Tag color="blue" style={{ display: "block", width: "fit-content", marginTop: 4 }}>
@@ -139,7 +140,7 @@ export default function VocabDetailModal({
             <div
               style={{
                 marginTop: 16,
-                borderTop: "1px solid #f0f0f0",
+                borderTop: `1px solid ${styleTokens.borderColorLight}`,
                 paddingTop: 12,
               }}
             >

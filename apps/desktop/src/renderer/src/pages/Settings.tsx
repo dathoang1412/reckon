@@ -1,6 +1,8 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { useRecordHotkeys } from "react-hotkeys-hook";
-import { Button, ConfigProvider, Space, Typography, message } from "antd";
+import { Button, Space, Typography, message } from "antd";
+import PageShell from "../components/PageShell";
+import SubPageHeader from "../components/SubPageHeader";
 
 const MODIFIER_ORDER = ["ctrl", "meta", "alt", "shift"];
 
@@ -175,65 +177,58 @@ export default function Settings({ onBack, onLogout }: { onBack: () => void; onL
   const displayLabel = isRecording ? recordingKeyLabel : acceleratorKeyLabel;
 
   return (
-    <ConfigProvider theme={{ token: { colorPrimary: "#1677ff" } }}>
-      <div style={{ maxWidth: 480, margin: "2rem auto", padding: "0 1rem" }}>
-        <Space align="center" style={{ width: "100%", justifyContent: "space-between" }}>
-          <Typography.Title level={2} style={{ margin: 0 }}>
-            Cài đặt
-          </Typography.Title>
-          <Button onClick={onBack}>← Quay lại</Button>
-        </Space>
+    <PageShell>
+      <SubPageHeader title="Cài đặt" onBack={onBack} />
 
-        <Typography.Paragraph type="secondary" style={{ marginTop: 8 }}>
-          Bôi đen một đoạn văn bản rồi bấm tổ hợp phím này để tra từ nhanh.
-        </Typography.Paragraph>
+      <Typography.Paragraph type="secondary" style={{ marginTop: 8 }}>
+        Bôi đen một đoạn văn bản rồi bấm tổ hợp phím này để tra từ nhanh.
+      </Typography.Paragraph>
 
-        <Space size={8} wrap style={{ margin: "20px 0", minHeight: 32 }}>
-          {displayTokens.length > 0 ? (
-            displayTokens.map((token, i) => <Keycap key={`${token}-${i}`}>{displayLabel(token)}</Keycap>)
-          ) : (
-            <Typography.Text type="secondary">Đang bấm tổ hợp phím…</Typography.Text>
-          )}
-        </Space>
+      <Space size={8} wrap style={{ margin: "20px 0", minHeight: 32 }}>
+        {displayTokens.length > 0 ? (
+          displayTokens.map((token, i) => <Keycap key={`${token}-${i}`}>{displayLabel(token)}</Keycap>)
+        ) : (
+          <Typography.Text type="secondary">Đang bấm tổ hợp phím…</Typography.Text>
+        )}
+      </Space>
 
-        <Space>
-          {!isRecording ? (
+      <Space>
+        {!isRecording ? (
+          <Button
+            type="primary"
+            onClick={() => {
+              resetKeys();
+              start();
+            }}
+          >
+            Đổi phím tắt
+          </Button>
+        ) : (
+          <>
+            <Button type="primary" loading={saving} onClick={handleSave}>
+              Lưu
+            </Button>
             <Button
-              type="primary"
               onClick={() => {
+                stop();
                 resetKeys();
-                start();
               }}
             >
-              Đổi phím tắt
+              Hủy
             </Button>
-          ) : (
-            <>
-              <Button type="primary" loading={saving} onClick={handleSave}>
-                Lưu
-              </Button>
-              <Button
-                onClick={() => {
-                  stop();
-                  resetKeys();
-                }}
-              >
-                Hủy
-              </Button>
-            </>
-          )}
-        </Space>
+          </>
+        )}
+      </Space>
 
-        <Typography.Title level={4} style={{ marginTop: 32 }}>
-          Tài khoản
-        </Typography.Title>
-        <Space align="center" style={{ width: "100%", justifyContent: "space-between" }}>
-          <Typography.Text type="secondary">{email}</Typography.Text>
-          <Button danger onClick={handleLogout}>
-            Đăng xuất
-          </Button>
-        </Space>
-      </div>
-    </ConfigProvider>
+      <Typography.Title level={4} style={{ marginTop: 32 }}>
+        Tài khoản
+      </Typography.Title>
+      <Space align="center" style={{ width: "100%", justifyContent: "space-between" }}>
+        <Typography.Text type="secondary">{email}</Typography.Text>
+        <Button danger onClick={handleLogout}>
+          Đăng xuất
+        </Button>
+      </Space>
+    </PageShell>
   );
 }

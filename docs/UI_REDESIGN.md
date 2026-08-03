@@ -2,13 +2,12 @@
 
 > Kế hoạch, chưa triển khai. Viết dựa trên khảo sát code thực tế
 > (2026-08-03) sau khi Phần 1 (note/tags/search/ôn theo set) và Phần 2
-> (auth) đã xong.
+> (auth) đã xong. Hướng màu: **xanh lam đậm riêng** (không dùng theme đen/
+> trắng của logo).
 
 ## 1. Vấn đề hiện tại (khảo sát thực tế)
 
-### 1.1 Theme không khớp thương hiệu
-Logo mới (`assets/logo/`) là **nền đen, chữ trắng**, phong cách tối giản kiểu
-Raycast/Linear. Nhưng UI thật thì:
+### 1.1 Đang dùng màu mặc định của antd, chưa có màu thương hiệu riêng
 ```
 apps/desktop/src/renderer/src/pages/App.tsx:140   colorPrimary: "#1677ff"
 apps/desktop/src/renderer/src/pages/App.tsx:185   colorPrimary: "#1677ff"
@@ -18,7 +17,7 @@ apps/desktop/src/renderer/src/pages/Popup.tsx:51  colorPrimary: "#1677ff"
 apps/desktop/src/renderer/src/pages/Settings.tsx:178 colorPrimary: "#1677ff"
 apps/desktop/src/renderer/src/pages/Splash.tsx:5  colorPrimary: "#1677ff"
 ```
-**7 chỗ**, mỗi trang tự khai `<ConfigProvider theme={{ token: { colorPrimary: "#1677ff" } }}>` — màu xanh mặc định của antd, không liên quan gì đến logo đen/trắng vừa làm. Không có dark mode, không có theme token nào khác được set (background, border radius, font...).
+**7 chỗ**, mỗi trang tự khai `<ConfigProvider theme={{ token: { colorPrimary: "#1677ff" } }}>` — đây là màu xanh **mặc định** của antd (dùng trong hầu hết mọi app antd chưa customize), không phải màu được chọn có chủ đích cho Reckon. Không có theme token nào khác được set (background, border radius, font...) — toàn bộ giao diện hiện tại là "antd nguyên bản".
 
 ### 1.2 Không có theme dùng chung
 7 trang (`App`, `Popup`, `Splash`, `Settings`, `Review`, `Login`, và modal
@@ -47,18 +46,18 @@ từ đầu.
 
 ## 3. Kế hoạch theo giai đoạn
 
-### Giai đoạn A — Theme token khớp thương hiệu (nền tảng, làm trước)
+### Giai đoạn A — Theme token thương hiệu riêng (nền tảng, làm trước)
 - Tạo 1 file `apps/desktop/src/renderer/src/theme.ts` export 1 object
   `themeConfig` (kiểu `ThemeConfig` của antd) làm nguồn duy nhất:
-  - `colorPrimary`: đổi từ `#1677ff` sang màu khớp logo (đen `#000000`/
-    `#0A0A0A` cho light mode giống chữ "R" trên logo, hoặc giữ 1 accent màu
-    trung tính thay vì xanh mặc định — cần chốt cụ thể khi làm, đây chỉ là
-    kế hoạch).
-  - `borderRadius`, `fontFamily` khớp phong cách tối giản của logo (hiện
-    đang dùng mặc định của antd/`system-ui`).
-  - Thêm `algorithm: theme.darkAlgorithm` có điều kiện (đọc
-    `prefers-color-scheme` hoặc setting riêng) — hợp lý vì brand vốn là nền
-    đen, dark mode sẽ tự nhiên hơn light mode mặc định hiện tại.
+  - `colorPrimary`: đổi từ `#1677ff` (mặc định antd) sang `#3B5BDB` — vẫn
+    trong họ xanh lam (không đổi cảm giác quá đột ngột cho app đang dùng),
+    nhưng đậm/riêng hơn, không còn trùng với "màu antd mặc định" nữa.
+  - `borderRadius`: giữ mức vừa phải (antd default `6`) hoặc tăng nhẹ lên
+    `8` cho cảm giác mềm mại hơn — quyết định cụ thể khi làm, không phải
+    thay đổi lớn.
+  - Không cần thêm `darkAlgorithm` — giữ light mode làm mặc định duy nhất
+    (nền trắng/xám rất nhạt `#F7F8FA`), dark mode để lại làm sau nếu có nhu
+    cầu, không phải yêu cầu của hướng màu này.
 - Tạo 1 component `<AppThemeProvider>` bọc `ConfigProvider` với
   `themeConfig` này, dùng ở **1 chỗ duy nhất** tại `main.tsx` (bọc ngoài
   cùng, trước khi chọn `Splash`/`Popup`/`App`) thay vì mỗi trang tự bọc
@@ -85,8 +84,11 @@ từ đầu.
 
 ### Giai đoạn D — Đánh bóng từng màn hình cụ thể
 - **Login.tsx** (mới thêm): hiện dùng antd Form mặc định, chưa có logo/icon
-  thương hiệu trên màn hình — thêm icon từ `assets/logo/icon-black-bg.svg`
-  phía trên form cho đúng nhận diện khi mở app lần đầu.
+  nào trên màn hình — thêm 1 icon/wordmark đơn giản phía trên form cho có
+  nhận diện khi mở app lần đầu (logo hiện có ở `assets/logo/` là bản nền
+  đen — nếu dùng cần làm thêm 1 bản nền trắng/trong suốt khớp
+  `colorPrimary` mới, hoặc đơn giản là dùng chữ "Reckon" cách điệu bằng
+  `colorPrimary` thay vì icon).
 - **Popup.tsx**: cửa sổ quan trọng nhất về tần suất dùng (hotkey) — đáng
   đầu tư animation/transition mượt khi hiện/ẩn (hiện chưa có).
 - **App.tsx list**: đã nhóm theo ngày (mới làm) — có thể thêm micro-polish
