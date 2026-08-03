@@ -25,6 +25,7 @@ function vocabToChange(entry: VocabEntry): SyncChange {
       targetMeanings: parseTargetMeanings(entry),
       targetLang: entry.targetLang,
       setId: entry.setId,
+      createdAt: entry.createdAt.toISOString(),
     },
   };
 }
@@ -49,6 +50,7 @@ async function applyVocabChange(prisma: PrismaClient, change: SyncChange): Promi
       targetMeanings: JSON.stringify(data.targetMeanings),
       targetLang: data.targetLang,
       setId: data.setId,
+      createdAt: new Date(data.createdAt),
       updatedAt: new Date(change.updatedAt),
       deviceId: change.deviceId,
       deletedAt: change.deletedAt ? new Date(change.deletedAt) : null,
@@ -60,6 +62,7 @@ async function applyVocabChange(prisma: PrismaClient, change: SyncChange): Promi
       targetMeanings: JSON.stringify(data.targetMeanings),
       targetLang: data.targetLang,
       setId: data.setId,
+      createdAt: new Date(data.createdAt),
       updatedAt: new Date(change.updatedAt),
       deviceId: change.deviceId,
       deletedAt: change.deletedAt ? new Date(change.deletedAt) : null,

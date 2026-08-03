@@ -22,6 +22,10 @@ export const vocabEntrySchema = syncMetaSchema.extend({
   // this schema's loosely-coupled sync design (no cross-entity integrity
   // is enforced over the wire).
   setId: z.string().uuid().nullable().default(null),
+  // When the word was first saved — a domain field (not sync meta, unlike
+  // updatedAt) so it survives sync and stays stable across devices instead
+  // of resetting to "now" on whichever device last pulled it.
+  createdAt: z.string().datetime(),
 });
 export type VocabEntry = z.infer<typeof vocabEntrySchema>;
 
