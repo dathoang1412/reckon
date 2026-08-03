@@ -41,23 +41,25 @@
         background-color: #f5f6fa;
       }
 
-      /* antd's message component always centers itself horizontally within
-         whatever element it's mounted into (no placement option) — rather
-         than fighting its internal transform CSS, message.config's
-         getContainer (see main.tsx) points it at this small top-right-
-         anchored box instead of the full window, so "centered within a
-         box the size of its own content" ends up in that corner. */
-      #message-root {
-        position: fixed;
-        top: 24px;
-        right: 24px;
-        z-index: 1010;
+      /* antd's message hardcodes placement:'top' deep inside the library
+         (no public option to change it) — it always centers itself via
+         left:50%/transform:translateX(-50%), regardless of which DOM
+         container it's mounted into (a getContainer trick doesn't beat
+         this). Overriding the class it always renders with directly is
+         the only reliable way to move it. Dropping the transform loses
+         the vertical slide-in animation (now just fades via antd's own
+         opacity transition) — an acceptable trade for actually landing in
+         the corner instead of the still-centered "trick" attempts before. */
+      .ant-message {
+        top: 24px !important;
+        left: auto !important;
+        right: 24px !important;
+        transform: none !important;
       }
     </style>
   </head>
   <body>
     <div id="root"></div>
-    <div id="message-root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>
