@@ -63,24 +63,28 @@ export default function Popup() {
         <Tag color="blue">{result.sourceLang}</Tag>
         <Space align="center" style={{ margin: "8px 0" }}>
           <Typography.Paragraph style={{ margin: 0 }}>{result.sourceText}</Typography.Paragraph>
-          <Button
-            type="text"
-            size="small"
-            icon={<SoundOutlined />}
-            onClick={() => speak(result.sourceText, result.sourceLang)}
-          />
+          {result.sourceLang !== "vi" && (
+            <Button
+              type="text"
+              size="small"
+              icon={<SoundOutlined />}
+              onClick={() => speak(result.sourceText, result.sourceLang)}
+            />
+          )}
         </Space>
         <Tag color="green">{result.targetLang}</Tag>
         <Space align="center" style={{ margin: "8px 0 0" }}>
           <Typography.Paragraph strong style={{ margin: 0 }}>
             {result.targetText}
           </Typography.Paragraph>
-          <Button
-            type="text"
-            size="small"
-            icon={<SoundOutlined />}
-            onClick={() => speak(result.targetText, result.targetLang)}
-          />
+          {result.targetLang !== "vi" && (
+            <Button
+              type="text"
+              size="small"
+              icon={<SoundOutlined />}
+              onClick={() => speak(result.targetText, result.targetLang)}
+            />
+          )}
         </Space>
         {result.targetMeanings.length > 1 && (
           <Space size={[4, 4]} wrap style={{ marginTop: 4 }}>

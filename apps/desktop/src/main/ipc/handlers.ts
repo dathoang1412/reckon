@@ -23,12 +23,14 @@ interface IpcHandlerDeps {
   registerHotkey: (accelerator: string) => boolean;
 }
 
-// Prisma stores targetMeanings as a JSON string column; the renderer works
-// with the parsed string[] shape (see preload's VocabEntryRow).
-function toVocabEntryRow<T extends { targetText: string; targetMeanings: string | null }>(
+// Prisma stores targetMeanings as a JSON string column, and createdAt as a
+// Date; the renderer works with the parsed string[] shape and an ISO string
+// (see preload's VocabEntryRow) so it doesn't need to deal with structured
+// clone semantics for dates crossing the IPC boundary.
+function toVocabEntryRow<T extends { targetText: string; targetMeanings: string | null; createdAt: Date }>(
   entry: T,
-): Omit<T, "targetMeanings"> & { targetMeanings: string[] } {
-  return { ...entry, targetMeanings: parseTargetMeanings(entry) };
+): Omit<T, "targetMeanings" | "createdAt"> & { targetMeanings: string[]; createdAt: string } {
+  return { ...entry, targetMeanings: parseTargetMeanings(entry), createdAt: entry.createdAt.toISOString() };
 }
 
 export function registerIpcHandlers({ registerHotkey }: IpcHandlerDeps): void {

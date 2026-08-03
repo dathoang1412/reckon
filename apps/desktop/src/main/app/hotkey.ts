@@ -20,7 +20,7 @@ async function onHotkeyTriggered(getMainWindow: () => BrowserWindow | null): Pro
   try {
     const { result, dictionary } = await previewVocab(text);
     const saved = await saveVocab(getPrisma(), getDeviceId(), result);
-    const entry = { ...saved, targetMeanings: parseTargetMeanings(saved) };
+    const entry = { ...saved, targetMeanings: parseTargetMeanings(saved), createdAt: saved.createdAt.toISOString() };
     showPopup(entry, cursorPosition, dictionary);
     // Keep the main window's list live if it's open (or just hidden in
     // the tray) instead of only refreshing on next manual reload.

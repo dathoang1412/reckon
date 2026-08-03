@@ -28,6 +28,7 @@ model VocabEntry {
   // References VocabSet.id — not a Prisma relation, matching the rest of
   // this schema's loosely-coupled, sync-friendly style.
   setId      String?
+  createdAt  DateTime  @default(now())
   updatedAt  DateTime
   deviceId   String
   deletedAt  DateTime?

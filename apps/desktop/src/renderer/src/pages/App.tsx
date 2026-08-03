@@ -5,6 +5,7 @@ import type { VocabEntryRow, VocabPreview, VocabSetRow } from "../../../preload/
 import DictionaryPanel from "../components/DictionaryPanel";
 import SetsBar from "../components/SetsBar";
 import VocabDetailModal from "../components/VocabDetailModal";
+import { dayKey, dayLabel, timeLabel } from "../lib/date";
 import { speak } from "../lib/speak";
 import Review from "./Review";
 import Settings from "./Settings";
@@ -134,6 +135,21 @@ export default function App() {
     ...sets.map((s) => ({ value: s.id, label: s.name })),
   ];
 
+  // Groups consecutive same-day entries under one header — entries stay in
+  // their existing (updatedAt desc) order within a group instead of being
+  // re-sorted by createdAt, so moving/editing an entry doesn't reshuffle it
+  // out of the day it was actually saved on.
+  const entryGroups: { key: string; label: string; items: VocabEntryRow[] }[] = [];
+  for (const entry of visibleEntries) {
+    const key = dayKey(entry.createdAt);
+    const lastGroup = entryGroups[entryGroups.length - 1];
+    if (lastGroup && lastGroup.key === key) {
+      lastGroup.items.push(entry);
+    } else {
+      entryGroups.push({ key, label: dayLabel(entry.createdAt), items: [entry] });
+    }
+  }
+
   return (
     <ConfigProvider theme={{ token: { colorPrimary: "#1677ff" } }}>
       <div style={{ height: "100vh", display: "flex", flexDirection: "column" }}>
@@ -186,22 +202,26 @@ export default function App() {
                   <span>
                     <Tag color="blue">{preview.result.sourceLang}</Tag>
                     {preview.result.sourceText}
-                    <Button
-                      type="text"
-                      size="small"
-                      icon={<SoundOutlined />}
-                      onClick={() => speak(preview.result.sourceText, preview.result.sourceLang)}
-                    />
+                    {preview.result.sourceLang !== "vi" && (
+                      <Button
+                        type="text"
+                        size="small"
+                        icon={<SoundOutlined />}
+                        onClick={() => speak(preview.result.sourceText, preview.result.sourceLang)}
+                      />
+                    )}
                   </span>
                   <span>
                     <Tag color="green">{preview.result.targetLang}</Tag>
                     {preview.result.targetText}
-                    <Button
-                      type="text"
-                      size="small"
-                      icon={<SoundOutlined />}
-                      onClick={() => speak(preview.result.targetText, preview.result.targetLang)}
-                    />
+                    {preview.result.targetLang !== "vi" && (
+                      <Button
+                        type="text"
+                        size="small"
+                        icon={<SoundOutlined />}
+                        onClick={() => speak(preview.result.targetText, preview.result.targetLang)}
+                      />
+                    )}
                   </span>
                   {preview.result.targetMeanings.length > 1 && (
                     <Space size={[4, 4]} wrap>
@@ -233,70 +253,89 @@ export default function App() {
           />
 
           <div style={{ flex: 1, minHeight: 0, overflowY: "auto" }}>
-            <List
-              dataSource={visibleEntries}
-              locale={{ emptyText: <Empty description="No lookups yet" /> }}
-              renderItem={(entry) => (
-                <List.Item
-                  actions={[
-                    <Select
-                      key="set"
-                      size="small"
-                      variant="borderless"
-                      value={entry.setId ?? UNASSIGNED}
-                      options={setOptions}
-                      onChange={(value) => handleAssignSet(entry.id, value)}
-                      style={{ width: 140 }}
-                    />,
-                    <Button
-                      key="delete"
-                      type="text"
-                      danger
-                      icon={<DeleteOutlined />}
-                      onClick={() => handleDelete(entry.id)}
-                    />,
-                  ]}
-                >
-                  {/* onClick lives here, not on List.Item — the actions
-                      above (esp. Select's portaled dropdown) are a sibling
-                      render slot, not a DOM/React descendant of this div,
-                      so clicking them can never reach this handler. */}
-                  <Space direction="vertical" size={0} style={{ cursor: "pointer" }} onClick={() => setDetailEntry(entry)}>
-                    <span>
-                      <Tag color="blue">{entry.sourceLang}</Tag>
-                      {entry.sourceText}
-                      <Button
-                        type="text"
-                        size="small"
-                        icon={<SoundOutlined />}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          speak(entry.sourceText, entry.sourceLang);
-                        }}
-                      />
-                    </span>
-                    <span>
-                      <Tag color="green">{entry.targetLang}</Tag>
-                      {entry.targetText}
-                      <Button
-                        type="text"
-                        size="small"
-                        icon={<SoundOutlined />}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          speak(entry.targetText, entry.targetLang);
-                        }}
-                      />
-                      {entry.targetMeanings.length > 1 && (
-                        <Typography.Text type="secondary" style={{ marginLeft: 4 }}>
-                          ({entry.targetMeanings.slice(1).join(", ")})
-                        </Typography.Text>
-                      )}
-                    </span>
-                  </Space>
-                </List.Item>
-              )}
-            />
+            {visibleEntries.length === 0 && <Empty description="No lookups yet" />}
+            {entryGroups.map((group) => (
+              <div key={group.key}>
+                <Typography.Text type="secondary" strong style={{ display: "block", margin: "12px 0 4px" }}>
+                  {group.label}
+                </Typography.Text>
+                <List
+                  dataSource={group.items}
+                  renderItem={(entry) => (
+                    <List.Item
+                      actions={[
+                        <Select
+                          key="set"
+                          size="small"
+                          variant="borderless"
+                          value={entry.setId ?? UNASSIGNED}
+                          options={setOptions}
+                          onChange={(value) => handleAssignSet(entry.id, value)}
+                          style={{ width: 140 }}
+                        />,
+                        <Button
+                          key="delete"
+                          type="text"
+                          danger
+                          icon={<DeleteOutlined />}
+                          onClick={() => handleDelete(entry.id)}
+                        />,
+                      ]}
+                    >
+                      {/* onClick lives here, not on List.Item — the actions
+                          above (esp. Select's portaled dropdown) are a sibling
+                          render slot, not a DOM/React descendant of this div,
+                          so clicking them can never reach this handler. */}
+                      <Space
+                        direction="vertical"
+                        size={0}
+                        style={{ cursor: "pointer" }}
+                        onClick={() => setDetailEntry(entry)}
+                      >
+                        <span>
+                          <Tag color="blue">{entry.sourceLang}</Tag>
+                          {entry.sourceText}
+                          {entry.sourceLang !== "vi" && (
+                            <Button
+                              type="text"
+                              size="small"
+                              icon={<SoundOutlined />}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                speak(entry.sourceText, entry.sourceLang);
+                              }}
+                            />
+                          )}
+                        </span>
+                        <span>
+                          <Tag color="green">{entry.targetLang}</Tag>
+                          {entry.targetText}
+                          {entry.targetLang !== "vi" && (
+                            <Button
+                              type="text"
+                              size="small"
+                              icon={<SoundOutlined />}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                speak(entry.targetText, entry.targetLang);
+                              }}
+                            />
+                          )}
+                          {entry.targetMeanings.length > 1 && (
+                            <Typography.Text type="secondary" style={{ marginLeft: 4 }}>
+                              ({entry.targetMeanings.slice(1).join(", ")})
+                            </Typography.Text>
+                          )}
+                          <Typography.Text type="secondary" style={{ marginLeft: 8, fontSize: 12 }}>
+                            {timeLabel(entry.createdAt)}
+                          </Typography.Text>
+                        </span>
+                      </Space>
+                    </List.Item>
+                  )}
+                />
+              </div>
+            ))}
           </div>
         </div>
       </div>

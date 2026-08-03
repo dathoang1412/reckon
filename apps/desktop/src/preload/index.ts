@@ -10,6 +10,7 @@ export interface VocabEntryRow {
   targetMeanings: string[];
   targetLang: string;
   setId: string | null;
+  createdAt: string;
 }
 
 export interface DueEntryRow extends VocabEntryRow {

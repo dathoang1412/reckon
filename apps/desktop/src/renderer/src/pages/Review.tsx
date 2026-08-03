@@ -55,7 +55,9 @@ export default function Review() {
             <Typography.Title level={3} style={{ margin: 0 }}>
               {current.sourceText}
             </Typography.Title>
-            <Button icon={<SoundOutlined />} onClick={() => speak(current.sourceText, current.sourceLang)} />
+            {current.sourceLang !== "vi" && (
+              <Button icon={<SoundOutlined />} onClick={() => speak(current.sourceText, current.sourceLang)} />
+            )}
           </Space>
           {revealed ? (
             <>
@@ -64,7 +66,9 @@ export default function Review() {
                 <Typography.Title level={4} style={{ margin: 0 }}>
                   {current.targetText}
                 </Typography.Title>
-                <Button icon={<SoundOutlined />} onClick={() => speak(current.targetText, current.targetLang)} />
+                {current.targetLang !== "vi" && (
+                  <Button icon={<SoundOutlined />} onClick={() => speak(current.targetText, current.targetLang)} />
+                )}
               </Space>
               {current.targetMeanings.length > 1 && (
                 <Space size={[4, 4]} wrap style={{ justifyContent: "center" }}>

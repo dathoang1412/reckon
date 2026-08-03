@@ -3,6 +3,7 @@ import { SoundOutlined } from "@ant-design/icons";
 import { Button, Modal, Space, Spin, Tag, Typography } from "antd";
 import type { DictionaryInfo, VocabEntryRow } from "../../../preload/index";
 import DictionaryPanel from "./DictionaryPanel";
+import { dayLabel, timeLabel } from "../lib/date";
 import { speak } from "../lib/speak";
 
 export default function VocabDetailModal({ entry, onClose }: { entry: VocabEntryRow | null; onClose: () => void }) {
@@ -31,27 +32,36 @@ export default function VocabDetailModal({ entry, onClose }: { entry: VocabEntry
     <Modal open={!!entry} onCancel={onClose} footer={null} destroyOnHidden>
       {entry && (
         <div style={{ maxHeight: "70vh", overflowY: "auto", paddingRight: 4 }}>
-          <Tag color="blue">{entry.sourceLang}</Tag>
+          <Typography.Text type="secondary" style={{ fontSize: 12 }}>
+            {dayLabel(entry.createdAt)} · {timeLabel(entry.createdAt)}
+          </Typography.Text>
+          <Tag color="blue" style={{ display: "block", width: "fit-content", marginTop: 4 }}>
+            {entry.sourceLang}
+          </Tag>
           <Space align="center" style={{ margin: "8px 0" }}>
             <Typography.Paragraph style={{ margin: 0 }}>{entry.sourceText}</Typography.Paragraph>
-            <Button
-              type="text"
-              size="small"
-              icon={<SoundOutlined />}
-              onClick={() => speak(entry.sourceText, entry.sourceLang)}
-            />
+            {entry.sourceLang !== "vi" && (
+              <Button
+                type="text"
+                size="small"
+                icon={<SoundOutlined />}
+                onClick={() => speak(entry.sourceText, entry.sourceLang)}
+              />
+            )}
           </Space>
           <Tag color="green">{entry.targetLang}</Tag>
           <Space align="center" style={{ margin: "8px 0 0" }}>
             <Typography.Paragraph strong style={{ margin: 0 }}>
               {entry.targetText}
             </Typography.Paragraph>
-            <Button
-              type="text"
-              size="small"
-              icon={<SoundOutlined />}
-              onClick={() => speak(entry.targetText, entry.targetLang)}
-            />
+            {entry.targetLang !== "vi" && (
+              <Button
+                type="text"
+                size="small"
+                icon={<SoundOutlined />}
+                onClick={() => speak(entry.targetText, entry.targetLang)}
+              />
+            )}
           </Space>
           {entry.targetMeanings.length > 1 && (
             <Space size={[4, 4]} wrap style={{ marginTop: 4 }}>
