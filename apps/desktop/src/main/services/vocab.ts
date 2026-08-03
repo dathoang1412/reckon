@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import type { PrismaClient, VocabEntry } from "../../generated/client";
+import type { PrismaClient, VocabEntry } from "../../../generated/client";
 import { lookupEnglishWord, type DictionaryInfo } from "./dictionary";
 import { translate, type TranslationResult } from "./translate";
 
@@ -27,9 +27,30 @@ export async function previewVocab(text: string): Promise<VocabPreview> {
 }
 
 export function saveVocab(prisma: PrismaClient, deviceId: string, result: TranslationResult): Promise<VocabEntry> {
+  const { targetMeanings, ...rest } = result;
   return prisma.vocabEntry.create({
-    data: { id: randomUUID(), ...result, updatedAt: new Date(), deviceId },
+    data: {
+      id: randomUUID(),
+      ...rest,
+      targetMeanings: JSON.stringify(targetMeanings),
+      updatedAt: new Date(),
+      deviceId,
+    },
   });
+}
+
+// VocabEntry stores targetMeanings as a JSON-encoded column (SQLite has no
+// native array type) — this recovers the string[] shape the rest of the
+// app works with, falling back to [targetText] for older rows saved before
+// this field existed.
+export function parseTargetMeanings(entry: { targetText: string; targetMeanings: string | null }): string[] {
+  if (!entry.targetMeanings) return [entry.targetText];
+  try {
+    const parsed = JSON.parse(entry.targetMeanings);
+    return Array.isArray(parsed) && parsed.length > 0 ? parsed : [entry.targetText];
+  } catch {
+    return [entry.targetText];
+  }
 }
 
 export function deleteVocabEntry(prisma: PrismaClient, deviceId: string, id: string): Promise<VocabEntry> {

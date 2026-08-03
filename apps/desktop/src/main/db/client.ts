@@ -1,6 +1,6 @@
 import { app } from "electron";
 import path from "node:path";
-import { PrismaClient } from "../../generated/client";
+import { PrismaClient } from "../../../generated/client";
 
 let prisma: PrismaClient | null = null;
 

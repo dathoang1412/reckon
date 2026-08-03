@@ -1,8 +1,8 @@
 import { useEffect, useState } from "react";
 import { CheckOutlined, CloseOutlined, SoundOutlined } from "@ant-design/icons";
 import { Button, Card, Empty, Progress, Space, Tag, Typography } from "antd";
-import type { DueEntryRow } from "../../preload/index";
-import { speak } from "./speak";
+import type { DueEntryRow } from "../../../preload/index";
+import { speak } from "../lib/speak";
 
 export default function Review() {
   const [queue, setQueue] = useState<DueEntryRow[] | null>(null);
@@ -66,6 +66,15 @@ export default function Review() {
                 </Typography.Title>
                 <Button icon={<SoundOutlined />} onClick={() => speak(current.targetText, current.targetLang)} />
               </Space>
+              {current.targetMeanings.length > 1 && (
+                <Space size={[4, 4]} wrap style={{ justifyContent: "center" }}>
+                  {current.targetMeanings.slice(1).map((meaning) => (
+                    <Tag key={meaning} color="default">
+                      {meaning}
+                    </Tag>
+                  ))}
+                </Space>
+              )}
             </>
           ) : (
             <Button onClick={() => setRevealed(true)}>Hiện đáp án</Button>

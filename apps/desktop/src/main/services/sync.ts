@@ -5,8 +5,9 @@ import {
   type SyncChange,
   type SyncPullResponse,
 } from "@reckon/shared";
-import type { PrismaClient, VocabEntry, VocabSet } from "../../generated/client";
+import type { PrismaClient, VocabEntry, VocabSet } from "../../../generated/client";
 import { SERVER_PORT, waitForServerReady } from "./server";
+import { parseTargetMeanings } from "./vocab";
 
 const SERVER_URL = `http://localhost:${SERVER_PORT}`;
 
@@ -21,6 +22,7 @@ function vocabToChange(entry: VocabEntry): SyncChange {
       sourceText: entry.sourceText,
       sourceLang: entry.sourceLang,
       targetText: entry.targetText,
+      targetMeanings: parseTargetMeanings(entry),
       targetLang: entry.targetLang,
       setId: entry.setId,
     },
@@ -44,6 +46,7 @@ async function applyVocabChange(prisma: PrismaClient, change: SyncChange): Promi
       sourceText: data.sourceText,
       sourceLang: data.sourceLang,
       targetText: data.targetText,
+      targetMeanings: JSON.stringify(data.targetMeanings),
       targetLang: data.targetLang,
       setId: data.setId,
       updatedAt: new Date(change.updatedAt),
@@ -54,6 +57,7 @@ async function applyVocabChange(prisma: PrismaClient, change: SyncChange): Promi
       sourceText: data.sourceText,
       sourceLang: data.sourceLang,
       targetText: data.targetText,
+      targetMeanings: JSON.stringify(data.targetMeanings),
       targetLang: data.targetLang,
       setId: data.setId,
       updatedAt: new Date(change.updatedAt),

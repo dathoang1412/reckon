@@ -2,7 +2,7 @@ import { app } from "electron";
 import { createHash, randomUUID } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
-import type { PrismaClient } from "../../generated/client";
+import type { PrismaClient } from "../../../generated/client";
 
 function migrationsDir(): string {
   return app.isPackaged

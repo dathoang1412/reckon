@@ -1,18 +1,34 @@
 import { ipcMain } from "electron";
-import { getPrisma } from "./db";
-import { getDeviceId } from "./deviceId";
-import { lookupEnglishWord } from "./dictionary";
-import { listDueEntries, rateReview } from "./review";
-import { getHotkey, setHotkey } from "./settings";
-import { runSync } from "./sync";
-import type { TranslationResult } from "./translate";
-import { deleteVocabEntry, listVocabEntries, previewVocab, saveVocab, setVocabEntrySet } from "./vocab";
-import { createVocabSet, deleteVocabSet, listVocabSets, renameVocabSet } from "./vocabSet";
+import { getPrisma } from "../db/client";
+import { getDeviceId } from "../utils/deviceId";
+import { lookupEnglishWord } from "../services/dictionary";
+import { listDueEntries, rateReview } from "../services/review";
+import { getHotkey, setHotkey } from "../utils/settings";
+import { runSync } from "../services/sync";
+import type { TranslationResult } from "../services/translate";
+import {
+  deleteVocabEntry,
+  listVocabEntries,
+  parseTargetMeanings,
+  previewVocab,
+  saveVocab,
+  setVocabEntrySet,
+} from "../services/vocab";
+import { createVocabSet, deleteVocabSet, listVocabSets, renameVocabSet } from "../services/vocabSet";
 
 interface IpcHandlerDeps {
-  // Actually (re-)registers the OS-level global shortcut — kept in index.ts
-  // since that's where the handler triggered by the hotkey lives.
+  // Actually (re-)registers the OS-level global shortcut — kept in the
+  // hotkey manager (see app/hotkey.ts), since that's where the handler
+  // triggered by the hotkey lives.
   registerHotkey: (accelerator: string) => boolean;
+}
+
+// Prisma stores targetMeanings as a JSON string column; the renderer works
+// with the parsed string[] shape (see preload's VocabEntryRow).
+function toVocabEntryRow<T extends { targetText: string; targetMeanings: string | null }>(
+  entry: T,
+): Omit<T, "targetMeanings"> & { targetMeanings: string[] } {
+  return { ...entry, targetMeanings: parseTargetMeanings(entry) };
 }
 
 export function registerIpcHandlers({ registerHotkey }: IpcHandlerDeps): void {
@@ -20,7 +36,8 @@ export function registerIpcHandlers({ registerHotkey }: IpcHandlerDeps): void {
   const deviceId = getDeviceId();
 
   ipcMain.handle("vocab:list", async () => {
-    return listVocabEntries(prisma);
+    const entries = await listVocabEntries(prisma);
+    return entries.map(toVocabEntryRow);
   });
 
   ipcMain.handle("vocab:preview", async (_event, text: string) => {
@@ -28,15 +45,15 @@ export function registerIpcHandlers({ registerHotkey }: IpcHandlerDeps): void {
   });
 
   ipcMain.handle("vocab:save", async (_event, result: TranslationResult) => {
-    return saveVocab(prisma, deviceId, result);
+    return toVocabEntryRow(await saveVocab(prisma, deviceId, result));
   });
 
   ipcMain.handle("vocab:delete", async (_event, id: string) => {
-    return deleteVocabEntry(prisma, deviceId, id);
+    return toVocabEntryRow(await deleteVocabEntry(prisma, deviceId, id));
   });
 
   ipcMain.handle("vocab:setSet", async (_event, id: string, setId: string | null) => {
-    return setVocabEntrySet(prisma, deviceId, id, setId);
+    return toVocabEntryRow(await setVocabEntrySet(prisma, deviceId, id, setId));
   });
 
   ipcMain.handle("vocabSet:list", async () => {
@@ -64,7 +81,8 @@ export function registerIpcHandlers({ registerHotkey }: IpcHandlerDeps): void {
   });
 
   ipcMain.handle("review:due", async (_event, limit?: number) => {
-    return listDueEntries(prisma, limit);
+    const entries = await listDueEntries(prisma, limit);
+    return entries.map(toVocabEntryRow);
   });
 
   ipcMain.handle("review:rate", async (_event, vocabId: string, remembered: boolean) => {

@@ -1,13 +1,13 @@
 import { useEffect, useState } from "react";
 import { DeleteOutlined, ReadOutlined, SettingOutlined, SoundOutlined, SyncOutlined } from "@ant-design/icons";
 import { Button, Card, ConfigProvider, Empty, Input, List, message, Select, Space, Tag, Typography } from "antd";
-import type { VocabEntryRow, VocabPreview, VocabSetRow } from "../../preload/index";
-import DictionaryPanel from "./DictionaryPanel";
+import type { VocabEntryRow, VocabPreview, VocabSetRow } from "../../../preload/index";
+import DictionaryPanel from "../components/DictionaryPanel";
+import SetsBar from "../components/SetsBar";
+import VocabDetailModal from "../components/VocabDetailModal";
+import { speak } from "../lib/speak";
 import Review from "./Review";
 import Settings from "./Settings";
-import SetsBar from "./SetsBar";
-import { speak } from "./speak";
-import VocabDetailModal from "./VocabDetailModal";
 
 const UNASSIGNED = "__unassigned__";
 
@@ -203,6 +203,15 @@ export default function App() {
                       onClick={() => speak(preview.result.targetText, preview.result.targetLang)}
                     />
                   </span>
+                  {preview.result.targetMeanings.length > 1 && (
+                    <Space size={[4, 4]} wrap>
+                      {preview.result.targetMeanings.slice(1).map((meaning) => (
+                        <Tag key={meaning} color="default">
+                          {meaning}
+                        </Tag>
+                      ))}
+                    </Space>
+                  )}
                 </Space>
                 <Button type="primary" loading={saving} onClick={handleSavePreview}>
                   Lưu
@@ -278,6 +287,11 @@ export default function App() {
                           speak(entry.targetText, entry.targetLang);
                         }}
                       />
+                      {entry.targetMeanings.length > 1 && (
+                        <Typography.Text type="secondary" style={{ marginLeft: 4 }}>
+                          ({entry.targetMeanings.slice(1).join(", ")})
+                        </Typography.Text>
+                      )}
                     </span>
                   </Space>
                 </List.Item>

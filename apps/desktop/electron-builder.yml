@@ -10,7 +10,7 @@ extraResources:
   - from: prisma/migrations
     to: prisma/migrations
   # Self-contained @reckon/server build (see root `pnpm bundle:server`),
-  # spawned as a child process on app startup — src/main/server.ts.
+  # spawned as a child process on app startup — src/main/services/server.ts.
   - from: server-bundle
     to: server
 asarUnpack:

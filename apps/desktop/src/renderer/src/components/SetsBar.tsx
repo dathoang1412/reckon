@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { MoreOutlined, PlusOutlined } from "@ant-design/icons";
 import { Card, Dropdown, Input, Modal, Space, Typography, type MenuProps } from "antd";
-import type { VocabSetRow } from "../../preload/index";
+import type { VocabSetRow } from "../../../preload/index";
 
 interface DeckCardProps {
   label: string;

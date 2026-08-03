@@ -1,8 +1,8 @@
 import React from "react";
 import ReactDOM from "react-dom/client";
-import App from "./App";
-import Popup from "./Popup";
-import Splash from "./Splash";
+import App from "./pages/App";
+import Popup from "./pages/Popup";
+import Splash from "./pages/Splash";
 
 const isPopup = window.location.hash === "#popup";
 const isSplash = window.location.hash === "#splash";

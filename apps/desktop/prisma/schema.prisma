@@ -16,6 +16,11 @@ model VocabEntry {
   sourceText String
   sourceLang String
   targetText String
+  // JSON-encoded string[] of alternative meanings (targetText is always
+  // meanings[0]) — kept as a plain column rather than a relation table
+  // since SQLite has no native array type and this schema stays
+  // loosely-coupled/sync-friendly like the rest of the file.
+  targetMeanings String?
   targetLang String
   definition String?
   note       String?

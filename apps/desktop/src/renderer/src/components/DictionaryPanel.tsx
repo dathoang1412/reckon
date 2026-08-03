@@ -1,6 +1,6 @@
 import { SoundOutlined } from "@ant-design/icons";
 import { Button, Divider, Space, Tag, Typography } from "antd";
-import type { DictionaryInfo } from "../../preload/index";
+import type { DictionaryInfo } from "../../../preload/index";
 
 export default function DictionaryPanel({ dictionary }: { dictionary: DictionaryInfo }) {
   return (

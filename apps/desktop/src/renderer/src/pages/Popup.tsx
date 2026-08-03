@@ -1,9 +1,9 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { SoundOutlined } from "@ant-design/icons";
 import { Button, ConfigProvider, Space, Tag, Typography } from "antd";
-import type { TranslationResultPayload } from "../../preload/index";
-import DictionaryPanel from "./DictionaryPanel";
-import { speak } from "./speak";
+import type { TranslationResultPayload } from "../../../preload/index";
+import DictionaryPanel from "../components/DictionaryPanel";
+import { speak } from "../lib/speak";
 
 export default function Popup() {
   const [payload, setPayload] = useState<TranslationResultPayload | null>(null);
@@ -82,6 +82,15 @@ export default function Popup() {
             onClick={() => speak(result.targetText, result.targetLang)}
           />
         </Space>
+        {result.targetMeanings.length > 1 && (
+          <Space size={[4, 4]} wrap style={{ marginTop: 4 }}>
+            {result.targetMeanings.slice(1).map((meaning) => (
+              <Tag key={meaning} color="default">
+                {meaning}
+              </Tag>
+            ))}
+          </Space>
+        )}
 
         {dictionary && <DictionaryPanel dictionary={dictionary} />}
       </div>

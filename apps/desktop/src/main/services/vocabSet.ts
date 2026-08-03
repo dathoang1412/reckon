@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import type { PrismaClient, VocabSet } from "../../generated/client";
+import type { PrismaClient, VocabSet } from "../../../generated/client";
 
 export function listVocabSets(prisma: PrismaClient): Promise<VocabSet[]> {
   return prisma.vocabSet.findMany({

@@ -5,6 +5,9 @@ export interface VocabEntryRow {
   sourceText: string;
   sourceLang: string;
   targetText: string;
+  // Alternative meanings for targetText, e.g. "bank" -> ["ngân hàng", "bờ sông", ...].
+  // Always includes targetText as the first entry.
+  targetMeanings: string[];
   targetLang: string;
   setId: string | null;
 }
@@ -39,6 +42,7 @@ export interface TranslationResultData {
   sourceText: string;
   sourceLang: string;
   targetText: string;
+  targetMeanings: string[];
   targetLang: string;
 }
 

@@ -1,9 +1,9 @@
 import { useEffect, useState } from "react";
 import { SoundOutlined } from "@ant-design/icons";
 import { Button, Modal, Space, Spin, Tag, Typography } from "antd";
-import type { DictionaryInfo, VocabEntryRow } from "../../preload/index";
+import type { DictionaryInfo, VocabEntryRow } from "../../../preload/index";
 import DictionaryPanel from "./DictionaryPanel";
-import { speak } from "./speak";
+import { speak } from "../lib/speak";
 
 export default function VocabDetailModal({ entry, onClose }: { entry: VocabEntryRow | null; onClose: () => void }) {
   const [dictionary, setDictionary] = useState<DictionaryInfo | null>(null);
@@ -53,6 +53,15 @@ export default function VocabDetailModal({ entry, onClose }: { entry: VocabEntry
               onClick={() => speak(entry.targetText, entry.targetLang)}
             />
           </Space>
+          {entry.targetMeanings.length > 1 && (
+            <Space size={[4, 4]} wrap style={{ marginTop: 4 }}>
+              {entry.targetMeanings.slice(1).map((meaning) => (
+                <Tag key={meaning} color="default">
+                  {meaning}
+                </Tag>
+              ))}
+            </Space>
+          )}
 
           {loading && <Spin style={{ display: "block", margin: "16px 0" }} />}
           {dictionary && <DictionaryPanel dictionary={dictionary} />}

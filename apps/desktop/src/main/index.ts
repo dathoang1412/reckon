@@ -1,117 +1,29 @@
-import { app, BrowserWindow, globalShortcut, Menu, nativeImage, screen, shell, Tray } from "electron";
-import path from "node:path";
-import { registerIpcHandlers } from "./ipc";
-import { getPrisma } from "./db";
-import { getDeviceId } from "./deviceId";
-import { runMigrations } from "./migrate";
-import { readSelectedText } from "./selection";
-import { getHotkey } from "./settings";
-import { startServer, stopServer, waitForServerReady } from "./server";
-import { previewVocab, saveVocab } from "./vocab";
-import { showPopup } from "./popup";
-import { createSplashWindow, closeSplashWindow } from "./splash";
-import { TRAY_ICON_DATA_URL } from "./icon";
+import { app, BrowserWindow, globalShortcut, type Tray } from "electron";
+import { createHotkeyManager } from "./app/hotkey";
+import { getPrisma } from "./db/client";
+import { runMigrations } from "./db/migrate";
+import { registerIpcHandlers } from "./ipc/handlers";
+import { startServer, stopServer, waitForServerReady } from "./services/server";
+import { getHotkey } from "./utils/settings";
+import { createMainWindow } from "./windows/mainWindow";
+import { closeSplashWindow, createSplashWindow } from "./windows/splash";
+import { createTray } from "./windows/tray";
 
 // Keep userData (and thus the SQLite file path) stable across dev/packaged
 // runs instead of depending on Electron's inferred name from package.json.
 app.setName("reckon");
 
 let mainWindow: BrowserWindow | null = null;
-let tray: Tray | null = null;
+// Referenced only to keep it alive — Electron garbage-collects a Tray (and
+// its icon disappears) the moment nothing holds onto it.
+// eslint-disable-next-line @typescript-eslint/no-unused-vars -- write-only on purpose, see above
+let trayRef: Tray | null = null;
 let isQuitting = false;
-let currentHotkey: string | null = null;
 
-async function onHotkeyTriggered(): Promise<void> {
-  // Captured before the async selection/translate/DB round-trip so the
-  // popup lands where the user's selection was, not wherever the cursor
-  // has drifted to by the time the lookup finishes.
-  const cursorPosition = screen.getCursorScreenPoint();
+const hotkeyManager = createHotkeyManager(() => mainWindow);
 
-  const text = await readSelectedText();
-  if (!text) return;
-  try {
-    const { result, dictionary } = await previewVocab(text);
-    const entry = await saveVocab(getPrisma(), getDeviceId(), result);
-    showPopup(entry, cursorPosition, dictionary);
-    // Keep the main window's list live if it's open (or just hidden in
-    // the tray) instead of only refreshing on next manual reload.
-    mainWindow?.webContents.send("vocab:created", entry);
-  } catch (err) {
-    console.error("[hotkey] lookup failed:", err);
-  }
-}
-
-// Reused both at startup and whenever the settings page registers a new
-// accelerator. Falls back to re-registering the previous binding if the
-// requested one is already claimed at the OS level, so the app never ends
-// up with no working hotkey at all.
-function registerHotkey(accelerator: string): boolean {
-  const previous = currentHotkey;
-  if (previous) globalShortcut.unregister(previous);
-
-  const ok = globalShortcut.register(accelerator, onHotkeyTriggered);
-  if (ok) {
-    currentHotkey = accelerator;
-  } else {
-    console.error(
-      `[hotkey] Failed to register ${accelerator} — another running app has probably already claimed it at the OS level.`,
-    );
-    if (previous) globalShortcut.register(previous, onHotkeyTriggered);
-  }
-  return ok;
-}
-
-function createWindow(): void {
-  mainWindow = new BrowserWindow({
-    width: 1000,
-    height: 700,
-    show: false,
-    webPreferences: {
-      preload: path.join(__dirname, "../preload/index.js"),
-      sandbox: false,
-    },
-  });
-
-  // Avoids a flash of an empty window while the page loads; also lets the
-  // startup sequence swap the splash screen out for this window at the
-  // moment it actually has something to show.
-  mainWindow.once("ready-to-show", () => {
-    mainWindow?.show();
-  });
-
-  mainWindow.webContents.setWindowOpenHandler((details) => {
-    shell.openExternal(details.url);
-    return { action: "deny" };
-  });
-
-  // Hide instead of quitting so the app keeps running in the tray.
-  mainWindow.on("close", (event) => {
-    if (!isQuitting) {
-      event.preventDefault();
-      mainWindow?.hide();
-    }
-  });
-
-  if (!app.isPackaged && process.env["ELECTRON_RENDERER_URL"]) {
-    mainWindow.loadURL(process.env["ELECTRON_RENDERER_URL"]);
-  } else {
-    mainWindow.loadFile(path.join(__dirname, "../renderer/index.html"));
-  }
-}
-
-function createTray(): void {
-  tray = new Tray(nativeImage.createFromDataURL(TRAY_ICON_DATA_URL));
-  tray.setToolTip("Reckon");
-  tray.setContextMenu(
-    Menu.buildFromTemplate([
-      { label: "Show", click: () => mainWindow?.show() },
-      { label: "Quit", click: () => { isQuitting = true; app.quit(); } },
-    ]),
-  );
-  tray.on("click", () => {
-    if (mainWindow?.isVisible()) mainWindow.hide();
-    else mainWindow?.show();
-  });
+function openMainWindow(): void {
+  mainWindow = createMainWindow(() => !isQuitting);
 }
 
 // A second launch would otherwise spawn its own sync-backend child on the
@@ -153,15 +65,21 @@ if (!app.requestSingleInstanceLock()) {
       console.error("[startup] sync backend not ready yet:", err);
     }
 
-    registerIpcHandlers({ registerHotkey });
-    createWindow();
+    registerIpcHandlers({ registerHotkey: (accelerator) => hotkeyManager.register(accelerator) });
+    openMainWindow();
     mainWindow?.once("ready-to-show", () => closeSplashWindow());
-    createTray();
+    trayRef = createTray({
+      getMainWindow: () => mainWindow,
+      quit: () => {
+        isQuitting = true;
+        app.quit();
+      },
+    });
 
-    registerHotkey(getHotkey());
+    hotkeyManager.register(getHotkey());
 
     app.on("activate", () => {
-      if (BrowserWindow.getAllWindows().length === 0) createWindow();
+      if (BrowserWindow.getAllWindows().length === 0) openMainWindow();
     });
   });
 

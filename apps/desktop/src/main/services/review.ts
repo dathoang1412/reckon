@@ -1,4 +1,4 @@
-import type { PrismaClient, VocabEntry } from "../../generated/client";
+import type { PrismaClient, VocabEntry } from "../../../generated/client";
 import { nextReviewState } from "./srs";
 
 export interface DueEntry extends VocabEntry {

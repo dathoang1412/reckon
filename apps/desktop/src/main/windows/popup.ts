@@ -1,7 +1,7 @@
 import { app, BrowserWindow, ipcMain, screen } from "electron";
 import path from "node:path";
-import type { DictionaryInfo } from "./dictionary";
-import type { TranslationResult } from "./translate";
+import type { DictionaryInfo } from "../services/dictionary";
+import type { TranslationResult } from "../services/translate";
 
 export interface ScreenPoint {
   x: number;

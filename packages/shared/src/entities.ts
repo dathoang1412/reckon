@@ -13,6 +13,10 @@ export const vocabEntrySchema = syncMetaSchema.extend({
   sourceText: z.string().min(1).max(500),
   sourceLang: z.string().min(2).max(5),
   targetText: z.string().min(1).max(1000),
+  // Alternative meanings for the same word (targetText is always the
+  // first entry). Defaults to empty for older synced records that predate
+  // this field.
+  targetMeanings: z.array(z.string().min(1).max(1000)).default([]),
   targetLang: z.string().min(2).max(5),
   // References a VocabSet's id — a plain string, not a relation, matching
   // this schema's loosely-coupled sync design (no cross-entity integrity
