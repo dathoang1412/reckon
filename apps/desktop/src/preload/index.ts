@@ -70,6 +70,12 @@ const api = {
   dictionary: {
     lookup: (word: string) => ipcRenderer.invoke("dictionary:lookup", word) as Promise<DictionaryInfo | null>,
   },
+  tts: {
+    // Base64-encoded MP3 — IPC's structured clone handles ArrayBuffer fine,
+    // but base64 keeps the channel's payload type simple/JSON-serializable
+    // like the rest of the API.
+    speak: (text: string, lang: string) => ipcRenderer.invoke("tts:speak", text, lang) as Promise<string>,
+  },
   sync: {
     run: () => ipcRenderer.invoke("sync:run") as Promise<{ pushed: number; pulled: number }>,
   },

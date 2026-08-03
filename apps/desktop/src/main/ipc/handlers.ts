@@ -5,6 +5,7 @@ import { lookupEnglishWord } from "../services/dictionary";
 import { listDueEntries, rateReview } from "../services/review";
 import { getHotkey, setHotkey } from "../utils/settings";
 import { runSync } from "../services/sync";
+import { synthesizeSpeech } from "../services/tts";
 import type { TranslationResult } from "../services/translate";
 import {
   deleteVocabEntry,
@@ -76,6 +77,11 @@ export function registerIpcHandlers({ registerHotkey }: IpcHandlerDeps): void {
 
   ipcMain.handle("dictionary:lookup", async (_event, word: string) => {
     return lookupEnglishWord(word);
+  });
+
+  ipcMain.handle("tts:speak", async (_event, text: string, lang: string) => {
+    const audio = await synthesizeSpeech(text, lang);
+    return audio.toString("base64");
   });
 
   ipcMain.handle("sync:run", async () => {
