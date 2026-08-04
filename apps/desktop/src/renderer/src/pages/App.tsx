@@ -122,8 +122,8 @@ export default function App() {
     });
   }, []);
 
-  async function handleSearch() {
-    if (!text.trim()) return;
+  async function runSearch(query: string) {
+    if (!query.trim()) return;
     setLooking(true);
     setPreview(null);
     setPreviewAiExamples([]);
@@ -133,12 +133,23 @@ export default function App() {
     setPreviewNuanceState({ loading: false, error: null });
     setPreviewRelatedState({ loading: false, error: null });
     try {
-      setPreview(await window.api.vocab.preview(text.trim()));
+      setPreview(await window.api.vocab.preview(query.trim()));
     } catch (err) {
       toast.error(`Tra từ thất bại: ${err instanceof Error ? err.message : String(err)}`);
     } finally {
       setLooking(false);
     }
+  }
+
+  async function handleSearch() {
+    await runSearch(text);
+  }
+
+  // "Ý bạn là ...?" — re-runs the lookup with Google's spelling correction
+  // instead of what was actually typed (see preview.spellingSuggestion).
+  async function handleUseSpellingSuggestion(suggestion: string) {
+    setText(suggestion);
+    await runSearch(suggestion);
   }
 
   async function handleGeneratePreviewExamples() {
@@ -380,6 +391,15 @@ export default function App() {
               <div style={{ flex: 1, minHeight: 0, overflowY: "auto" }}>
                 {preview && (
                   <Card size="small" style={{ marginBottom: 16 }}>
+                    {preview.spellingSuggestion && (
+                      <Typography.Paragraph type="secondary" style={{ marginTop: 0, marginBottom: 12 }}>
+                        Ý bạn là:{" "}
+                        <Typography.Link onClick={() => handleUseSpellingSuggestion(preview.spellingSuggestion!)}>
+                          {preview.spellingSuggestion}
+                        </Typography.Link>
+                        ?
+                      </Typography.Paragraph>
+                    )}
                     <Space align="start" style={{ width: "100%", justifyContent: "space-between" }}>
                       <Space direction="vertical" size={4}>
                         <span>

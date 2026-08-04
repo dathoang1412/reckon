@@ -6,6 +6,7 @@ import type { TranslationResult } from "../services/translate";
 interface VocabPreviewPayload {
   result: TranslationResult;
   dictionary: DictionaryInfo | null;
+  spellingSuggestion: string | null;
 }
 
 export interface ScreenPoint {

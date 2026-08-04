@@ -10,6 +10,18 @@ export interface TranslationResult {
   targetLang: string;
 }
 
+// Deliberately NOT a field on TranslationResult itself: that type also
+// doubles as saveVocab's input (spread straight into a Prisma `create`),
+// and a stray extra property there would blow up as an "unknown argument"
+// at the DB layer. previewVocab (see vocab.ts) strips this back out before
+// handing callers a plain TranslationResult.
+export interface TranslateOutcome extends TranslationResult {
+  // Google's own "did you mean" correction for likely-misspelled input —
+  // null when it has none (already-correct spelling, or a phrase/sentence
+  // too long for its spell-checker to weigh in on).
+  spellingSuggestion: string | null;
+}
+
 const VIETNAMESE_CHARS =
   /[àáạảãâầấậẩẫăằắặẳẵèéẹẻẽêềếệểễìíịỉĩòóọỏõôồốộổỗơờớợởỡùúụủũưừứựửữỳýỵỷỹđ]/i;
 
@@ -27,6 +39,20 @@ type GoogleTranslateResponse = [GoogleTranslateSegment[], GoogleDictionaryEntry[
 interface GoogleTranslation {
   text: string;
   meanings: string[];
+  spellingSuggestion: string | null;
+}
+
+// Response index 7 is [highlightedHtml, plainSuggestion, [flags]] when
+// Google has a spelling correction to offer, or [] when it doesn't —
+// requires both dt=ss and dt=qc on the request (dt=ss alone leaves this
+// empty). Ignores a "suggestion" that's just an echo of the input.
+function extractSpellingSuggestion(raw: unknown, original: string): string | null {
+  if (!Array.isArray(raw) || raw.length < 2) return null;
+  const suggestion = raw[1];
+  if (typeof suggestion !== "string") return null;
+  const trimmed = suggestion.trim();
+  if (!trimmed || trimmed.toLowerCase() === original.trim().toLowerCase()) return null;
+  return trimmed;
 }
 
 function dedupeMeanings(meanings: string[]): string[] {
@@ -51,7 +77,7 @@ function dedupeMeanings(meanings: string[]): string[] {
 // undocumented and can get IP-rate-limited without warning, hence the
 // MyMemory fallback below.
 async function translateWithGoogle(text: string, source: string, target: string): Promise<GoogleTranslation> {
-  const url = `https://translate.googleapis.com/translate_a/single?client=gtx&sl=${source}&tl=${target}&dt=t&dt=bd&q=${encodeURIComponent(text)}`;
+  const url = `https://translate.googleapis.com/translate_a/single?client=gtx&sl=${source}&tl=${target}&dt=t&dt=bd&dt=ss&dt=qc&q=${encodeURIComponent(text)}`;
   const res = await fetch(url);
   if (!res.ok) throw new Error(`Google Translate HTTP ${res.status}`);
 
@@ -69,7 +95,9 @@ async function translateWithGoogle(text: string, source: string, target: string)
     ? dedupeMeanings([translated, ...dictionary.flatMap((entry) => entry[1] ?? [])])
     : [translated];
 
-  return { text: translated, meanings };
+  const spellingSuggestion = extractSpellingSuggestion(json[7], text);
+
+  return { text: translated, meanings, spellingSuggestion };
 }
 
 interface MyMemoryResponse {
@@ -89,19 +117,23 @@ async function translateWithMyMemory(text: string, source: string, target: strin
   return translated;
 }
 
-export async function translate(text: string): Promise<TranslationResult> {
+export async function translate(text: string): Promise<TranslateOutcome> {
   const { source, target } = detectDirection(text);
 
   let targetText: string;
   let targetMeanings: string[];
+  let spellingSuggestion: string | null = null;
   try {
     const google = await translateWithGoogle(text, source, target);
     targetText = google.text;
     targetMeanings = google.meanings;
+    spellingSuggestion = google.spellingSuggestion;
   } catch {
+    // MyMemory has no spell-check of its own — spellingSuggestion just
+    // stays null rather than needing a second fallback path for it.
     targetText = await translateWithMyMemory(text, source, target);
     targetMeanings = [targetText];
   }
 
-  return { sourceText: text, sourceLang: source, targetText, targetMeanings, targetLang: target };
+  return { sourceText: text, sourceLang: source, targetText, targetMeanings, targetLang: target, spellingSuggestion };
 }

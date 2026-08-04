@@ -23,14 +23,14 @@ async function onHotkeyTriggered(getMainWindow: () => BrowserWindow | null): Pro
   const text = await readSelectedText();
   if (!text) return;
   try {
-    const { result, dictionary } = await previewVocab(text);
+    const { result, dictionary, spellingSuggestion } = await previewVocab(text);
 
     // Off (see Settings): the popup gets an unsaved preview with a manual
     // Save button instead — same "preview, then decide" flow the
     // empty-search-popup hotkey already uses, just anchored at the
     // selection point instead of centered (there's a real selection here).
     if (!getAutoSave()) {
-      showPreviewPopup({ result, dictionary }, cursorPosition);
+      showPreviewPopup({ result, dictionary, spellingSuggestion }, cursorPosition);
       return;
     }
 

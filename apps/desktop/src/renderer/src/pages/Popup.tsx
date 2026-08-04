@@ -129,9 +129,25 @@ function TabBar({ active, onChange }: { active: TabKey; onChange: (key: TabKey) 
   );
 }
 
-function TranslationTab({ entry, dictionary }: { entry: DisplayEntry; dictionary: DictionaryInfo | null }) {
+function TranslationTab({
+  entry,
+  dictionary,
+  spellingSuggestion,
+  onUseSuggestion,
+}: {
+  entry: DisplayEntry;
+  dictionary: DictionaryInfo | null;
+  spellingSuggestion: string | null;
+  onUseSuggestion: (suggestion: string) => void;
+}) {
   return (
     <>
+      {spellingSuggestion && (
+        <Typography.Paragraph type="secondary" style={{ margin: "0 0 8px" }}>
+          Ý bạn là:{" "}
+          <Typography.Link onClick={() => onUseSuggestion(spellingSuggestion)}>{spellingSuggestion}</Typography.Link>?
+        </Typography.Paragraph>
+      )}
       <Tag color="blue">{entry.sourceLang}</Tag>
       <Space align="center" style={{ margin: "8px 0" }}>
         <Typography.Paragraph style={{ margin: 0 }}>{entry.sourceText}</Typography.Paragraph>
@@ -226,6 +242,7 @@ function AiTabPanel({
 export default function Popup() {
   const [entry, setEntry] = useState<DisplayEntry | null>(null);
   const [dictionary, setDictionary] = useState<DictionaryInfo | null>(null);
+  const [spellingSuggestion, setSpellingSuggestion] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<TabKey>("dict");
   const [saving, setSaving] = useState(false);
   const [sets, setSets] = useState<VocabSetRow[]>([]);
@@ -261,18 +278,21 @@ export default function Popup() {
       setSearchMode(false);
       setDictionary(data.dictionary);
       setEntry(fromVocabEntryRow(data.result));
+      setSpellingSuggestion(null);
       setActiveTab("dict");
     });
     window.api.onTranslationPreview((data) => {
       setSearchMode(false);
       setDictionary(data.dictionary);
       setEntry(fromPreview(data.result));
+      setSpellingSuggestion(data.spellingSuggestion);
       setActiveTab("dict");
       setSelectedSetId(UNASSIGNED);
     });
     window.api.onOpenSearchPopup(() => {
       setEntry(null);
       setDictionary(null);
+      setSpellingSuggestion(null);
       setSearchText("");
       setActiveTab("dict");
       setSelectedSetId(UNASSIGNED);
@@ -320,16 +340,15 @@ export default function Popup() {
     const el = contentRef.current;
     if (!el) return;
     window.api.popup.resize({ width: el.scrollWidth, height: el.scrollHeight });
-  }, [entry, dictionary, searchMode, searchOpenSeq, activeTab, aiStatus]);
+  }, [entry, dictionary, spellingSuggestion, searchMode, searchOpenSeq, activeTab, aiStatus]);
 
-  async function handleSearch() {
-    const text = searchText.trim();
-    if (!text) return;
+  async function runPreview(text: string) {
     setSearching(true);
     try {
       const preview = await window.api.vocab.preview(text);
       setDictionary(preview.dictionary);
       setEntry(fromPreview(preview.result));
+      setSpellingSuggestion(preview.spellingSuggestion);
       setActiveTab("dict");
       setSelectedSetId(UNASSIGNED);
     } catch (err) {
@@ -337,6 +356,19 @@ export default function Popup() {
     } finally {
       setSearching(false);
     }
+  }
+
+  async function handleSearch() {
+    const text = searchText.trim();
+    if (!text) return;
+    await runPreview(text);
+  }
+
+  // "Ý bạn là ...?" — re-runs the lookup with Google's spelling correction
+  // instead of what was actually searched/selected (see spellingSuggestion).
+  async function handleUseSpellingSuggestion(suggestion: string) {
+    setSearchText(suggestion);
+    await runPreview(suggestion);
   }
 
   async function handleSave() {
@@ -438,7 +470,14 @@ export default function Popup() {
         <>
           <TabBar active={activeTab} onChange={setActiveTab} />
           <div style={{ padding: 16, overflowY: "auto", maxHeight: MAX_CONTENT_HEIGHT }}>
-            {activeTab === "dict" && <TranslationTab entry={entry} dictionary={dictionary} />}
+            {activeTab === "dict" && (
+              <TranslationTab
+                entry={entry}
+                dictionary={dictionary}
+                spellingSuggestion={spellingSuggestion}
+                onUseSuggestion={handleUseSpellingSuggestion}
+              />
+            )}
 
             {activeTab === "examples" && (
               <AiTabPanel

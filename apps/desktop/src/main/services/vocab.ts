@@ -14,17 +14,21 @@ export function listVocabEntries(prisma: PrismaClient): Promise<VocabEntry[]> {
 export interface VocabPreview {
   result: TranslationResult;
   dictionary: DictionaryInfo | null;
+  spellingSuggestion: string | null;
 }
 
 // Translates + enriches without touching the database, so the UI can show
 // a result and let the user decide whether it's worth keeping before
 // anything is saved.
 export async function previewVocab(text: string): Promise<VocabPreview> {
-  const result = await translate(text);
+  // Destructuring off spellingSuggestion here (not just typing it away)
+  // matters: `result` goes on to saveVocab, which spreads it straight into
+  // a Prisma `create` — a stray extra property would fail there.
+  const { spellingSuggestion, ...result } = await translate(text);
   const englishWord =
     result.sourceLang === "en" ? result.sourceText : result.targetLang === "en" ? result.targetText : null;
   const dictionary = englishWord ? await lookupEnglishWord(englishWord) : null;
-  return { result, dictionary };
+  return { result, dictionary, spellingSuggestion };
 }
 
 export function saveVocab(prisma: PrismaClient, deviceId: string, result: TranslationResult): Promise<VocabEntry> {

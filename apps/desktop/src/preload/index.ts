@@ -81,6 +81,9 @@ export interface TranslationResultData {
 export interface VocabPreview {
   result: TranslationResultData;
   dictionary: DictionaryInfo | null;
+  // Google's own "did you mean" correction for likely-misspelled input —
+  // null when it has none.
+  spellingSuggestion: string | null;
 }
 
 export interface AuthSession {
