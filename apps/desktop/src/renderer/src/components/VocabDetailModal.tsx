@@ -1,14 +1,22 @@
 import { useEffect, useState } from "react";
-import {
-  ApartmentOutlined,
-  CloseOutlined,
-  DiffOutlined,
-  FileTextOutlined,
-  BulbOutlined,
-  SoundOutlined,
-  ThunderboltOutlined,
-} from "@ant-design/icons";
-import { Button, Input, Modal, Select, Space, Spin, Tag, Tooltip, Typography } from "antd";
+import AccountTreeIcon from "@mui/icons-material/AccountTree";
+import BoltIcon from "@mui/icons-material/Bolt";
+import CloseIcon from "@mui/icons-material/Close";
+import CompareArrowsIcon from "@mui/icons-material/CompareArrows";
+import DescriptionIcon from "@mui/icons-material/Description";
+import LightbulbIcon from "@mui/icons-material/Lightbulb";
+import VolumeUpIcon from "@mui/icons-material/VolumeUp";
+import Autocomplete from "@mui/material/Autocomplete";
+import Button from "@mui/material/Button";
+import Chip from "@mui/material/Chip";
+import CircularProgress from "@mui/material/CircularProgress";
+import Dialog from "@mui/material/Dialog";
+import DialogContent from "@mui/material/DialogContent";
+import IconButton from "@mui/material/IconButton";
+import Stack from "@mui/material/Stack";
+import TextField from "@mui/material/TextField";
+import Tooltip from "@mui/material/Tooltip";
+import Typography from "@mui/material/Typography";
 import toast from "react-hot-toast";
 import type { DictionaryInfo, TagSuggestion, VocabEntryRow } from "../../../preload/index";
 import AiSection from "./AiSection";
@@ -179,73 +187,45 @@ export default function VocabDetailModal({
   }
 
   return (
-    <Modal
-      open={!!entry}
-      onCancel={onClose}
-      footer={null}
-      destroyOnHidden
-      centered
-      // antd's default close button is absolutely positioned over the
-      // content's top-right corner, which collided with this modal's own
-      // scrollbar there — closable={false} + a hand-rolled button in normal
-      // flow (below, outside the scroll area) sidesteps that entirely
-      // instead of guessing padding to match antd's internal offsets.
-      closable={false}
-      // antd's own modal wrap also scrolls by default (overflow: auto) —
-      // with the body below already managing its own scroll region
-      // (maxHeight 70vh + overflowY auto), that produced two nested
-      // scrollbars once the note/tags/definition section made content
-      // taller. Disabling the wrap's own scroll leaves exactly one.
-      styles={{ wrapper: { overflow: "hidden" } }}
-    >
+    <Dialog open={!!entry} onClose={onClose} fullWidth maxWidth="sm" scroll="paper">
       {entry && (
         <>
-          <div style={{ display: "flex", justifyContent: "flex-end" }}>
-            <Button type="text" size="small" icon={<CloseOutlined />} onClick={onClose} />
+          <div style={{ display: "flex", justifyContent: "flex-end", padding: "8px 8px 0" }}>
+            <IconButton size="small" onClick={onClose}>
+              <CloseIcon fontSize="small" />
+            </IconButton>
           </div>
-          <div style={{ maxHeight: "70vh", overflowY: "auto", paddingRight: 4 }}>
-            <Typography.Text type="secondary" style={{ fontSize: styleTokens.secondaryFontSize }}>
+          <DialogContent sx={{ paddingTop: 0 }}>
+            <Typography color="text.secondary" sx={{ fontSize: styleTokens.secondaryFontSize }}>
               {dayLabel(entry.createdAt)} · {timeLabel(entry.createdAt)}
-            </Typography.Text>
-            <Tag color="blue" style={{ display: "block", width: "fit-content", marginTop: 4 }}>
-              {entry.sourceLang}
-            </Tag>
-            <Space align="center" style={{ margin: "8px 0" }}>
-              <Typography.Paragraph style={{ margin: 0 }}>{entry.sourceText}</Typography.Paragraph>
+            </Typography>
+            <Chip label={entry.sourceLang} color="primary" size="small" sx={{ display: "flex", width: "fit-content", marginTop: "4px" }} />
+            <Stack direction="row" sx={{ alignItems: "center", margin: "8px 0" }}>
+              <Typography sx={{ margin: 0 }}>{entry.sourceText}</Typography>
               {entry.sourceLang !== "vi" && (
-                <Button
-                  type="text"
-                  size="small"
-                  icon={<SoundOutlined />}
-                  onClick={() => speak(entry.sourceText, entry.sourceLang)}
-                />
+                <IconButton size="small" onClick={() => speak(entry.sourceText, entry.sourceLang)}>
+                  <VolumeUpIcon fontSize="small" />
+                </IconButton>
               )}
-            </Space>
-            <Tag color="green">{entry.targetLang}</Tag>
-            <Space align="center" style={{ margin: "8px 0 0" }}>
-              <Typography.Paragraph strong style={{ margin: 0 }}>
-                {entry.targetText}
-              </Typography.Paragraph>
+            </Stack>
+            <Chip label={entry.targetLang} color="success" size="small" />
+            <Stack direction="row" sx={{ alignItems: "center", margin: "8px 0 0" }}>
+              <Typography sx={{ margin: 0, fontWeight: 600 }}>{entry.targetText}</Typography>
               {entry.targetLang !== "vi" && (
-                <Button
-                  type="text"
-                  size="small"
-                  icon={<SoundOutlined />}
-                  onClick={() => speak(entry.targetText, entry.targetLang)}
-                />
+                <IconButton size="small" onClick={() => speak(entry.targetText, entry.targetLang)}>
+                  <VolumeUpIcon fontSize="small" />
+                </IconButton>
               )}
-            </Space>
+            </Stack>
             {entry.targetMeanings.length > 1 && (
-              <Space size={[4, 4]} wrap style={{ marginTop: 4 }}>
+              <Stack direction="row" spacing={0.5} sx={{ flexWrap: "wrap", marginTop: "4px" }}>
                 {entry.targetMeanings.slice(1).map((meaning) => (
-                  <Tag key={meaning} color="default">
-                    {meaning}
-                  </Tag>
+                  <Chip key={meaning} label={meaning} size="small" variant="outlined" />
                 ))}
-              </Space>
+              </Stack>
             )}
 
-            {loading && <Spin style={{ display: "block", margin: "16px 0" }} />}
+            {loading && <CircularProgress size={20} sx={{ display: "block", margin: "16px 0" }} />}
             {dictionary && <DictionaryPanel dictionary={dictionary} />}
 
             <div
@@ -255,23 +235,27 @@ export default function VocabDetailModal({
                 paddingTop: 12,
               }}
             >
-              <Typography.Text strong>Ghi chú</Typography.Text>
-              <Input.TextArea
+              <Typography sx={{ fontWeight: 600 }}>Ghi chú</Typography>
+              <TextField
                 value={note}
                 onChange={(e) => setNote(e.target.value)}
                 placeholder="Ghi chú cá nhân..."
-                autoSize={{ minRows: 2, maxRows: 4 }}
-                style={{ marginTop: 4 }}
+                multiline
+                minRows={2}
+                maxRows={4}
+                fullWidth
+                sx={{ marginTop: "4px" }}
               />
-              <Typography.Text strong style={{ display: "block", marginTop: 12 }}>
-                Định nghĩa riêng
-              </Typography.Text>
-              <Input.TextArea
+              <Typography sx={{ fontWeight: 600, display: "block", marginTop: "12px" }}>Định nghĩa riêng</Typography>
+              <TextField
                 value={definition}
                 onChange={(e) => setDefinition(e.target.value)}
                 placeholder="Định nghĩa của riêng bạn..."
-                autoSize={{ minRows: 2, maxRows: 4 }}
-                style={{ marginTop: 4 }}
+                multiline
+                minRows={2}
+                maxRows={4}
+                fullWidth
+                sx={{ marginTop: "4px" }}
               />
               <div
                 style={{
@@ -281,13 +265,12 @@ export default function VocabDetailModal({
                   marginTop: 12,
                 }}
               >
-                <Typography.Text strong>Nhãn</Typography.Text>
-                <Tooltip title={hasGroqKey === false ? "Cần thêm Groq API key trong Cài đặt" : undefined}>
+                <Typography sx={{ fontWeight: 600 }}>Nhãn</Typography>
+                <Tooltip title={hasGroqKey === false ? "Cần thêm Groq API key trong Cài đặt" : ""}>
                   <span>
                     <Button
-                      type="link"
                       size="small"
-                      icon={<ThunderboltOutlined />}
+                      startIcon={<BoltIcon />}
                       loading={suggesting}
                       disabled={hasGroqKey === false}
                       onClick={handleSuggestTags}
@@ -297,82 +280,82 @@ export default function VocabDetailModal({
                   </span>
                 </Tooltip>
               </div>
-              <Select
-                mode="tags"
+              <Autocomplete
+                multiple
+                freeSolo
+                options={[]}
                 value={tags}
-                onChange={setTags}
-                style={{ width: "100%", marginTop: 4 }}
-                placeholder="Thêm nhãn..."
-                tokenSeparators={[","]}
+                onChange={(_e, value) => setTags(value as string[])}
+                renderValue={(value, getItemProps) =>
+                  value.map((option, index) => {
+                    const { key, ...itemProps } = getItemProps({ index });
+                    return <Chip key={key} label={option} size="small" {...itemProps} />;
+                  })
+                }
+                renderInput={(params) => <TextField {...params} placeholder="Thêm nhãn..." />}
+                sx={{ marginTop: "4px" }}
               />
               {suggestedTags && (suggestedTags.tags.length > 0 || suggestedTags.suggestedSetId) && (
-                <Space size={[4, 4]} wrap style={{ marginTop: 6 }}>
+                <Stack direction="row" spacing={0.5} sx={{ flexWrap: "wrap", marginTop: "6px" }}>
                   {suggestedTags.tags
                     .filter((t) => !tags.includes(t))
                     .map((t) => (
-                      <Tag
+                      <Chip
                         key={t}
-                        style={{ cursor: "pointer", borderStyle: "dashed" }}
+                        label={`+ ${t}`}
+                        variant="outlined"
+                        sx={{ cursor: "pointer", borderStyle: "dashed" }}
                         onClick={() => acceptSuggestedTag(t)}
-                      >
-                        + {t}
-                      </Tag>
+                      />
                     ))}
                   {suggestedTags.suggestedSetId && (
-                    <Tag color="blue" style={{ cursor: "pointer" }} onClick={acceptSuggestedSet}>
-                      Xếp vào: {suggestedTags.suggestedSetName}
-                    </Tag>
+                    <Chip
+                      label={`Xếp vào: ${suggestedTags.suggestedSetName}`}
+                      color="primary"
+                      sx={{ cursor: "pointer" }}
+                      onClick={acceptSuggestedSet}
+                    />
                   )}
-                </Space>
+                </Stack>
               )}
-              <Button
-                type="primary"
-                size="small"
-                loading={savingEdit}
-                onClick={handleSaveEdit}
-                style={{ marginTop: 12 }}
-              >
+              <Button variant="contained" size="small" loading={savingEdit} onClick={handleSaveEdit} sx={{ marginTop: "12px" }}>
                 Lưu
               </Button>
             </div>
 
             <AiSection
-              icon={<FileTextOutlined />}
+              icon={<DescriptionIcon fontSize="small" />}
               title="Ví dụ câu"
               hasContent={entry.aiExamples.length > 0}
               loading={examplesLoading}
               error={examplesError}
               onGenerate={handleGenerateExamples}
             >
-              <Space direction="vertical" size={8} style={{ width: "100%" }}>
+              <Stack spacing={1} sx={{ width: "100%" }}>
                 {entry.aiExamples.map((ex, i) => (
                   <div key={i}>
-                    <Typography.Text>{ex.sentence}</Typography.Text>
-                    <Typography.Text
-                      type="secondary"
-                      italic
-                      style={{ display: "block", fontSize: styleTokens.secondaryFontSize }}
-                    >
+                    <Typography>{ex.sentence}</Typography>
+                    <Typography color="text.secondary" sx={{ display: "block", fontSize: styleTokens.secondaryFontSize, fontStyle: "italic" }}>
                       {ex.translation}
-                    </Typography.Text>
+                    </Typography>
                   </div>
                 ))}
-              </Space>
+              </Stack>
             </AiSection>
 
             <AiSection
-              icon={<DiffOutlined />}
+              icon={<CompareArrowsIcon fontSize="small" />}
               title="Sắc thái & ngữ cảnh"
               hasContent={!!entry.aiNuance}
               loading={nuanceLoading}
               error={nuanceError}
               onGenerate={handleExplainNuance}
             >
-              <Typography.Paragraph style={{ margin: 0 }}>{entry.aiNuance}</Typography.Paragraph>
+              <Typography sx={{ margin: 0 }}>{entry.aiNuance}</Typography>
             </AiSection>
 
             <AiSection
-              icon={<ApartmentOutlined />}
+              icon={<AccountTreeIcon fontSize="small" />}
               title="Từ liên quan"
               hasContent={!!entry.aiRelatedWords}
               loading={relatedLoading}
@@ -383,64 +366,70 @@ export default function VocabDetailModal({
               onGenerate={handleSuggestRelatedWords}
             >
               {entry.aiRelatedWords && (
-                <Space direction="vertical" size={6} style={{ width: "100%" }}>
+                <Stack spacing={0.75} sx={{ width: "100%" }}>
                   {entry.aiRelatedWords.synonyms.length > 0 && (
                     <div>
-                      <Typography.Text type="secondary" style={{ fontSize: styleTokens.secondaryFontSize }}>
+                      <Typography color="text.secondary" sx={{ fontSize: styleTokens.secondaryFontSize }}>
                         Đồng nghĩa
-                      </Typography.Text>
+                      </Typography>
                       <div>
                         {entry.aiRelatedWords.synonyms.map((w) => (
-                          <Tag key={w}>{w}</Tag>
+                          <Chip key={w} label={w} size="small" sx={{ marginRight: 0.5, marginBottom: 0.5 }} />
                         ))}
                       </div>
                     </div>
                   )}
                   {entry.aiRelatedWords.antonyms.length > 0 && (
                     <div>
-                      <Typography.Text type="secondary" style={{ fontSize: styleTokens.secondaryFontSize }}>
+                      <Typography color="text.secondary" sx={{ fontSize: styleTokens.secondaryFontSize }}>
                         Trái nghĩa
-                      </Typography.Text>
+                      </Typography>
                       <div>
                         {entry.aiRelatedWords.antonyms.map((w) => (
-                          <Tag key={w} color="default">
-                            {w}
-                          </Tag>
+                          <Chip key={w} label={w} size="small" variant="outlined" sx={{ marginRight: 0.5, marginBottom: 0.5 }} />
                         ))}
                       </div>
                     </div>
                   )}
                   {entry.aiRelatedWords.forms.length > 0 && (
                     <div>
-                      <Typography.Text type="secondary" style={{ fontSize: styleTokens.secondaryFontSize }}>
+                      <Typography color="text.secondary" sx={{ fontSize: styleTokens.secondaryFontSize }}>
                         Dạng từ khác
-                      </Typography.Text>
+                      </Typography>
                       <div>
                         {entry.aiRelatedWords.forms.map((f, i) => (
-                          <Tag key={i} color="blue">
-                            {f.word} <Typography.Text type="secondary">({f.pos})</Typography.Text>
-                          </Tag>
+                          <Chip
+                            key={i}
+                            label={
+                              <>
+                                {f.word} <Typography component="span" color="text.secondary">({f.pos})</Typography>
+                              </>
+                            }
+                            color="primary"
+                            size="small"
+                            sx={{ marginRight: 0.5, marginBottom: 0.5 }}
+                          />
                         ))}
                       </div>
                     </div>
                   )}
-                </Space>
+                </Stack>
               )}
             </AiSection>
 
             <AiSection
-              icon={<BulbOutlined />}
+              icon={<LightbulbIcon fontSize="small" />}
               title="Mẹo ghi nhớ"
               hasContent={!!entry.mnemonic}
               loading={mnemonicLoading}
               error={mnemonicError}
               onGenerate={handleGenerateMnemonic}
             >
-              <Typography.Text>{entry.mnemonic}</Typography.Text>
+              <Typography>{entry.mnemonic}</Typography>
             </AiSection>
-          </div>
+          </DialogContent>
         </>
       )}
-    </Modal>
+    </Dialog>
   );
 }

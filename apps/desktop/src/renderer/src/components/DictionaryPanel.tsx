@@ -1,37 +1,38 @@
-import { SoundOutlined } from "@ant-design/icons";
-import { Button, Divider, Space, Tag, Typography } from "antd";
+import VolumeUpIcon from "@mui/icons-material/VolumeUp";
+import Divider from "@mui/material/Divider";
+import IconButton from "@mui/material/IconButton";
+import Chip from "@mui/material/Chip";
+import Stack from "@mui/material/Stack";
+import Typography from "@mui/material/Typography";
 import type { DictionaryInfo } from "../../../preload/index";
 
 export default function DictionaryPanel({ dictionary }: { dictionary: DictionaryInfo }) {
   return (
     <>
-      <Divider style={{ margin: "10px 0" }} />
+      <Divider sx={{ margin: "10px 0" }} />
       {dictionary.phonetic && (
-        <Typography.Text type="secondary" style={{ display: "block", marginBottom: 6 }}>
+        <Typography color="text.secondary" sx={{ display: "block", marginBottom: "6px" }}>
           /{dictionary.phonetic}/
           {dictionary.audioUrl && (
-            <Button
-              type="text"
-              size="small"
-              icon={<SoundOutlined />}
-              onClick={() => new Audio(dictionary.audioUrl).play()}
-            />
+            <IconButton size="small" onClick={() => new Audio(dictionary.audioUrl).play()}>
+              <VolumeUpIcon fontSize="small" />
+            </IconButton>
           )}
-        </Typography.Text>
+        </Typography>
       )}
-      <Space direction="vertical" size={6} style={{ width: "100%" }}>
+      <Stack spacing={0.75} sx={{ width: "100%" }}>
         {dictionary.definitions.map((d, i) => (
           <div key={i}>
-            <Tag color="default">{d.partOfSpeech}</Tag>
-            <Typography.Text style={{ display: "block", marginTop: 2 }}>{d.definition}</Typography.Text>
+            <Chip label={d.partOfSpeech} size="small" variant="outlined" />
+            <Typography sx={{ display: "block", marginTop: "2px" }}>{d.definition}</Typography>
             {d.example && (
-              <Typography.Text italic type="secondary" style={{ display: "block" }}>
+              <Typography color="text.secondary" sx={{ display: "block", fontStyle: "italic" }}>
                 “{d.example}”
-              </Typography.Text>
+              </Typography>
             )}
           </div>
         ))}
-      </Space>
+      </Stack>
     </>
   );
 }

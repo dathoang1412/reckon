@@ -15,11 +15,13 @@
     "prisma:migrate": "prisma migrate dev"
   },
   "dependencies": {
-    "@ant-design/icons": "^6.3.2",
+    "@emotion/react": "^11.14.0",
+    "@emotion/styled": "^11.14.1",
+    "@mui/icons-material": "^9.2.0",
+    "@mui/material": "^9.2.0",
     "@nut-tree-fork/nut-js": "^4.2.6",
     "@prisma/client": "^5.22.0",
     "@reckon/shared": "workspace:*",
-    "antd": "^6.5.3",
     "electron-store": "^8.2.0",
     "electron-updater": "^6.8.9",
     "react": "^18.3.1",

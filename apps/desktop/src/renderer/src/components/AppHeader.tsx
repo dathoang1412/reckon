@@ -1,6 +1,15 @@
-import { SyncOutlined } from "@ant-design/icons";
-import { Button, Segmented, Typography } from "antd";
+import SyncIcon from "@mui/icons-material/Sync";
+import Button from "@mui/material/Button";
+import ToggleButton from "@mui/material/ToggleButton";
+import ToggleButtonGroup from "@mui/material/ToggleButtonGroup";
+import Typography from "@mui/material/Typography";
+import { keyframes } from "@mui/material/styles";
 import { COLOR_PRIMARY, styleTokens } from "../theme";
+
+const spin = keyframes`
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+`;
 
 export type AppView = "list" | "review" | "settings";
 
@@ -13,11 +22,6 @@ const VIEW_OPTIONS: { label: string; value: AppView }[] = [
 // Persistent chrome shared by every view — previously Settings/Review fully
 // replaced the whole window (own header, own back button), which made the
 // app feel like a stack of disconnected screens instead of one piece.
-//
-// Plain flexbox rather than antd's Space: Space's children don't reliably
-// wrap under `flexWrap` (its gap is implemented via child margins, not a
-// real CSS gap), which let the Sync button get clipped off the right edge
-// on a narrower window instead of dropping to its own row.
 export default function AppHeader({
   view,
   onChangeView,
@@ -44,11 +48,28 @@ export default function AppHeader({
         flexShrink: 0,
       }}
     >
-      <Typography.Title level={4} style={{ margin: 0, color: COLOR_PRIMARY, flexShrink: 0 }}>
+      <Typography variant="h6" sx={{ margin: 0, color: COLOR_PRIMARY, flexShrink: 0 }}>
         Reckon
-      </Typography.Title>
-      <Segmented value={view} onChange={(value) => onChangeView(value as AppView)} options={VIEW_OPTIONS} />
-      <Button icon={<SyncOutlined spin={syncing} />} loading={syncing} onClick={onSync} style={{ flexShrink: 0 }}>
+      </Typography>
+      <ToggleButtonGroup
+        value={view}
+        exclusive
+        onChange={(_e, value: AppView | null) => value && onChangeView(value)}
+        size="small"
+      >
+        {VIEW_OPTIONS.map((opt) => (
+          <ToggleButton key={opt.value} value={opt.value}>
+            {opt.label}
+          </ToggleButton>
+        ))}
+      </ToggleButtonGroup>
+      <Button
+        variant="outlined"
+        startIcon={<SyncIcon sx={syncing ? { animation: `${spin} 1s linear infinite` } : undefined} />}
+        loading={syncing}
+        onClick={onSync}
+        sx={{ flexShrink: 0 }}
+      >
         Sync now
       </Button>
     </div>

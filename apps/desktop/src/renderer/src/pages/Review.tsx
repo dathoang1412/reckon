@@ -1,6 +1,22 @@
 import { useEffect, useState } from "react";
-import { BulbOutlined, CheckOutlined, CloseOutlined, SoundOutlined } from "@ant-design/icons";
-import { Button, Card, Empty, Progress, Segmented, Select, Skeleton, Space, Tag, Typography } from "antd";
+import CheckIcon from "@mui/icons-material/Check";
+import CloseIcon from "@mui/icons-material/Close";
+import LightbulbIcon from "@mui/icons-material/Lightbulb";
+import QuizIcon from "@mui/icons-material/Quiz";
+import VolumeUpIcon from "@mui/icons-material/VolumeUp";
+import Button from "@mui/material/Button";
+import Card from "@mui/material/Card";
+import CardContent from "@mui/material/CardContent";
+import Chip from "@mui/material/Chip";
+import IconButton from "@mui/material/IconButton";
+import LinearProgress from "@mui/material/LinearProgress";
+import MenuItem from "@mui/material/MenuItem";
+import Select from "@mui/material/Select";
+import Skeleton from "@mui/material/Skeleton";
+import Stack from "@mui/material/Stack";
+import ToggleButton from "@mui/material/ToggleButton";
+import ToggleButtonGroup from "@mui/material/ToggleButtonGroup";
+import Typography from "@mui/material/Typography";
 import type { DueEntryRow, QuizQuestion, VocabSetRow } from "../../../preload/index";
 import { speak } from "../lib/speak";
 
@@ -96,40 +112,47 @@ export default function Review() {
   const setSelector = (
     <Select
       value={setId ?? ALL_SETS}
-      onChange={(value) => setSetId(value === ALL_SETS ? null : value)}
-      style={{ width: "100%", marginBottom: 16 }}
-      options={[{ value: ALL_SETS, label: "Tất cả" }, ...sets.map((s) => ({ value: s.id, label: s.name }))]}
-    />
+      onChange={(e) => setSetId(e.target.value === ALL_SETS ? null : e.target.value)}
+      size="small"
+      fullWidth
+      sx={{ marginBottom: 2 }}
+    >
+      <MenuItem value={ALL_SETS}>Tất cả</MenuItem>
+      {sets.map((s) => (
+        <MenuItem key={s.id} value={s.id}>
+          {s.name}
+        </MenuItem>
+      ))}
+    </Select>
   );
 
   const modeSelector = (
-    <Segmented
-      block
+    <ToggleButtonGroup
       value={mode}
-      onChange={(value) => setMode(value as ReviewMode)}
-      options={[
-        { label: "Thẻ ghi nhớ", value: "flashcard" },
-        { label: "Trắc nghiệm (AI)", value: "quiz" },
-      ]}
-      style={{ marginBottom: 16 }}
-    />
+      exclusive
+      onChange={(_e, value: ReviewMode | null) => value && setMode(value)}
+      fullWidth
+      sx={{ marginBottom: 2 }}
+    >
+      <ToggleButton value="flashcard">Thẻ ghi nhớ</ToggleButton>
+      <ToggleButton value="quiz">Trắc nghiệm (AI)</ToggleButton>
+    </ToggleButtonGroup>
   );
 
   if (queue === null) {
-    return (
-      <div style={{ maxWidth: 480, margin: "2rem auto", padding: "0 1rem" }}>
-        {setSelector}
-      </div>
-    );
+    return <div style={{ maxWidth: 480, margin: "2rem auto", padding: "0 1rem" }}>{setSelector}</div>;
   }
 
   if (queue.length === 0) {
     return (
       <div style={{ maxWidth: 480, margin: "2rem auto", padding: "0 1rem" }}>
         {setSelector}
-        <div style={{ margin: "4rem 0", textAlign: "center" }}>
-          <Empty description={total === 0 ? "Không có từ nào cần ôn" : "Đã ôn xong hết lượt này"} />
-        </div>
+        <Stack spacing={1} sx={{ alignItems: "center", margin: "4rem 0", color: "text.secondary" }}>
+          <QuizIcon fontSize="large" color="disabled" />
+          <Typography color="text.secondary">
+            {total === 0 ? "Không có từ nào cần ôn" : "Đã ôn xong hết lượt này"}
+          </Typography>
+        </Stack>
       </div>
     );
   }
@@ -141,114 +164,120 @@ export default function Review() {
     <div style={{ maxWidth: 480, margin: "2rem auto", padding: "0 1rem" }}>
       {setSelector}
       {modeSelector}
-      <Progress percent={Math.round((reviewed / total) * 100)} showInfo={false} />
-      <Typography.Text type="secondary">
+      <LinearProgress variant="determinate" value={Math.round((reviewed / total) * 100)} />
+      <Typography color="text.secondary">
         {reviewed}/{total}
-      </Typography.Text>
-      <Card style={{ marginTop: 16, minHeight: 180, textAlign: "center" }}>
-        <Space direction="vertical" size={12} style={{ width: "100%" }}>
-          <Tag color="blue">{card.sourceLang}</Tag>
-          <Space align="center">
-            <Typography.Title level={3} style={{ margin: 0 }}>
-              {card.sourceText}
-            </Typography.Title>
-            {card.sourceLang !== "vi" && (
-              <Button icon={<SoundOutlined />} onClick={() => speak(card.sourceText, card.sourceLang)} />
-            )}
-          </Space>
+      </Typography>
+      <Card sx={{ marginTop: 2, minHeight: 180, textAlign: "center" }}>
+        <CardContent>
+          <Stack spacing={1.5} sx={{ alignItems: "center", width: "100%" }}>
+            <Chip label={card.sourceLang} color="primary" size="small" />
+            <Stack direction="row" sx={{ alignItems: "center" }}>
+              <Typography variant="h5" sx={{ margin: 0 }}>
+                {card.sourceText}
+              </Typography>
+              {card.sourceLang !== "vi" && (
+                <IconButton onClick={() => speak(card.sourceText, card.sourceLang)}>
+                  <VolumeUpIcon />
+                </IconButton>
+              )}
+            </Stack>
 
-          {mode === "flashcard" &&
-            (revealed ? (
-              <>
-                <Tag color="green">{card.targetLang}</Tag>
-                <Space align="center">
-                  <Typography.Title level={4} style={{ margin: 0 }}>
-                    {card.targetText}
-                  </Typography.Title>
-                  {card.targetLang !== "vi" && (
-                    <Button icon={<SoundOutlined />} onClick={() => speak(card.targetText, card.targetLang)} />
+            {mode === "flashcard" &&
+              (revealed ? (
+                <>
+                  <Chip label={card.targetLang} color="success" size="small" />
+                  <Stack direction="row" sx={{ alignItems: "center" }}>
+                    <Typography variant="h6" sx={{ margin: 0 }}>
+                      {card.targetText}
+                    </Typography>
+                    {card.targetLang !== "vi" && (
+                      <IconButton onClick={() => speak(card.targetText, card.targetLang)}>
+                        <VolumeUpIcon />
+                      </IconButton>
+                    )}
+                  </Stack>
+                  {card.targetMeanings.length > 1 && (
+                    <Stack direction="row" spacing={0.5} sx={{ flexWrap: "wrap", justifyContent: "center" }}>
+                      {card.targetMeanings.slice(1).map((meaning) => (
+                        <Chip key={meaning} label={meaning} size="small" variant="outlined" />
+                      ))}
+                    </Stack>
                   )}
-                </Space>
-                {card.targetMeanings.length > 1 && (
-                  <Space size={[4, 4]} wrap style={{ justifyContent: "center" }}>
-                    {card.targetMeanings.slice(1).map((meaning) => (
-                      <Tag key={meaning} color="default">
-                        {meaning}
-                      </Tag>
-                    ))}
-                  </Space>
-                )}
-              </>
-            ) : (
-              <Space direction="vertical" size={4}>
-                <Button onClick={() => setRevealed(true)}>Hiện đáp án</Button>
-                {card.mnemonic && (
-                  <Button
-                    type="link"
-                    size="small"
-                    icon={<BulbOutlined />}
-                    onClick={() => setShowMnemonic((v) => !v)}
-                  >
-                    {showMnemonic ? "Ẩn mẹo ghi nhớ" : "Xem mẹo ghi nhớ"}
+                </>
+              ) : (
+                <Stack spacing={0.5} sx={{ alignItems: "center" }}>
+                  <Button variant="outlined" onClick={() => setRevealed(true)}>
+                    Hiện đáp án
                   </Button>
-                )}
-                {showMnemonic && card.mnemonic && (
-                  <Typography.Text type="secondary" italic style={{ display: "block", maxWidth: 360 }}>
-                    {card.mnemonic}
-                  </Typography.Text>
-                )}
-              </Space>
-            ))}
+                  {card.mnemonic && (
+                    <Button size="small" startIcon={<LightbulbIcon />} onClick={() => setShowMnemonic((v) => !v)}>
+                      {showMnemonic ? "Ẩn mẹo ghi nhớ" : "Xem mẹo ghi nhớ"}
+                    </Button>
+                  )}
+                  {showMnemonic && card.mnemonic && (
+                    <Typography color="text.secondary" sx={{ display: "block", maxWidth: 360, fontStyle: "italic" }}>
+                      {card.mnemonic}
+                    </Typography>
+                  )}
+                </Stack>
+              ))}
 
-          {mode === "quiz" &&
-            (quizLoading ? (
-              <Space direction="vertical" size={8} style={{ width: "100%" }}>
-                {[0, 1, 2, 3].map((i) => (
-                  <Skeleton.Button key={i} active block />
-                ))}
-              </Space>
-            ) : quizError ? (
-              <Space direction="vertical" size={8}>
-                <Typography.Text type="danger">{quizError}</Typography.Text>
-                <Space>
-                  <Button onClick={() => loadQuiz(card.id)}>Thử lại</Button>
-                  <Button onClick={() => setMode("flashcard")}>Chuyển sang thẻ ghi nhớ</Button>
-                </Space>
-              </Space>
-            ) : (
-              quiz && (
-                <Space direction="vertical" size={8} style={{ width: "100%" }}>
-                  {quiz.options.map((option, i) => {
-                    const isCorrect = i === quiz.correctIndex;
-                    const isSelected = i === selectedOption;
-                    const revealedStyle =
-                      selectedOption !== null ? (isCorrect ? CORRECT_STYLE : isSelected ? WRONG_STYLE : undefined) : undefined;
-                    return (
-                      <Button
-                        key={i}
-                        block
-                        disabled={selectedOption !== null}
-                        style={revealedStyle}
-                        onClick={() => handleQuizAnswer(i)}
-                      >
-                        {option}
-                      </Button>
-                    );
-                  })}
-                </Space>
-              )
-            ))}
-        </Space>
+            {mode === "quiz" &&
+              (quizLoading ? (
+                <Stack spacing={1} sx={{ width: "100%" }}>
+                  {[0, 1, 2, 3].map((i) => (
+                    <Skeleton key={i} variant="rounded" height={36} />
+                  ))}
+                </Stack>
+              ) : quizError ? (
+                <Stack spacing={1}>
+                  <Typography color="error">{quizError}</Typography>
+                  <Stack direction="row" spacing={1}>
+                    <Button variant="outlined" onClick={() => loadQuiz(card.id)}>
+                      Thử lại
+                    </Button>
+                    <Button variant="outlined" onClick={() => setMode("flashcard")}>
+                      Chuyển sang thẻ ghi nhớ
+                    </Button>
+                  </Stack>
+                </Stack>
+              ) : (
+                quiz && (
+                  <Stack spacing={1} sx={{ width: "100%" }}>
+                    {quiz.options.map((option, i) => {
+                      const isCorrect = i === quiz.correctIndex;
+                      const isSelected = i === selectedOption;
+                      const revealedStyle =
+                        selectedOption !== null ? (isCorrect ? CORRECT_STYLE : isSelected ? WRONG_STYLE : undefined) : undefined;
+                      return (
+                        <Button
+                          key={i}
+                          variant="outlined"
+                          fullWidth
+                          disabled={selectedOption !== null}
+                          sx={revealedStyle}
+                          onClick={() => handleQuizAnswer(i)}
+                        >
+                          {option}
+                        </Button>
+                      );
+                    })}
+                  </Stack>
+                )
+              ))}
+          </Stack>
+        </CardContent>
       </Card>
       {mode === "flashcard" && revealed && (
-        <Space style={{ width: "100%", justifyContent: "center", marginTop: 16 }} size="large">
-          <Button danger icon={<CloseOutlined />} loading={rating} onClick={() => rate(false)}>
+        <Stack direction="row" spacing={2} sx={{ width: "100%", justifyContent: "center", marginTop: 2 }}>
+          <Button variant="outlined" color="error" startIcon={<CloseIcon />} loading={rating} onClick={() => rate(false)}>
             Chưa nhớ
           </Button>
-          <Button type="primary" icon={<CheckOutlined />} loading={rating} onClick={() => rate(true)}>
+          <Button variant="contained" startIcon={<CheckIcon />} loading={rating} onClick={() => rate(true)}>
             Đã nhớ
           </Button>
-        </Space>
+        </Stack>
       )}
     </div>
   );
