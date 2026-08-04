@@ -437,6 +437,28 @@ export default function Popup() {
     }
   }
 
+  // Switching to an AI tab generates automatically instead of waiting for
+  // the "Tạo với AI" button — but only the first time: skipped once there's
+  // already content, a request in flight, or a past error (that still needs
+  // an explicit "Thử lại" so a bad key/network blip doesn't retry-loop every
+  // time the user tabs back to it).
+  useEffect(() => {
+    if (!entry) return;
+    if (activeTab !== "examples" && activeTab !== "nuance" && activeTab !== "related") return;
+    if (activeTab === "related" && entry.sourceLang !== "en" && entry.targetLang !== "en") return;
+
+    const hasContent =
+      activeTab === "examples"
+        ? entry.aiExamples.length > 0
+        : activeTab === "nuance"
+          ? !!entry.aiNuance
+          : !!entry.aiRelatedWords;
+    const status = aiStatus[activeTab];
+    if (hasContent || status.loading || status.error) return;
+
+    handleGenerate(activeTab);
+  }, [activeTab, entry, aiStatus]);
+
   const isEnglishPair = !!entry && (entry.sourceLang === "en" || entry.targetLang === "en");
 
   return (
