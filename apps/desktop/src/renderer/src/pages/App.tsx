@@ -357,7 +357,12 @@ export default function App() {
               minHeight: 0,
             }}
           >
-            <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column" }}>
+            {/* minWidth:320 (not 0) is a deliberate floor, not a relic — it's
+                what the sidebar's fixed 220px is sized against (see
+                mainWindow.ts's new BrowserWindow minWidth:720), so this
+                column has a guaranteed usable width instead of getting
+                squeezed toward 0 alongside it. */}
+            <div style={{ flex: 1, minWidth: 320, display: "flex", flexDirection: "column" }}>
               <Typography.Paragraph type="secondary" style={{ marginTop: 0 }}>
                 Copy a word anywhere, press the hotkey — or look one up here.
               </Typography.Paragraph>

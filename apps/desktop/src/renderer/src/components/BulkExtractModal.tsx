@@ -129,7 +129,14 @@ export default function BulkExtractModal({
   }
 
   return (
-    <Modal title="Trích xuất từ vựng từ đoạn văn" open={open} onCancel={handleClose} footer={null} width={560}>
+    <Modal
+      title="Trích xuất từ vựng từ đoạn văn"
+      open={open}
+      onCancel={handleClose}
+      footer={null}
+      width="90%"
+      style={{ maxWidth: 560 }}
+    >
       {stage !== "reviewing" ? (
         <>
           <Typography.Paragraph type="secondary" style={{ marginTop: 4 }}>

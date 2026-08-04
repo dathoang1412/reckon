@@ -53,7 +53,10 @@ export default function AppHeader({
       {profile ? (
         <Space
           align="center"
-          style={{ flexShrink: 0, cursor: "pointer" }}
+          // minWidth:0 lets this shrink instead of forcing the row to wrap
+          // sooner than necessary just because of a long name/email — the
+          // name itself is what actually truncates (see below).
+          style={{ flexShrink: 1, minWidth: 0, cursor: "pointer" }}
           onClick={() => onChangeView("profile")}
         >
           <Avatar
@@ -61,7 +64,7 @@ export default function AppHeader({
             src={profile.avatarBase64 ?? undefined}
             icon={!profile.avatarBase64 && <UserOutlined />}
           />
-          <Typography.Text strong style={{ color: COLOR_PRIMARY }}>
+          <Typography.Text strong ellipsis style={{ color: COLOR_PRIMARY, maxWidth: 160 }}>
             {profile.name || profile.email}
           </Typography.Text>
         </Space>
@@ -70,7 +73,9 @@ export default function AppHeader({
           Reckon
         </Typography.Title>
       )}
-      <Segmented value={view} onChange={(value) => onChangeView(value as AppView)} options={VIEW_OPTIONS} />
+      <div style={{ flexShrink: 0 }}>
+        <Segmented value={view} onChange={(value) => onChangeView(value as AppView)} options={VIEW_OPTIONS} />
+      </div>
       <Button icon={<SyncOutlined spin={syncing} />} loading={syncing} onClick={onSync} style={{ flexShrink: 0 }}>
         Sync now
       </Button>
