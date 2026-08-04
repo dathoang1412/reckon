@@ -84,8 +84,10 @@ function fromPreview(data: TranslationResultData): DisplayEntry {
 // area, which under-measures the true height needed, which requests an
 // even smaller window next time — the popup ratchets down to a sliver
 // over a couple of tab switches. A fixed number has nothing to feed back
-// into, regardless of screen size or the window's current state.
-const MAX_CONTENT_HEIGHT = 480;
+// into, regardless of screen size or the window's current state. Used as a
+// fixed `height` (not `maxHeight`) on the tab content below so every tab
+// measures the same, and switching tabs never jumps the window's height.
+const MAX_CONTENT_HEIGHT = 360;
 
 type TabKey = "dict" | "examples" | "nuance" | "related";
 type AiFeature = "examples" | "nuance" | "related";
@@ -469,7 +471,13 @@ export default function Popup() {
       {entry && (
         <>
           <TabBar active={activeTab} onChange={setActiveTab} />
-          <div style={{ padding: 16, overflowY: "auto", maxHeight: MAX_CONTENT_HEIGHT }}>
+          {/* Fixed height, not maxHeight — a cap alone still lets the window
+              shrink-then-regrow (a visible jump/"giật") as you switch
+              between a short tab and a long one, since each tab's natural
+              content height differs. Locking this to one constant number
+              means every tab measures (and resizes the window to) the exact
+              same height, so switching tabs never moves the window edge. */}
+          <div style={{ padding: 16, overflowY: "auto", height: MAX_CONTENT_HEIGHT }}>
             {activeTab === "dict" && (
               <TranslationTab
                 entry={entry}
