@@ -1,4 +1,5 @@
 import { contextBridge, ipcRenderer } from "electron";
+import type { UpdateProfileRequest, UserProfile } from "@reckon/shared";
 
 export interface AiExample {
   sentence: string;
@@ -145,8 +146,12 @@ const api = {
       ipcRenderer.invoke("auth:signup", email, password) as Promise<AuthSession>,
     login: (email: string, password: string) =>
       ipcRenderer.invoke("auth:login", email, password) as Promise<AuthSession>,
+    loginWithGoogle: () => ipcRenderer.invoke("auth:loginWithGoogle") as Promise<AuthSession>,
     logout: () => ipcRenderer.invoke("auth:logout") as Promise<void>,
     getSession: () => ipcRenderer.invoke("auth:getSession") as Promise<AuthSession | null>,
+    getProfile: () => ipcRenderer.invoke("auth:getProfile") as Promise<UserProfile>,
+    updateProfile: (patch: UpdateProfileRequest) =>
+      ipcRenderer.invoke("auth:updateProfile", patch) as Promise<UserProfile>,
   },
   review: {
     due: (limit?: number, setId?: string | null) =>

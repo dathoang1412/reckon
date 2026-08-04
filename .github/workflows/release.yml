@@ -28,15 +28,26 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      # apps/server/.env is gitignored (it holds the shared Postgres
-      # connection string) — the packaged app bundles it verbatim, so the
-      # secret has to land there before packaging, not just in the job env.
+      # apps/server/.env and apps/desktop/.env are both gitignored (they
+      # hold the shared Postgres connection string / Google OAuth client
+      # credentials) — the packaged app bundles/inlines them verbatim
+      # (desktop's via electron.vite.config.ts's `define`), so the secrets
+      # have to land in these files before packaging, not just in the job env.
       - name: Write server .env
         shell: bash
         run: |
           mkdir -p apps/server
           echo "DATABASE_URL=${{ secrets.SERVER_DATABASE_URL }}" > apps/server/.env
           echo "PORT=3000" >> apps/server/.env
+          echo "JWT_SECRET=${{ secrets.SERVER_JWT_SECRET }}" >> apps/server/.env
+          echo "GOOGLE_CLIENT_ID=${{ secrets.GOOGLE_OAUTH_CLIENT_ID }}" >> apps/server/.env
+
+      - name: Write desktop .env
+        shell: bash
+        run: |
+          echo "DATABASE_URL=file:./dev.db" > apps/desktop/.env
+          echo "MAIN_VITE_GOOGLE_CLIENT_ID=${{ secrets.GOOGLE_OAUTH_CLIENT_ID }}" >> apps/desktop/.env
+          echo "MAIN_VITE_GOOGLE_CLIENT_SECRET=${{ secrets.GOOGLE_OAUTH_CLIENT_SECRET }}" >> apps/desktop/.env
 
       # Neither generated/client directory is committed (they contain a
       # large native query engine binary) — package:desktop packages

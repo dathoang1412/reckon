@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { Button, Form, Input, Typography } from "antd";
+import { GoogleOutlined } from "@ant-design/icons";
+import { Button, Divider, Form, Input, Typography } from "antd";
 import toast from "react-hot-toast";
 import PageShell from "../components/PageShell";
 import { COLOR_PRIMARY } from "../theme";
@@ -7,6 +8,7 @@ import { COLOR_PRIMARY } from "../theme";
 export default function Login({ onSuccess }: { onSuccess: () => void }) {
   const [mode, setMode] = useState<"login" | "signup">("login");
   const [submitting, setSubmitting] = useState(false);
+  const [googleSubmitting, setGoogleSubmitting] = useState(false);
 
   async function handleSubmit(values: { email: string; password: string }) {
     setSubmitting(true);
@@ -21,6 +23,21 @@ export default function Login({ onSuccess }: { onSuccess: () => void }) {
       toast.error(err instanceof Error ? err.message : String(err));
     } finally {
       setSubmitting(false);
+    }
+  }
+
+  async function handleGoogleLogin() {
+    setGoogleSubmitting(true);
+    try {
+      // Opens the system browser (not an in-app window — Google blocks
+      // OAuth inside embedded webviews) and waits for that flow to finish;
+      // see main/services/googleAuth.ts.
+      await window.api.auth.loginWithGoogle();
+      onSuccess();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : String(err));
+    } finally {
+      setGoogleSubmitting(false);
     }
   }
 
@@ -58,6 +75,18 @@ export default function Login({ onSuccess }: { onSuccess: () => void }) {
           {mode === "login" ? "Đăng nhập" : "Đăng ký"}
         </Button>
       </Form>
+
+      <Divider style={{ margin: "16px 0" }}>hoặc</Divider>
+
+      <Button
+        icon={<GoogleOutlined />}
+        loading={googleSubmitting}
+        onClick={handleGoogleLogin}
+        block
+        disabled={submitting}
+      >
+        Đăng nhập với Google
+      </Button>
 
       <Typography.Paragraph style={{ marginTop: 16, textAlign: "center" }}>
         {mode === "login" ? (

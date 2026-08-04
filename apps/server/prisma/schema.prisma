@@ -36,7 +36,19 @@ model SyncRecord {
 model User {
   id           String   @id @default(uuid())
   email        String   @unique
-  passwordHash String
+  // Nullable — a Google-only account (see AuthService.googleLogin) never
+  // sets one. Email/password login/signup still requires it be present.
+  passwordHash String?
+  // Google's "sub" claim — stable, unique per Google account, unlike email
+  // (which a user could theoretically change on Google's side).
+  googleId     String?  @unique
+  name         String?
+  // Small (resized/compressed client-side, see Settings.tsx) avatar image
+  // as a data: URI — see the "Lưu ảnh đại diện ở đâu" decision in-repo:
+  // apps/server isn't a persistent hosted service (each user runs their
+  // own copy locally, see server.ts), so Postgres is the only actually
+  // shared/durable place to put this.
+  avatarBase64 String?
   createdAt    DateTime @default(now())
   devices      Device[]
 }

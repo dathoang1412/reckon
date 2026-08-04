@@ -1,4 +1,5 @@
 import { app, type BrowserWindow, ipcMain } from "electron";
+import type { UpdateProfileRequest } from "@reckon/shared";
 import { getPrisma } from "../db/client";
 import { getDeviceId } from "../utils/deviceId";
 import {
@@ -14,7 +15,7 @@ import {
   suggestRelatedWords,
   suggestTags,
 } from "../services/ai";
-import { login, signup } from "../services/auth";
+import { getProfile, login, loginWithGoogle, signup, updateProfile } from "../services/auth";
 import { clearSession, getSession } from "../utils/authSession";
 import { lookupEnglishWord } from "../services/dictionary";
 import { chatJSON } from "../services/groq";
@@ -188,6 +189,11 @@ export function registerIpcHandlers({
     return { email: loggedInEmail };
   });
 
+  ipcMain.handle("auth:loginWithGoogle", async () => {
+    const { email } = await loginWithGoogle();
+    return { email };
+  });
+
   ipcMain.handle("auth:logout", () => {
     clearSession();
   });
@@ -196,6 +202,10 @@ export function registerIpcHandlers({
     const session = getSession();
     return session ? { email: session.email } : null;
   });
+
+  ipcMain.handle("auth:getProfile", () => getProfile());
+
+  ipcMain.handle("auth:updateProfile", (_event, patch: UpdateProfileRequest) => updateProfile(patch));
 
   ipcMain.handle("settings:getHotkey", () => getHotkey());
 
