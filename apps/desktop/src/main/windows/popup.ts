@@ -22,6 +22,13 @@ const BASELINE_HEIGHT = 500;
 // lookup was in flight instead of where the user's selection was.
 let anchor: ScreenPoint = { x: 0, y: 0 };
 
+// The selection-lookup popup anchors at the captured cursor point (where
+// the user's selection was); the empty search popup has no such point to
+// anchor to, so it centers on the cursor's display instead — anchor is
+// still used there to pick *which* display, just not as the top-left
+// corner.
+let centerOnDisplay = false;
+
 function createPopupWindow(): BrowserWindow {
   const win = new BrowserWindow({
     // The window stays hidden until it's resized to the real measured
@@ -79,12 +86,19 @@ ipcMain.on("popup:resize", (event, size: { width: number; height: number }) => {
   const width = Math.max(160, Math.min(Math.ceil(size.width), area.width));
   const height = Math.max(80, Math.min(Math.ceil(size.height), area.height));
 
-  let x = anchor.x;
-  let y = anchor.y;
-  if (x + width > area.x + area.width) x = area.x + area.width - width;
-  if (x < area.x) x = area.x;
-  if (y + height > area.y + area.height) y = area.y + area.height - height;
-  if (y < area.y) y = area.y;
+  let x: number;
+  let y: number;
+  if (centerOnDisplay) {
+    x = area.x + Math.round((area.width - width) / 2);
+    y = area.y + Math.round((area.height - height) / 2);
+  } else {
+    x = anchor.x;
+    y = anchor.y;
+    if (x + width > area.x + area.width) x = area.x + area.width - width;
+    if (x < area.x) x = area.x;
+    if (y + height > area.y + area.height) y = area.y + area.height - height;
+    if (y < area.y) y = area.y;
+  }
 
   win.setContentSize(width, height);
   win.setPosition(x, y);
@@ -101,8 +115,9 @@ ipcMain.on("popup:hide", (event) => {
   if (win && win === popupWindow) win.hide();
 });
 
-function sendToPopup(channel: string, payload: unknown, point: ScreenPoint): void {
+function sendToPopup(channel: string, payload: unknown, point: ScreenPoint, center: boolean): void {
   anchor = point;
+  centerOnDisplay = center;
 
   if (!popupWindow) {
     popupWindow = createPopupWindow();
@@ -126,12 +141,15 @@ function sendToPopup(channel: string, payload: unknown, point: ScreenPoint): voi
 }
 
 export function showPopup(result: TranslationResult, point: ScreenPoint, dictionary: DictionaryInfo | null): void {
-  sendToPopup("translation:result", { result, dictionary }, point);
+  sendToPopup("translation:result", { result, dictionary }, point, false);
 }
 
 // Opens the popup with no pre-fetched result — the renderer switches to a
 // text-input "search" view (see Popup.tsx) instead of the read-only result
-// view, since there's no selected text to look up here.
+// view, since there's no selected text to look up here. Centered on the
+// cursor's display rather than anchored at the cursor point itself: there's
+// no selection to anchor to, and a predictable centered position reads as
+// more intentional than wherever the mouse happened to be.
 export function showSearchPopup(point: ScreenPoint): void {
-  sendToPopup("popup:openSearch", {}, point);
+  sendToPopup("popup:openSearch", {}, point, true);
 }
