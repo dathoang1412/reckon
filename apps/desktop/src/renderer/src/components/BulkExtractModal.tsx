@@ -1,15 +1,6 @@
 import { useState } from "react";
-import BoltIcon from "@mui/icons-material/Bolt";
-import Button from "@mui/material/Button";
-import Checkbox from "@mui/material/Checkbox";
-import CircularProgress from "@mui/material/CircularProgress";
-import Dialog from "@mui/material/Dialog";
-import DialogContent from "@mui/material/DialogContent";
-import DialogTitle from "@mui/material/DialogTitle";
-import Stack from "@mui/material/Stack";
-import TextField from "@mui/material/TextField";
-import Tooltip from "@mui/material/Tooltip";
-import Typography from "@mui/material/Typography";
+import { ThunderboltOutlined } from "@ant-design/icons";
+import { Button, Checkbox, Input, List, Modal, Space, Spin, Tooltip, Typography } from "antd";
 import toast from "react-hot-toast";
 import type { VocabEntryRow, VocabPreview } from "../../../preload/index";
 import { useHasGroqKey } from "../lib/useHasGroqKey";
@@ -32,8 +23,6 @@ interface CandidateRow {
 // translations — high enough to feel fast, low enough not to hammer the
 // translate/dictionary endpoints with 15 simultaneous requests.
 const PREVIEW_CONCURRENCY = 3;
-
-const MAX_PARAGRAPH_LENGTH = 4000;
 
 type Stage = "idle" | "analyzing" | "reviewing";
 
@@ -140,100 +129,100 @@ export default function BulkExtractModal({
   }
 
   return (
-    <Dialog open={open} onClose={handleClose} fullWidth maxWidth="sm">
-      <DialogTitle>Trích xuất từ vựng từ đoạn văn</DialogTitle>
-      <DialogContent>
-        {stage !== "reviewing" ? (
-          <>
-            <Typography color="text.secondary" sx={{ marginTop: "4px" }}>
-              Dán một đoạn văn bản — AI sẽ tìm những từ/cụm từ đáng học trong đó.
-            </Typography>
-            <TextField
-              value={paragraph}
-              onChange={(e) => setParagraph(e.target.value.slice(0, MAX_PARAGRAPH_LENGTH))}
-              placeholder="Dán đoạn văn ở đây..."
-              multiline
-              minRows={6}
-              maxRows={12}
-              fullWidth
-              helperText={`${paragraph.length}/${MAX_PARAGRAPH_LENGTH}`}
-              sx={{ marginTop: 1 }}
-            />
-            {analyzeError && (
-              <Typography color="error" sx={{ display: "block", marginTop: "8px" }}>
-                {analyzeError}
-              </Typography>
-            )}
-            <Tooltip title={hasGroqKey === false ? "Cần thêm Groq API key trong Cài đặt" : ""}>
-              <span>
-                <Button
-                  variant="contained"
-                  startIcon={<BoltIcon />}
-                  loading={stage === "analyzing"}
-                  disabled={!paragraph.trim() || hasGroqKey === false}
-                  onClick={handleAnalyze}
-                  sx={{ marginTop: "12px" }}
-                >
-                  Phân tích
-                </Button>
-              </span>
-            </Tooltip>
-          </>
-        ) : (
-          <>
-            {hiddenCount > 0 && (
-              <Typography color="text.secondary" sx={{ display: "block", marginBottom: "8px" }}>
-                {hiddenCount} từ đã có trong sổ, đã ẩn.
-              </Typography>
-            )}
-            {rows.length === 0 ? (
-              <Typography color="text.secondary">Không tìm thấy từ nào đáng học trong đoạn văn này.</Typography>
-            ) : (
-              <Stack spacing={1} sx={{ maxHeight: "50vh", overflowY: "auto" }}>
-                {rows.map((row, i) => (
-                  <Stack key={i} direction="row" spacing={1} sx={{ alignItems: "flex-start" }}>
+    <Modal title="Trích xuất từ vựng từ đoạn văn" open={open} onCancel={handleClose} footer={null} width={560}>
+      {stage !== "reviewing" ? (
+        <>
+          <Typography.Paragraph type="secondary" style={{ marginTop: 4 }}>
+            Dán một đoạn văn bản — AI sẽ tìm những từ/cụm từ đáng học trong đó.
+          </Typography.Paragraph>
+          <Input.TextArea
+            value={paragraph}
+            onChange={(e) => setParagraph(e.target.value)}
+            placeholder="Dán đoạn văn ở đây..."
+            maxLength={4000}
+            showCount
+            autoSize={{ minRows: 6, maxRows: 12 }}
+          />
+          {analyzeError && (
+            <Typography.Text type="danger" style={{ display: "block", marginTop: 8 }}>
+              {analyzeError}
+            </Typography.Text>
+          )}
+          <Tooltip title={hasGroqKey === false ? "Cần thêm Groq API key trong Cài đặt" : undefined}>
+            <span>
+              <Button
+                type="primary"
+                icon={<ThunderboltOutlined />}
+                loading={stage === "analyzing"}
+                disabled={!paragraph.trim() || hasGroqKey === false}
+                onClick={handleAnalyze}
+                style={{ marginTop: 12 }}
+              >
+                Phân tích
+              </Button>
+            </span>
+          </Tooltip>
+        </>
+      ) : (
+        <>
+          {hiddenCount > 0 && (
+            <Typography.Text type="secondary" style={{ display: "block", marginBottom: 8 }}>
+              {hiddenCount} từ đã có trong sổ, đã ẩn.
+            </Typography.Text>
+          )}
+          {rows.length === 0 ? (
+            <Typography.Text type="secondary">Không tìm thấy từ nào đáng học trong đoạn văn này.</Typography.Text>
+          ) : (
+            <List
+              style={{ maxHeight: "50vh", overflowY: "auto" }}
+              dataSource={rows}
+              renderItem={(row, i) => (
+                <List.Item style={{ alignItems: "flex-start" }}>
+                  <Space align="start" style={{ width: "100%" }}>
                     <Checkbox
                       checked={row.checked}
                       disabled={row.status !== "resolved"}
                       onChange={(e) => toggleRow(i, e.target.checked)}
-                      sx={{ padding: "4px" }}
                     />
                     <div style={{ flex: 1, minWidth: 0 }}>
-                      <Typography sx={{ fontWeight: 600 }}>{row.text}</Typography>
-                      <Typography color="text.secondary" sx={{ display: "block", fontSize: styleTokens.secondaryFontSize }}>
+                      <Typography.Text strong>{row.text}</Typography.Text>
+                      <Typography.Text
+                        type="secondary"
+                        style={{ display: "block", fontSize: styleTokens.secondaryFontSize }}
+                      >
                         {row.reason}
-                      </Typography>
-                      {row.status === "pending" && <CircularProgress size={16} sx={{ marginTop: "4px" }} />}
+                      </Typography.Text>
+                      {row.status === "pending" && <Spin size="small" style={{ marginTop: 4 }} />}
                       {row.status === "resolved" && row.preview && (
-                        <Typography color="text.secondary" sx={{ display: "block", marginTop: "2px" }}>
+                        <Typography.Text type="secondary" style={{ display: "block", marginTop: 2 }}>
                           → {row.preview.result.targetText}
-                        </Typography>
+                        </Typography.Text>
                       )}
                       {row.status === "error" && (
-                        <Typography color="error" sx={{ display: "block", marginTop: "2px" }}>
+                        <Typography.Text type="danger" style={{ display: "block", marginTop: 2 }}>
                           Bỏ qua — {row.error}
-                        </Typography>
+                        </Typography.Text>
                       )}
                     </div>
-                  </Stack>
-                ))}
-              </Stack>
-            )}
-            <Button
-              variant="contained"
-              fullWidth
-              loading={saving}
-              disabled={pendingCount > 0 || selectedResolved.length === 0}
-              onClick={handleSaveSelected}
-              sx={{ marginTop: "12px" }}
-            >
-              {saving
-                ? `Đã lưu ${savedCount}/${selectedResolved.length}`
-                : `Lưu tất cả đã chọn (${selectedResolved.length})`}
-            </Button>
-          </>
-        )}
-      </DialogContent>
-    </Dialog>
+                  </Space>
+                </List.Item>
+              )}
+            />
+          )}
+          <Button
+            type="primary"
+            block
+            loading={saving}
+            disabled={pendingCount > 0 || selectedResolved.length === 0}
+            onClick={handleSaveSelected}
+            style={{ marginTop: 12 }}
+          >
+            {saving
+              ? `Đã lưu ${savedCount}/${selectedResolved.length}`
+              : `Lưu tất cả đã chọn (${selectedResolved.length})`}
+          </Button>
+        </>
+      )}
+    </Modal>
   );
 }

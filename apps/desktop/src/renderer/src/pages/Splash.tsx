@@ -1,5 +1,4 @@
-import Typography from "@mui/material/Typography";
-import CircularProgress from "@mui/material/CircularProgress";
+import { Spin, Typography } from "antd";
 
 export default function Splash() {
   return (
@@ -16,11 +15,11 @@ export default function Splash() {
         background: "#ffffff",
       }}
     >
-      <Typography variant="h5" sx={{ margin: 0 }}>
+      <Typography.Title level={3} style={{ margin: 0 }}>
         Reckon
-      </Typography>
-      <CircularProgress size={36} />
-      <Typography color="text.secondary">Đang khởi động…</Typography>
+      </Typography.Title>
+      <Spin size="large" />
+      <Typography.Text type="secondary">Đang khởi động…</Typography.Text>
     </div>
   );
 }

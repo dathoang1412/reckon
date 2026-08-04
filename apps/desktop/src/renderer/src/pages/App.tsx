@@ -1,22 +1,6 @@
-import { useEffect, useState, type KeyboardEvent } from "react";
-import ClearIcon from "@mui/icons-material/Clear";
-import DeleteIcon from "@mui/icons-material/Delete";
-import InboxIcon from "@mui/icons-material/Inbox";
-import SearchIcon from "@mui/icons-material/Search";
-import UploadFileIcon from "@mui/icons-material/UploadFile";
-import VolumeUpIcon from "@mui/icons-material/VolumeUp";
-import Box from "@mui/material/Box";
-import Button from "@mui/material/Button";
-import Card from "@mui/material/Card";
-import CardContent from "@mui/material/CardContent";
-import Chip from "@mui/material/Chip";
-import IconButton from "@mui/material/IconButton";
-import InputAdornment from "@mui/material/InputAdornment";
-import MenuItem from "@mui/material/MenuItem";
-import Select from "@mui/material/Select";
-import Stack from "@mui/material/Stack";
-import TextField from "@mui/material/TextField";
-import Typography from "@mui/material/Typography";
+import { useEffect, useState } from "react";
+import { DeleteOutlined, ImportOutlined, SoundOutlined } from "@ant-design/icons";
+import { Button, Card, Empty, Input, List, Select, Space, Tag, Typography } from "antd";
 import toast from "react-hot-toast";
 import type { VocabEntryRow, VocabPreview, VocabSetRow } from "../../../preload/index";
 import AppHeader, { type AppView } from "../components/AppHeader";
@@ -83,11 +67,11 @@ export default function App() {
       if (status.state !== "downloaded") return;
       toast(
         (t) => (
-          <Stack direction="row" spacing={1} sx={{ alignItems: "center" }}>
+          <Space>
             <span>Đã tải bản cập nhật v{status.version}.</span>
             <Button
               size="small"
-              variant="contained"
+              type="primary"
               onClick={() => {
                 toast.dismiss(t.id);
                 window.api.updater.quitAndInstall();
@@ -95,7 +79,7 @@ export default function App() {
             >
               Khởi động lại
             </Button>
-          </Stack>
+          </Space>
         ),
         { duration: Infinity, icon: "🚀" },
       );
@@ -184,10 +168,6 @@ export default function App() {
     return <Login onSuccess={() => setAuthed(true)} />;
   }
 
-  function handleSearchKeyDown(e: KeyboardEvent<HTMLInputElement>) {
-    if (e.key === "Enter") handleSearch();
-  }
-
   const bySet = activeSet === null ? entries : entries.filter((e) => e.setId === activeSet);
   const query = searchQuery.trim().toLowerCase();
   const visibleEntries = query
@@ -262,35 +242,27 @@ export default function App() {
             }}
           >
             <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column" }}>
-              <Typography color="text.secondary" sx={{ marginTop: 0 }}>
+              <Typography.Paragraph type="secondary" style={{ marginTop: 0 }}>
                 Copy a word anywhere, press the hotkey — or look one up here.
-              </Typography>
+              </Typography.Paragraph>
 
-              <Stack direction="row" sx={{ width: "100%", marginTop: 2 }}>
-                <TextField
+              <Space.Compact style={{ width: "100%", marginTop: 16 }}>
+                <Input
                   value={text}
                   onChange={(e) => setText(e.target.value)}
-                  onKeyDown={handleSearchKeyDown}
+                  onPressEnter={handleSearch}
                   placeholder="Look up a word or phrase"
-                  size="small"
-                  fullWidth
-                  sx={{ "& .MuiOutlinedInput-root": { borderTopRightRadius: 0, borderBottomRightRadius: 0 } }}
                 />
-                <Button
-                  variant="contained"
-                  loading={looking}
-                  onClick={handleSearch}
-                  sx={{ borderTopLeftRadius: 0, borderBottomLeftRadius: 0, flexShrink: 0 }}
-                >
+                <Button type="primary" loading={looking} onClick={handleSearch}>
                   Look up
                 </Button>
-              </Stack>
+              </Space.Compact>
               <Button
-                variant="outlined"
+                type="dashed"
                 size="small"
-                startIcon={<UploadFileIcon />}
+                icon={<ImportOutlined />}
                 onClick={() => setBulkExtractOpen(true)}
-                sx={{ marginTop: 1, alignSelf: "flex-end", borderStyle: "dashed" }}
+                style={{ marginTop: 8, alignSelf: "flex-end" }}
               >
                 Trích xuất từ đoạn văn
               </Button>
@@ -302,167 +274,146 @@ export default function App() {
                   only this region (not the whole window) scrolls. */}
               <div style={{ flex: 1, minHeight: 0, overflowY: "auto" }}>
                 {preview && (
-                  <Card variant="outlined" sx={{ marginBottom: 2 }}>
-                    <CardContent>
-                      <Stack direction="row" sx={{ alignItems: "flex-start", justifyContent: "space-between", width: "100%" }}>
-                        <Stack spacing={0.5}>
-                          <span>
-                            <Chip label={preview.result.sourceLang} color="primary" size="small" sx={{ marginRight: 0.5 }} />
-                            {preview.result.sourceText}
-                            {preview.result.sourceLang !== "vi" && (
-                              <IconButton size="small" onClick={() => speak(preview.result.sourceText, preview.result.sourceLang)}>
-                                <VolumeUpIcon fontSize="small" />
-                              </IconButton>
-                            )}
-                          </span>
-                          <span>
-                            <Chip label={preview.result.targetLang} color="success" size="small" sx={{ marginRight: 0.5 }} />
-                            {preview.result.targetText}
-                            {preview.result.targetLang !== "vi" && (
-                              <IconButton size="small" onClick={() => speak(preview.result.targetText, preview.result.targetLang)}>
-                                <VolumeUpIcon fontSize="small" />
-                              </IconButton>
-                            )}
-                          </span>
-                          {preview.result.targetMeanings.length > 1 && (
-                            <Stack direction="row" spacing={0.5} sx={{ flexWrap: "wrap" }}>
-                              {preview.result.targetMeanings.slice(1).map((meaning) => (
-                                <Chip key={meaning} label={meaning} size="small" variant="outlined" />
-                              ))}
-                            </Stack>
+                  <Card size="small" style={{ marginBottom: 16 }}>
+                    <Space align="start" style={{ width: "100%", justifyContent: "space-between" }}>
+                      <Space direction="vertical" size={4}>
+                        <span>
+                          <Tag color="blue">{preview.result.sourceLang}</Tag>
+                          {preview.result.sourceText}
+                          {preview.result.sourceLang !== "vi" && (
+                            <Button
+                              type="text"
+                              size="small"
+                              icon={<SoundOutlined />}
+                              onClick={() => speak(preview.result.sourceText, preview.result.sourceLang)}
+                            />
                           )}
-                        </Stack>
-                        <Button variant="contained" loading={saving} onClick={handleSavePreview}>
-                          Lưu
-                        </Button>
-                      </Stack>
-                      {preview.dictionary && <DictionaryPanel dictionary={preview.dictionary} />}
-                    </CardContent>
+                        </span>
+                        <span>
+                          <Tag color="green">{preview.result.targetLang}</Tag>
+                          {preview.result.targetText}
+                          {preview.result.targetLang !== "vi" && (
+                            <Button
+                              type="text"
+                              size="small"
+                              icon={<SoundOutlined />}
+                              onClick={() => speak(preview.result.targetText, preview.result.targetLang)}
+                            />
+                          )}
+                        </span>
+                        {preview.result.targetMeanings.length > 1 && (
+                          <Space size={[4, 4]} wrap>
+                            {preview.result.targetMeanings.slice(1).map((meaning) => (
+                              <Tag key={meaning} color="default">
+                                {meaning}
+                              </Tag>
+                            ))}
+                          </Space>
+                        )}
+                      </Space>
+                      <Button type="primary" loading={saving} onClick={handleSavePreview}>
+                        Lưu
+                      </Button>
+                    </Space>
+                    {preview.dictionary && <DictionaryPanel dictionary={preview.dictionary} />}
                   </Card>
                 )}
 
-                <TextField
+                <Input.Search
+                  allowClear
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   placeholder="Tìm trong từ đã lưu..."
-                  size="small"
-                  fullWidth
-                  sx={{ marginBottom: 2 }}
-                  slotProps={{
-                    input: {
-                      startAdornment: (
-                        <InputAdornment position="start">
-                          <SearchIcon fontSize="small" />
-                        </InputAdornment>
-                      ),
-                      endAdornment: searchQuery && (
-                        <InputAdornment position="end">
-                          <IconButton size="small" onClick={() => setSearchQuery("")}>
-                            <ClearIcon fontSize="small" />
-                          </IconButton>
-                        </InputAdornment>
-                      ),
-                    },
-                  }}
+                  style={{ marginBottom: 16 }}
                 />
 
                 {visibleEntries.length === 0 && (
-                  <Stack spacing={1} sx={{ alignItems: "center", padding: "2rem 0", color: "text.secondary" }}>
-                    <InboxIcon fontSize="large" color="disabled" />
-                    <Typography color="text.secondary">
-                      {query ? "Không tìm thấy từ nào" : "No lookups yet"}
-                    </Typography>
-                  </Stack>
+                  <Empty description={query ? "Không tìm thấy từ nào" : "No lookups yet"} />
                 )}
                 {entryGroups.map((group) => (
                   <div key={group.key}>
-                    <Typography color="text.secondary" sx={{ display: "block", margin: "12px 0 4px", fontWeight: 600 }}>
+                    <Typography.Text type="secondary" strong style={{ display: "block", margin: "12px 0 4px" }}>
                       {group.label}
-                    </Typography>
-                    {group.items.map((entry) => (
-                      <Box
-                        key={entry.id}
-                        sx={{
-                          display: "flex",
-                          alignItems: "center",
-                          justifyContent: "space-between",
-                          gap: 1,
-                          borderBottom: `1px solid ${styleTokens.borderColorLight}`,
-                          padding: "8px 0",
-                        }}
-                      >
-                        {/* onClick lives here, not further up — the actions to
-                        the right (esp. Select's portaled dropdown) are a
-                        sibling, not a DOM/React descendant of this box, so
-                        clicking them can never reach this handler. */}
-                        <Stack
-                          spacing={0}
-                          sx={{ cursor: "pointer", flex: 1, minWidth: 0, padding: "4px 8px", borderRadius: "6px" }}
-                          onClick={() => setDetailEntry(entry)}
+                    </Typography.Text>
+                    <List
+                      dataSource={group.items}
+                      renderItem={(entry) => (
+                        <List.Item
+                          actions={[
+                            <Select
+                              key="set"
+                              size="small"
+                              variant="borderless"
+                              value={entry.setId ?? UNASSIGNED}
+                              options={setOptions}
+                              onChange={(value) => handleAssignSet(entry.id, value)}
+                              style={{ width: 140 }}
+                            />,
+                            <Button
+                              key="delete"
+                              type="text"
+                              danger
+                              icon={<DeleteOutlined />}
+                              onClick={() => handleDelete(entry.id)}
+                            />,
+                          ]}
                         >
-                          <span>
-                            <Chip label={entry.sourceLang} color="primary" size="small" sx={{ marginRight: 0.5 }} />
-                            {entry.sourceText}
-                            {entry.sourceLang !== "vi" && (
-                              <IconButton
-                                size="small"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  speak(entry.sourceText, entry.sourceLang);
-                                }}
-                              >
-                                <VolumeUpIcon fontSize="small" />
-                              </IconButton>
-                            )}
-                          </span>
-                          <span>
-                            <Chip label={entry.targetLang} color="success" size="small" sx={{ marginRight: 0.5 }} />
-                            {entry.targetText}
-                            {entry.targetLang !== "vi" && (
-                              <IconButton
-                                size="small"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  speak(entry.targetText, entry.targetLang);
-                                }}
-                              >
-                                <VolumeUpIcon fontSize="small" />
-                              </IconButton>
-                            )}
-                            {entry.targetMeanings.length > 1 && (
-                              <Typography component="span" color="text.secondary" sx={{ marginLeft: "4px" }}>
-                                ({entry.targetMeanings.slice(1).join(", ")})
-                              </Typography>
-                            )}
-                            <Typography
-                              component="span"
-                              color="text.secondary"
-                              sx={{ marginLeft: "8px", fontSize: styleTokens.secondaryFontSize }}
-                            >
-                              {timeLabel(entry.createdAt)}
-                            </Typography>
-                          </span>
-                        </Stack>
-                        <Stack direction="row" spacing={0.5} sx={{ alignItems: "center", flexShrink: 0 }}>
-                          <Select
-                            size="small"
-                            variant="standard"
-                            value={entry.setId ?? UNASSIGNED}
-                            onChange={(e) => handleAssignSet(entry.id, e.target.value)}
-                            sx={{ width: 140 }}
+                          {/* onClick lives here, not on List.Item — the actions
+                          above (esp. Select's portaled dropdown) are a sibling
+                          render slot, not a DOM/React descendant of this div,
+                          so clicking them can never reach this handler. */}
+                          <Space
+                            direction="vertical"
+                            size={0}
+                            className="entry-row"
+                            style={{ cursor: "pointer", width: "100%", padding: "4px 8px", borderRadius: 6 }}
+                            onClick={() => setDetailEntry(entry)}
                           >
-                            {setOptions.map((opt) => (
-                              <MenuItem key={opt.value} value={opt.value}>
-                                {opt.label}
-                              </MenuItem>
-                            ))}
-                          </Select>
-                          <IconButton size="small" color="error" onClick={() => handleDelete(entry.id)}>
-                            <DeleteIcon fontSize="small" />
-                          </IconButton>
-                        </Stack>
-                      </Box>
-                    ))}
+                            <span>
+                              <Tag color="blue">{entry.sourceLang}</Tag>
+                              {entry.sourceText}
+                              {entry.sourceLang !== "vi" && (
+                                <Button
+                                  type="text"
+                                  size="small"
+                                  icon={<SoundOutlined />}
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    speak(entry.sourceText, entry.sourceLang);
+                                  }}
+                                />
+                              )}
+                            </span>
+                            <span>
+                              <Tag color="green">{entry.targetLang}</Tag>
+                              {entry.targetText}
+                              {entry.targetLang !== "vi" && (
+                                <Button
+                                  type="text"
+                                  size="small"
+                                  icon={<SoundOutlined />}
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    speak(entry.targetText, entry.targetLang);
+                                  }}
+                                />
+                              )}
+                              {entry.targetMeanings.length > 1 && (
+                                <Typography.Text type="secondary" style={{ marginLeft: 4 }}>
+                                  ({entry.targetMeanings.slice(1).join(", ")})
+                                </Typography.Text>
+                              )}
+                              <Typography.Text
+                                type="secondary"
+                                style={{ marginLeft: 8, fontSize: styleTokens.secondaryFontSize }}
+                              >
+                                {timeLabel(entry.createdAt)}
+                              </Typography.Text>
+                            </span>
+                          </Space>
+                        </List.Item>
+                      )}
+                    />
                   </div>
                 ))}
               </div>

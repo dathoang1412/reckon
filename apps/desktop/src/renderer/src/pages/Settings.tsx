@@ -1,13 +1,7 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { useRecordHotkeys } from "react-hotkeys-hook";
-import BoltIcon from "@mui/icons-material/Bolt";
-import SyncIcon from "@mui/icons-material/Sync";
-import Button from "@mui/material/Button";
-import Link from "@mui/material/Link";
-import LinearProgress from "@mui/material/LinearProgress";
-import Stack from "@mui/material/Stack";
-import TextField from "@mui/material/TextField";
-import Typography from "@mui/material/Typography";
+import { SyncOutlined, ThunderboltOutlined } from "@ant-design/icons";
+import { Button, Input, Progress, Space, Typography } from "antd";
 import toast from "react-hot-toast";
 import PageShell from "../components/PageShell";
 import type { UpdateStatus } from "../../../preload/index";
@@ -191,22 +185,22 @@ function HotkeySection({
 
   return (
     <div>
-      <Typography color="text.secondary" sx={{ marginTop: 1 }}>
+      <Typography.Paragraph type="secondary" style={{ marginTop: 8 }}>
         {description}
-      </Typography>
+      </Typography.Paragraph>
 
-      <Stack direction="row" spacing={1} sx={{ flexWrap: "wrap", margin: "20px 0", minHeight: 32 }}>
+      <Space size={8} wrap style={{ margin: "20px 0", minHeight: 32 }}>
         {displayTokens.length > 0 ? (
           displayTokens.map((token, i) => <Keycap key={`${token}-${i}`}>{displayLabel(token)}</Keycap>)
         ) : (
-          <Typography color="text.secondary">Đang bấm tổ hợp phím…</Typography>
+          <Typography.Text type="secondary">Đang bấm tổ hợp phím…</Typography.Text>
         )}
-      </Stack>
+      </Space>
 
-      <Stack direction="row" spacing={1}>
+      <Space>
         {!isRecording ? (
           <Button
-            variant="contained"
+            type="primary"
             onClick={() => {
               resetKeys();
               start();
@@ -216,11 +210,10 @@ function HotkeySection({
           </Button>
         ) : (
           <>
-            <Button variant="contained" loading={saving} onClick={handleSave}>
+            <Button type="primary" loading={saving} onClick={handleSave}>
               Lưu
             </Button>
             <Button
-              variant="outlined"
               onClick={() => {
                 stop();
                 resetKeys();
@@ -230,7 +223,7 @@ function HotkeySection({
             </Button>
           </>
         )}
-      </Stack>
+      </Space>
     </div>
   );
 }
@@ -287,9 +280,9 @@ export default function Settings({ onLogout }: { onLogout: () => void }) {
 
   return (
     <PageShell>
-      <Typography variant="h6" sx={{ marginTop: 0 }}>
+      <Typography.Title level={4} style={{ marginTop: 0 }}>
         Tra từ đang chọn
-      </Typography>
+      </Typography.Title>
       <HotkeySection
         description="Bôi đen một đoạn văn bản rồi bấm tổ hợp phím này để tra từ nhanh."
         savedHotkey={savedHotkey}
@@ -297,9 +290,9 @@ export default function Settings({ onLogout }: { onLogout: () => void }) {
         onSaved={setSavedHotkey}
       />
 
-      <Typography variant="h6" sx={{ marginTop: 4 }}>
+      <Typography.Title level={4} style={{ marginTop: 32 }}>
         Mở khung tìm từ
-      </Typography>
+      </Typography.Title>
       <HotkeySection
         description="Bấm tổ hợp phím này ở bất kỳ đâu để mở khung nhỏ và gõ một từ cần tìm."
         savedHotkey={savedSearchHotkey}
@@ -307,87 +300,84 @@ export default function Settings({ onLogout }: { onLogout: () => void }) {
         onSaved={setSavedSearchHotkey}
       />
 
-      <Typography variant="h6" sx={{ marginTop: 4 }}>
+      <Typography.Title level={4} style={{ marginTop: 32 }}>
         Tài khoản
-      </Typography>
-      <Stack direction="row" sx={{ alignItems: "center", width: "100%", justifyContent: "space-between" }}>
-        <Typography color="text.secondary">{email}</Typography>
-        <Button variant="outlined" color="error" onClick={handleLogout}>
+      </Typography.Title>
+      <Space align="center" style={{ width: "100%", justifyContent: "space-between" }}>
+        <Typography.Text type="secondary">{email}</Typography.Text>
+        <Button danger onClick={handleLogout}>
           Đăng xuất
         </Button>
-      </Stack>
+      </Space>
 
-      <Typography variant="h6" sx={{ marginTop: 4 }}>
+      <Typography.Title level={4} style={{ marginTop: 32 }}>
         Groq API (tính năng AI)
-      </Typography>
-      <Typography color="text.secondary" sx={{ marginTop: 1 }}>
+      </Typography.Title>
+      <Typography.Paragraph type="secondary" style={{ marginTop: 8 }}>
         Cần để dùng ví dụ câu, giải thích sắc thái, từ liên quan, mẹo ghi nhớ, trắc nghiệm ôn tập và
         trích xuất từ vựng. Lấy key miễn phí tại{" "}
-        <Link href="https://console.groq.com/keys" target="_blank" rel="noreferrer">
+        <Typography.Link href="https://console.groq.com/keys" target="_blank">
           console.groq.com/keys
-        </Link>
+        </Typography.Link>
         .
-      </Typography>
-      <TextField
-        type="password"
+      </Typography.Paragraph>
+      <Input.Password
         value={groqKey}
         onChange={(e) => setGroqKey(e.target.value)}
         placeholder="gsk_..."
         autoComplete="off"
-        size="small"
-        sx={{ maxWidth: 420, width: "100%" }}
+        style={{ maxWidth: 420 }}
       />
-      <Stack direction="row" spacing={1} sx={{ marginTop: "12px" }}>
-        <Button variant="contained" loading={savingKey} onClick={handleSaveGroqKey}>
+      <Space style={{ marginTop: 12 }}>
+        <Button type="primary" loading={savingKey} onClick={handleSaveGroqKey}>
           Lưu
         </Button>
-        <Button variant="outlined" startIcon={<BoltIcon />} loading={testingKey} onClick={handleTestGroqKey}>
+        <Button icon={<ThunderboltOutlined />} loading={testingKey} onClick={handleTestGroqKey}>
           Kiểm tra kết nối
         </Button>
-      </Stack>
+      </Space>
 
-      <Typography variant="h6" sx={{ marginTop: 4 }}>
+      <Typography.Title level={4} style={{ marginTop: 32 }}>
         Cập nhật
-      </Typography>
-      <Typography color="text.secondary" sx={{ marginTop: 1 }}>
+      </Typography.Title>
+      <Typography.Paragraph type="secondary" style={{ marginTop: 8 }}>
         Phiên bản hiện tại: {appVersion ? `v${appVersion}` : "…"}
-      </Typography>
+      </Typography.Paragraph>
 
       {updateStatus?.state === "downloading" && (
-        <LinearProgress variant="determinate" value={updateStatus.percent} sx={{ maxWidth: 300 }} />
+        <Progress percent={updateStatus.percent} style={{ maxWidth: 300 }} />
       )}
       {updateStatus?.state === "available" && (
-        <Typography color="text.secondary" sx={{ display: "block", marginBottom: "8px" }}>
+        <Typography.Text type="secondary" style={{ display: "block", marginBottom: 8 }}>
           Đã tìm thấy bản v{updateStatus.version} — đang tải…
-        </Typography>
+        </Typography.Text>
       )}
       {updateStatus?.state === "not-available" && (
-        <Typography color="text.secondary" sx={{ display: "block", marginBottom: "8px" }}>
+        <Typography.Text type="secondary" style={{ display: "block", marginBottom: 8 }}>
           Bạn đang dùng bản mới nhất.
-        </Typography>
+        </Typography.Text>
       )}
       {updateStatus?.state === "error" && (
-        <Typography color="error" sx={{ display: "block", marginBottom: "8px" }}>
+        <Typography.Text type="danger" style={{ display: "block", marginBottom: 8 }}>
           {updateStatus.message}
-        </Typography>
+        </Typography.Text>
       )}
 
-      <Stack direction="row" spacing={1}>
+      <Space>
         {updateStatus?.state === "downloaded" ? (
-          <Button variant="contained" onClick={() => window.api.updater.quitAndInstall()}>
+          <Button type="primary" onClick={() => window.api.updater.quitAndInstall()}>
             Khởi động lại để cài đặt v{updateStatus.version}
           </Button>
         ) : (
           <Button
-            variant="outlined"
-            startIcon={<SyncIcon />}
+            icon={<SyncOutlined />}
             loading={updateStatus?.state === "checking"}
             onClick={() => window.api.updater.checkNow()}
           >
             Kiểm tra cập nhật
           </Button>
         )}
-      </Stack>
+      </Space>
     </PageShell>
   );
 }

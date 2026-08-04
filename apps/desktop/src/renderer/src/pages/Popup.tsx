@@ -1,11 +1,6 @@
-import { useEffect, useLayoutEffect, useRef, useState, type KeyboardEvent } from "react";
-import VolumeUpIcon from "@mui/icons-material/VolumeUp";
-import Button from "@mui/material/Button";
-import Chip from "@mui/material/Chip";
-import IconButton from "@mui/material/IconButton";
-import Stack from "@mui/material/Stack";
-import TextField from "@mui/material/TextField";
-import Typography from "@mui/material/Typography";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { SoundOutlined } from "@ant-design/icons";
+import { Button, Input, type InputRef, Space, Tag, Typography } from "antd";
 import toast from "react-hot-toast";
 import type { DictionaryInfo, TranslationResultData, TranslationResultPayload, VocabPreview } from "../../../preload/index";
 import DictionaryPanel from "../components/DictionaryPanel";
@@ -17,30 +12,40 @@ import { speak } from "../lib/speak";
 function TranslationView({ result, dictionary }: { result: TranslationResultData; dictionary: DictionaryInfo | null }) {
   return (
     <>
-      <Chip label={result.sourceLang} color="primary" size="small" />
-      <Stack direction="row" sx={{ alignItems: "center", margin: "8px 0" }}>
-        <Typography sx={{ margin: 0 }}>{result.sourceText}</Typography>
+      <Tag color="blue">{result.sourceLang}</Tag>
+      <Space align="center" style={{ margin: "8px 0" }}>
+        <Typography.Paragraph style={{ margin: 0 }}>{result.sourceText}</Typography.Paragraph>
         {result.sourceLang !== "vi" && (
-          <IconButton size="small" onClick={() => speak(result.sourceText, result.sourceLang)}>
-            <VolumeUpIcon fontSize="small" />
-          </IconButton>
+          <Button
+            type="text"
+            size="small"
+            icon={<SoundOutlined />}
+            onClick={() => speak(result.sourceText, result.sourceLang)}
+          />
         )}
-      </Stack>
-      <Chip label={result.targetLang} color="success" size="small" />
-      <Stack direction="row" sx={{ alignItems: "center", margin: "8px 0 0" }}>
-        <Typography sx={{ margin: 0, fontWeight: 600 }}>{result.targetText}</Typography>
+      </Space>
+      <Tag color="green">{result.targetLang}</Tag>
+      <Space align="center" style={{ margin: "8px 0 0" }}>
+        <Typography.Paragraph strong style={{ margin: 0 }}>
+          {result.targetText}
+        </Typography.Paragraph>
         {result.targetLang !== "vi" && (
-          <IconButton size="small" onClick={() => speak(result.targetText, result.targetLang)}>
-            <VolumeUpIcon fontSize="small" />
-          </IconButton>
+          <Button
+            type="text"
+            size="small"
+            icon={<SoundOutlined />}
+            onClick={() => speak(result.targetText, result.targetLang)}
+          />
         )}
-      </Stack>
+      </Space>
       {result.targetMeanings.length > 1 && (
-        <Stack direction="row" spacing={0.5} sx={{ flexWrap: "wrap", marginTop: "4px" }}>
+        <Space size={[4, 4]} wrap style={{ marginTop: 4 }}>
           {result.targetMeanings.slice(1).map((meaning) => (
-            <Chip key={meaning} label={meaning} size="small" variant="outlined" />
+            <Tag key={meaning} color="default">
+              {meaning}
+            </Tag>
           ))}
-        </Stack>
+        </Space>
       )}
 
       {dictionary && <DictionaryPanel dictionary={dictionary} />}
@@ -69,7 +74,7 @@ export default function Popup() {
   const [searchOpenSeq, setSearchOpenSeq] = useState(0);
 
   const contentRef = useRef<HTMLDivElement>(null);
-  const inputRef = useRef<HTMLInputElement>(null);
+  const inputRef = useRef<InputRef>(null);
 
   useEffect(() => {
     window.api.onTranslationResult((data) => {
@@ -99,8 +104,8 @@ export default function Popup() {
     function onKeyDown(e: KeyboardEvent) {
       if (e.key === "Escape") window.api.popup.hide();
     }
-    window.addEventListener("keydown", onKeyDown as unknown as EventListener);
-    return () => window.removeEventListener("keydown", onKeyDown as unknown as EventListener);
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
   }, []);
 
   // Reports the content's actual rendered size to the main process once,
@@ -139,10 +144,6 @@ export default function Popup() {
     }
   }
 
-  function handleSearchKeyDown(e: KeyboardEvent<HTMLInputElement>) {
-    if (e.key === "Enter") handleSearch();
-  }
-
   async function handleSaveSearch() {
     if (!searchPreview) return;
     setSaving(true);
@@ -170,31 +171,23 @@ export default function Popup() {
           overflowY: "auto",
         }}
       >
-        <Stack direction="row" sx={{ width: "100%" }}>
-          <TextField
-            inputRef={inputRef}
+        <Space.Compact style={{ width: "100%" }}>
+          <Input
+            ref={inputRef}
             value={searchText}
             onChange={(e) => setSearchText(e.target.value)}
-            onKeyDown={handleSearchKeyDown}
+            onPressEnter={handleSearch}
             placeholder="Tìm một từ hoặc cụm từ…"
-            size="small"
-            fullWidth
-            sx={{ "& .MuiOutlinedInput-root": { borderTopRightRadius: 0, borderBottomRightRadius: 0 } }}
           />
-          <Button
-            variant="contained"
-            loading={searching}
-            onClick={handleSearch}
-            sx={{ borderTopLeftRadius: 0, borderBottomLeftRadius: 0, flexShrink: 0 }}
-          >
+          <Button type="primary" loading={searching} onClick={handleSearch}>
             Tra từ
           </Button>
-        </Stack>
+        </Space.Compact>
 
         {searchPreview && (
           <div style={{ marginTop: 12 }}>
             <TranslationView result={searchPreview.result} dictionary={searchPreview.dictionary} />
-            <Button variant="contained" fullWidth loading={saving} onClick={handleSaveSearch} sx={{ marginTop: "10px" }}>
+            <Button type="primary" block loading={saving} onClick={handleSaveSearch} style={{ marginTop: 10 }}>
               Lưu
             </Button>
           </div>
@@ -206,7 +199,7 @@ export default function Popup() {
   if (!payload) {
     return (
       <div style={{ padding: 16, fontFamily: "system-ui, sans-serif" }}>
-        <Typography color="text.secondary">Waiting for lookup…</Typography>
+        <Typography.Text type="secondary">Waiting for lookup…</Typography.Text>
       </div>
     );
   }

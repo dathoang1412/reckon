@@ -1,12 +1,6 @@
 import type { ReactNode } from "react";
-import BoltIcon from "@mui/icons-material/Bolt";
-import ReplayIcon from "@mui/icons-material/Replay";
-import Button from "@mui/material/Button";
-import CircularProgress from "@mui/material/CircularProgress";
-import IconButton from "@mui/material/IconButton";
-import Stack from "@mui/material/Stack";
-import Tooltip from "@mui/material/Tooltip";
-import Typography from "@mui/material/Typography";
+import { RedoOutlined, ThunderboltOutlined } from "@ant-design/icons";
+import { Button, Space, Spin, Tooltip, Typography } from "antd";
 import { useHasGroqKey } from "../lib/useHasGroqKey";
 import { COLOR_PRIMARY, styleTokens } from "../theme";
 
@@ -39,9 +33,15 @@ export default function AiSection({
   const hasKey = useHasGroqKey();
 
   const generateButton = (
-    <Tooltip title={hasKey === false ? "Cần thêm Groq API key trong Cài đặt" : ""}>
+    <Tooltip title={hasKey === false ? "Cần thêm Groq API key trong Cài đặt" : undefined}>
       <span>
-        <Button variant="outlined" size="small" startIcon={<BoltIcon />} disabled={hasKey === false} onClick={onGenerate}>
+        <Button
+          type="dashed"
+          size="small"
+          icon={<ThunderboltOutlined />}
+          disabled={hasKey === false}
+          onClick={onGenerate}
+        >
           Tạo với AI
         </Button>
       </span>
@@ -51,32 +51,30 @@ export default function AiSection({
   return (
     <div style={{ marginTop: 16, borderTop: `1px solid ${styleTokens.borderColorLight}`, paddingTop: 12 }}>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-        <Typography sx={{ fontWeight: 600 }}>
+        <Typography.Text strong>
           <span style={{ color: COLOR_PRIMARY, marginRight: 6 }}>{icon}</span>
           {title}
-        </Typography>
+        </Typography.Text>
         {hasContent && !loading && !disabledReason && (
-          <IconButton size="small" title="Tạo lại" onClick={onGenerate}>
-            <ReplayIcon fontSize="small" />
-          </IconButton>
+          <Button type="text" size="small" icon={<RedoOutlined />} title="Tạo lại" onClick={onGenerate} />
         )}
       </div>
       <div style={{ marginTop: 8 }}>
         {disabledReason ? (
-          <Typography color="text.secondary" sx={{ fontSize: styleTokens.secondaryFontSize }}>
+          <Typography.Text type="secondary" style={{ fontSize: styleTokens.secondaryFontSize }}>
             {disabledReason}
-          </Typography>
+          </Typography.Text>
         ) : loading ? (
-          <CircularProgress size={20} />
+          <Spin size="small" />
         ) : error ? (
-          <Stack spacing={0.5}>
-            <Typography color="error" sx={{ fontSize: styleTokens.secondaryFontSize }}>
+          <Space direction="vertical" size={4}>
+            <Typography.Text type="danger" style={{ fontSize: styleTokens.secondaryFontSize }}>
               {error}
-            </Typography>
-            <Button size="small" variant="outlined" onClick={onGenerate}>
+            </Typography.Text>
+            <Button size="small" onClick={onGenerate}>
               Thử lại
             </Button>
-          </Stack>
+          </Space>
         ) : hasContent ? (
           children
         ) : (
