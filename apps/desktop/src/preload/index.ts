@@ -99,6 +99,14 @@ export interface VocabCandidate {
   reason: string;
 }
 
+export type UpdateStatus =
+  | { state: "checking" }
+  | { state: "available"; version: string }
+  | { state: "not-available" }
+  | { state: "downloading"; percent: number }
+  | { state: "downloaded"; version: string }
+  | { state: "error"; message: string };
+
 const api = {
   vocab: {
     list: () => ipcRenderer.invoke("vocab:list") as Promise<VocabEntryRow[]>,
@@ -166,6 +174,13 @@ const api = {
     resize: (size: { width: number; height: number }) => ipcRenderer.send("popup:resize", size),
     hide: () => ipcRenderer.send("popup:hide"),
   },
+  app: {
+    getVersion: () => ipcRenderer.invoke("app:getVersion") as Promise<string>,
+  },
+  updater: {
+    checkNow: () => ipcRenderer.invoke("updater:checkNow") as Promise<void>,
+    quitAndInstall: () => ipcRenderer.invoke("updater:quitAndInstall") as Promise<void>,
+  },
   onTranslationResult: (callback: (payload: TranslationResultPayload) => void) => {
     ipcRenderer.on("translation:result", (_event, payload: TranslationResultPayload) => callback(payload));
   },
@@ -174,6 +189,9 @@ const api = {
   },
   onVocabCreated: (callback: (entry: VocabEntryRow) => void) => {
     ipcRenderer.on("vocab:created", (_event, entry: VocabEntryRow) => callback(entry));
+  },
+  onUpdateStatus: (callback: (status: UpdateStatus) => void) => {
+    ipcRenderer.on("updater:status", (_event, status: UpdateStatus) => callback(status));
   },
 };
 

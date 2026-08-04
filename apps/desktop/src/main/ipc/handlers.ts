@@ -1,4 +1,4 @@
-import { type BrowserWindow, ipcMain } from "electron";
+import { app, type BrowserWindow, ipcMain } from "electron";
 import { getPrisma } from "../db/client";
 import { getDeviceId } from "../utils/deviceId";
 import {
@@ -45,6 +45,12 @@ interface IpcHandlerDeps {
   // push the new entry into the main window's list, the same way the
   // selection-lookup hotkey already does in app/hotkey.ts.
   getMainWindow: () => BrowserWindow | null;
+  // Both delegate to the updater instance created in index.ts (see
+  // app/updater.ts) — kept there, not here, since that's also where its
+  // event listeners (and the getMainWindow closure they broadcast through)
+  // live.
+  checkForUpdates: () => void;
+  quitAndInstallUpdate: () => void;
 }
 
 // Prisma stores targetMeanings/tags/aiExamples/aiRelatedWords as JSON string
@@ -80,7 +86,13 @@ function toVocabEntryRow<
   };
 }
 
-export function registerIpcHandlers({ registerHotkey, registerSearchHotkey, getMainWindow }: IpcHandlerDeps): void {
+export function registerIpcHandlers({
+  registerHotkey,
+  registerSearchHotkey,
+  getMainWindow,
+  checkForUpdates,
+  quitAndInstallUpdate,
+}: IpcHandlerDeps): void {
   const prisma = getPrisma();
   const deviceId = getDeviceId();
 
@@ -200,7 +212,15 @@ export function registerIpcHandlers({ registerHotkey, registerSearchHotkey, getM
   // via apiKeyOverride — that's why this takes a key argument instead of
   // just reading settings itself.
   ipcMain.handle("settings:testGroqApiKey", async (_event, key: string) => {
-    await chatJSON({ system: 'Trả lời chính xác: {"ok":true}', user: "ping", maxTokens: 20, apiKeyOverride: key });
+    // The literal word "json" has to appear somewhere in the messages —
+    // Groq (like OpenAI) rejects response_format: json_object with a 400
+    // otherwise, regardless of whether the content already looks like JSON.
+    await chatJSON({
+      system: 'Trả lời bằng JSON chính xác: {"ok":true}',
+      user: "ping",
+      maxTokens: 20,
+      apiKeyOverride: key,
+    });
   });
 
   ipcMain.handle("ai:generateExamples", async (_event, id: string) => {
@@ -229,5 +249,15 @@ export function registerIpcHandlers({ registerHotkey, registerSearchHotkey, getM
 
   ipcMain.handle("ai:extractVocab", async (_event, paragraph: string) => {
     return extractVocabCandidates(paragraph);
+  });
+
+  ipcMain.handle("app:getVersion", () => app.getVersion());
+
+  ipcMain.handle("updater:checkNow", () => {
+    checkForUpdates();
+  });
+
+  ipcMain.handle("updater:quitAndInstall", () => {
+    quitAndInstallUpdate();
   });
 }

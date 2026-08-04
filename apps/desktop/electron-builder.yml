@@ -2,6 +2,15 @@ appId: com.reckon.desktop
 productName: Reckon
 directories:
   output: release
+# Lets electron-updater (see main/app/updater.ts) find new releases —
+# unauthenticated requests against public GitHub Releases, so this only
+# works while the repo stays public. Explicit owner/repo rather than
+# relying on package.json's "repository" field or git remote autodetection,
+# since neither is set here.
+publish:
+  provider: github
+  owner: dathoang1412
+  repo: reckon
 files:
   - out/**/*
   - generated/**/*

@@ -58,6 +58,34 @@ export default function App() {
     });
   }, []);
 
+  // Only the "downloaded" state needs surfacing outside Settings — it's the
+  // one moment that needs a user decision (restart now or later) regardless
+  // of which page they're on; every other update state (checking/available/
+  // error) is just passive status Settings already shows on its own.
+  useEffect(() => {
+    window.api.onUpdateStatus((status) => {
+      if (status.state !== "downloaded") return;
+      toast(
+        (t) => (
+          <Space>
+            <span>Đã tải bản cập nhật v{status.version}.</span>
+            <Button
+              size="small"
+              type="primary"
+              onClick={() => {
+                toast.dismiss(t.id);
+                window.api.updater.quitAndInstall();
+              }}
+            >
+              Khởi động lại
+            </Button>
+          </Space>
+        ),
+        { duration: Infinity, icon: "🚀" },
+      );
+    });
+  }, []);
+
   async function handleSearch() {
     if (!text.trim()) return;
     setLooking(true);

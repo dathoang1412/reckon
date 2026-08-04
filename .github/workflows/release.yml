@@ -47,6 +47,23 @@ jobs:
           pnpm --filter @reckon/server exec prisma generate
           pnpm --filter @reckon/desktop exec prisma generate
 
+      # electron-updater compares the running app's version (baked in at
+      # build time from this file) against latest.yml on GitHub Releases —
+      # apps/desktop/package.json's committed version never gets bumped
+      # per-release, so without this every build would keep reporting the
+      # same stale version and auto-update could never detect anything new.
+      - name: Set desktop app version from tag
+        shell: bash
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          node -e "
+            const fs = require('fs');
+            const path = 'apps/desktop/package.json';
+            const pkg = JSON.parse(fs.readFileSync(path, 'utf8'));
+            pkg.version = process.argv[1];
+            fs.writeFileSync(path, JSON.stringify(pkg, null, 2) + '\n');
+          " "$VERSION"
+
       - name: Build installer
         run: pnpm package:desktop
 
@@ -56,4 +73,5 @@ jobs:
           files: |
             apps/desktop/release/*.exe
             apps/desktop/release/*.exe.blockmap
+            apps/desktop/release/latest.yml
           generate_release_notes: true

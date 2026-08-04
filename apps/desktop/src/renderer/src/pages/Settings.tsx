@@ -1,9 +1,10 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { useRecordHotkeys } from "react-hotkeys-hook";
-import { ThunderboltOutlined } from "@ant-design/icons";
-import { Button, Input, Space, Typography } from "antd";
+import { SyncOutlined, ThunderboltOutlined } from "@ant-design/icons";
+import { Button, Input, Progress, Space, Typography } from "antd";
 import toast from "react-hot-toast";
 import PageShell from "../components/PageShell";
+import type { UpdateStatus } from "../../../preload/index";
 
 function errorMessage(err: unknown): string {
   return err instanceof Error ? err.message : String(err);
@@ -236,11 +237,16 @@ export default function Settings({ onLogout }: { onLogout: () => void }) {
   const [savingKey, setSavingKey] = useState(false);
   const [testingKey, setTestingKey] = useState(false);
 
+  const [appVersion, setAppVersion] = useState<string | null>(null);
+  const [updateStatus, setUpdateStatus] = useState<UpdateStatus | null>(null);
+
   useEffect(() => {
     window.api.settings.getHotkey().then(setSavedHotkey);
     window.api.settings.getSearchHotkey().then(setSavedSearchHotkey);
     window.api.settings.getGroqApiKey().then(setGroqKey);
     window.api.auth.getSession().then((session) => setEmail(session?.email ?? null));
+    window.api.app.getVersion().then(setAppVersion);
+    window.api.onUpdateStatus(setUpdateStatus);
   }, []);
 
   async function handleLogout() {
@@ -329,6 +335,48 @@ export default function Settings({ onLogout }: { onLogout: () => void }) {
         <Button icon={<ThunderboltOutlined />} loading={testingKey} onClick={handleTestGroqKey}>
           Kiểm tra kết nối
         </Button>
+      </Space>
+
+      <Typography.Title level={4} style={{ marginTop: 32 }}>
+        Cập nhật
+      </Typography.Title>
+      <Typography.Paragraph type="secondary" style={{ marginTop: 8 }}>
+        Phiên bản hiện tại: {appVersion ? `v${appVersion}` : "…"}
+      </Typography.Paragraph>
+
+      {updateStatus?.state === "downloading" && (
+        <Progress percent={updateStatus.percent} style={{ maxWidth: 300 }} />
+      )}
+      {updateStatus?.state === "available" && (
+        <Typography.Text type="secondary" style={{ display: "block", marginBottom: 8 }}>
+          Đã tìm thấy bản v{updateStatus.version} — đang tải…
+        </Typography.Text>
+      )}
+      {updateStatus?.state === "not-available" && (
+        <Typography.Text type="secondary" style={{ display: "block", marginBottom: 8 }}>
+          Bạn đang dùng bản mới nhất.
+        </Typography.Text>
+      )}
+      {updateStatus?.state === "error" && (
+        <Typography.Text type="danger" style={{ display: "block", marginBottom: 8 }}>
+          {updateStatus.message}
+        </Typography.Text>
+      )}
+
+      <Space>
+        {updateStatus?.state === "downloaded" ? (
+          <Button type="primary" onClick={() => window.api.updater.quitAndInstall()}>
+            Khởi động lại để cài đặt v{updateStatus.version}
+          </Button>
+        ) : (
+          <Button
+            icon={<SyncOutlined />}
+            loading={updateStatus?.state === "checking"}
+            onClick={() => window.api.updater.checkNow()}
+          >
+            Kiểm tra cập nhật
+          </Button>
+        )}
       </Space>
     </PageShell>
   );

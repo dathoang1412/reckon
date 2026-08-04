@@ -1,5 +1,6 @@
 import { app, BrowserWindow, globalShortcut, type Tray } from "electron";
 import { createHotkeyManager, createSearchHotkeyManager } from "./app/hotkey";
+import { createUpdater } from "./app/updater";
 import { getPrisma } from "./db/client";
 import { runMigrations } from "./db/migrate";
 import { registerIpcHandlers } from "./ipc/handlers";
@@ -22,6 +23,7 @@ let isQuitting = false;
 
 const hotkeyManager = createHotkeyManager(() => mainWindow);
 const searchHotkeyManager = createSearchHotkeyManager(() => mainWindow);
+const updater = createUpdater(() => mainWindow);
 
 function openMainWindow(): void {
   mainWindow = createMainWindow(() => !isQuitting);
@@ -70,6 +72,8 @@ if (!app.requestSingleInstanceLock()) {
       registerHotkey: (accelerator) => hotkeyManager.register(accelerator),
       registerSearchHotkey: (accelerator) => searchHotkeyManager.register(accelerator),
       getMainWindow: () => mainWindow,
+      checkForUpdates: () => updater.checkNow(),
+      quitAndInstallUpdate: () => updater.quitAndInstall(),
     });
     openMainWindow();
     mainWindow?.once("ready-to-show", () => closeSplashWindow());
@@ -83,6 +87,10 @@ if (!app.requestSingleInstanceLock()) {
 
     hotkeyManager.register(getHotkey());
     searchHotkeyManager.register(getSearchHotkey());
+    // Fire-and-forget — a slow/offline check shouldn't delay anything else
+    // startup does, and any result (available/not/error) just gets pushed
+    // to the main window whenever it's ready to show it.
+    updater.checkNow();
 
     app.on("activate", () => {
       if (BrowserWindow.getAllWindows().length === 0) openMainWindow();
