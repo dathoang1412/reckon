@@ -70,6 +70,14 @@ jobs:
           pnpm bundle:server
           node apps/desktop/scripts/materialize-shared.cjs
 
+      # bundle:server's `pnpm deploy --prod` leaves the workspace looking
+      # out-of-sync with the lockfile to pnpm, which silently reinstalls
+      # --production (wiping electron/electron-vite/electron-builder and
+      # every other devDependency) the next time any pnpm command touches
+      # it — see .npmrc and package:desktop's own identical step.
+      - name: Reinstall devDependencies stripped by bundle:server
+        run: pnpm install --frozen-lockfile
+
       # electron-builder writes latest.yml (the file electron-updater
       # checks) only as part of an actual publish — "electron-builder
       # --publish never" (what apps/desktop's own "package" script uses,
