@@ -87,7 +87,7 @@ function fromPreview(data: TranslationResultData): DisplayEntry {
 // into, regardless of screen size or the window's current state. Used as a
 // fixed `height` (not `maxHeight`) on the tab content below so every tab
 // measures the same, and switching tabs never jumps the window's height.
-const MAX_CONTENT_HEIGHT = 360;
+const MAX_CONTENT_HEIGHT = 288;
 
 type TabKey = "dict" | "examples" | "nuance" | "related";
 type AiFeature = "examples" | "nuance" | "related";
@@ -467,8 +467,8 @@ export default function Popup() {
       className="fade-in"
       style={{
         fontFamily: "system-ui, sans-serif",
-        width: entry ? 400 : 380,
-        maxWidth: 420,
+        width: entry ? 320 : 304,
+        maxWidth: 336,
         display: "flex",
         flexDirection: "column",
       }}

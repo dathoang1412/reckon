@@ -18,8 +18,8 @@ let popupWindow: BrowserWindow | null = null;
 
 // Matches the content's own maxWidth (see Popup.tsx) so a measurement never
 // starts out narrower than the content is allowed to be.
-const BASELINE_WIDTH = 420;
-const BASELINE_HEIGHT = 500;
+const BASELINE_WIDTH = 336;
+const BASELINE_HEIGHT = 400;
 
 // Where the popup should anchor once the renderer reports its measured
 // size (see the "popup:resize" handler below) — captured at the moment the

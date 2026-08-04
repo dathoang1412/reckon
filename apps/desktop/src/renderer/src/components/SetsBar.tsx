@@ -46,6 +46,13 @@ function DeckRow({ label, count, lastActivity, active, onClick, onRename, onDele
       {menuItems && menuItems.length > 0 && (
         <Dropdown
           trigger={["click"]}
+          // The trigger sits at the right edge of this (narrow, fixed-width)
+          // sidebar column — antd's default "bottomLeft" placement grows the
+          // menu rightward from there, which is exactly the direction
+          // that's most likely to run past the window's right edge on a
+          // narrower window. "bottomRight" anchors the menu's right edge to
+          // the trigger instead, so it always grows back toward the sidebar.
+          placement="bottomRight"
           menu={{
             items: menuItems,
             onClick: ({ key, domEvent }) => {
