@@ -105,15 +105,6 @@ ipcMain.on("popup:resize", (event, size: { width: number; height: number }) => {
     if (y < area.y) y = area.y;
   }
 
-  // Hide first even when the window's already visible (e.g. resizing for a
-  // tab switch, not a brand-new lookup) — a resizable:false BrowserWindow
-  // on Windows doesn't reliably shrink via setContentSize alone while
-  // shown, so a tab with much shorter content than the previous one could
-  // leave the window stuck at its old (too-tall) size with the real
-  // content only filling the top of it. Hide/resize/show is already what
-  // sendToPopup does for new content; this makes plain in-place resizes
-  // (tab switches, AI content loading in) go through the same reliable path.
-  win.hide();
   win.setContentSize(width, height);
   win.setPosition(x, y);
   win.show();

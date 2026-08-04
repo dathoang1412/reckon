@@ -81,6 +81,16 @@ function fromPreview(data: TranslationResultData): DisplayEntry {
   };
 }
 
+// A flat pixel cap — NOT "80vh", which is relative to this popup's *own
+// current* window height. Since that height is itself set from a
+// measurement of this content, "80vh" creates a feedback loop: a smaller
+// window shrinks the cap, which clips more content into the inner scroll
+// area, which under-measures the true height needed, which requests an
+// even smaller window next time — the popup ratchets down to a sliver
+// over a couple of tab switches. A fixed number has nothing to feed back
+// into, regardless of screen size or the window's current state.
+const MAX_CONTENT_HEIGHT = 480;
+
 type TabKey = "dict" | "examples" | "nuance" | "related" | "mnemonic";
 type AiFeature = "examples" | "nuance" | "related" | "mnemonic";
 
@@ -415,7 +425,6 @@ export default function Popup() {
         fontFamily: "system-ui, sans-serif",
         width: entry ? 400 : 380,
         maxWidth: 420,
-        maxHeight: "80vh",
         display: "flex",
         flexDirection: "column",
       }}
@@ -440,7 +449,7 @@ export default function Popup() {
       {entry && (
         <>
           <TabBar active={activeTab} onChange={setActiveTab} />
-          <div style={{ padding: 16, overflowY: "auto" }}>
+          <div style={{ padding: 16, overflowY: "auto", maxHeight: MAX_CONTENT_HEIGHT }}>
             {activeTab === "dict" && <TranslationTab entry={entry} dictionary={dictionary} />}
 
             {activeTab === "examples" && (
