@@ -99,30 +99,6 @@ export async function suggestRelatedWords(
   return updateVocabEntry(prisma, deviceId, vocabId, { aiRelatedWords: related });
 }
 
-// ---- Feature 4: mnemonic ----
-
-async function mnemonicContent(sourceText: string, meanings: string[]): Promise<string> {
-  const { mnemonic } = await chatJSON<{ mnemonic: string }>({
-    system:
-      `Bạn là chuyên gia ghi nhớ (mnemonics). Tạo MỘT mẹo ghi nhớ ngắn gọn, sáng tạo bằng tiếng Việt ` +
-      `(liên tưởng âm thanh/hình ảnh/câu chuyện ngắn), tối đa 2 câu, giúp nhớ nghĩa của từ. ` +
-      `Chỉ trả về JSON: {"mnemonic": string}.`,
-    user: `Từ: "${sourceText}" — nghĩa: ${meanings.join(", ")}`,
-    maxTokens: 200,
-  });
-  return mnemonic;
-}
-
-export function previewMnemonic(sourceText: string, meanings: string[]): Promise<string> {
-  return mnemonicContent(sourceText, meanings);
-}
-
-export async function generateMnemonic(prisma: PrismaClient, deviceId: string, vocabId: string): Promise<VocabEntry> {
-  const entry = await loadEntry(prisma, vocabId);
-  const mnemonic = await mnemonicContent(entry.sourceText, parseTargetMeanings(entry));
-  return updateVocabEntry(prisma, deviceId, vocabId, { mnemonic });
-}
-
 // ---- Feature 5: quiz question (not persisted, review-only) ----
 
 export interface QuizQuestion {

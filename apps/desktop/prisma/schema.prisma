@@ -30,7 +30,6 @@ model VocabEntry {
   // with none of these is just a word nobody has asked for AI help with
   // yet. examples/relatedWords are JSON-encoded (see aiTypes.ts), same
   // reasoning as targetMeanings/tags above.
-  mnemonic       String?
   aiExamples     String?
   aiNuance       String?
   aiRelatedWords String?

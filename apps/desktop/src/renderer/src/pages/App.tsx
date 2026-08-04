@@ -2,7 +2,16 @@ import { useEffect, useState } from "react";
 import { DeleteOutlined, ImportOutlined, SoundOutlined } from "@ant-design/icons";
 import { Button, Card, Empty, Input, List, Select, Space, Tag, Typography } from "antd";
 import toast from "react-hot-toast";
-import type { UserProfile, VocabEntryRow, VocabPreview, VocabSetRow } from "../../../preload/index";
+import type {
+  AiExample,
+  AiRelatedWords,
+  UserProfile,
+  VocabEntryPatch,
+  VocabEntryRow,
+  VocabPreview,
+  VocabSetRow,
+} from "../../../preload/index";
+import AiWordEnrichment from "../components/AiWordEnrichment";
 import AppHeader, { type AppView } from "../components/AppHeader";
 import BulkExtractModal from "../components/BulkExtractModal";
 import DictionaryPanel from "../components/DictionaryPanel";
@@ -29,6 +38,17 @@ export default function App() {
   const [looking, setLooking] = useState(false);
   const [saving, setSaving] = useState(false);
   const [preview, setPreview] = useState<VocabPreview | null>(null);
+  // AI enrichment generated on the not-yet-saved preview (see
+  // AiWordEnrichment below) — kept separate from `preview` itself since
+  // VocabPreview/TranslationResultData has no AI fields (those only exist
+  // on a saved VocabEntryRow); carried over into a vocab.update patch right
+  // after saving so generating before Lưu isn't wasted work.
+  const [previewAiExamples, setPreviewAiExamples] = useState<AiExample[]>([]);
+  const [previewAiNuance, setPreviewAiNuance] = useState<string | null>(null);
+  const [previewAiRelatedWords, setPreviewAiRelatedWords] = useState<AiRelatedWords | null>(null);
+  const [previewExamplesState, setPreviewExamplesState] = useState({ loading: false, error: null as string | null });
+  const [previewNuanceState, setPreviewNuanceState] = useState({ loading: false, error: null as string | null });
+  const [previewRelatedState, setPreviewRelatedState] = useState({ loading: false, error: null as string | null });
   const [syncing, setSyncing] = useState(false);
   const [view, setView] = useState<AppView>("list");
   const [bulkExtractOpen, setBulkExtractOpen] = useState(false);
@@ -106,6 +126,12 @@ export default function App() {
     if (!text.trim()) return;
     setLooking(true);
     setPreview(null);
+    setPreviewAiExamples([]);
+    setPreviewAiNuance(null);
+    setPreviewAiRelatedWords(null);
+    setPreviewExamplesState({ loading: false, error: null });
+    setPreviewNuanceState({ loading: false, error: null });
+    setPreviewRelatedState({ loading: false, error: null });
     try {
       setPreview(await window.api.vocab.preview(text.trim()));
     } catch (err) {
@@ -115,11 +141,59 @@ export default function App() {
     }
   }
 
+  async function handleGeneratePreviewExamples() {
+    if (!preview) return;
+    setPreviewExamplesState({ loading: true, error: null });
+    try {
+      setPreviewAiExamples(await window.api.ai.previewExamples(preview.result.sourceText, preview.result.targetMeanings));
+      setPreviewExamplesState({ loading: false, error: null });
+    } catch (err) {
+      setPreviewExamplesState({ loading: false, error: err instanceof Error ? err.message : String(err) });
+    }
+  }
+
+  async function handleGeneratePreviewNuance() {
+    if (!preview) return;
+    setPreviewNuanceState({ loading: true, error: null });
+    try {
+      setPreviewAiNuance(await window.api.ai.previewNuance(preview.result.sourceText, preview.result.targetMeanings));
+      setPreviewNuanceState({ loading: false, error: null });
+    } catch (err) {
+      setPreviewNuanceState({ loading: false, error: err instanceof Error ? err.message : String(err) });
+    }
+  }
+
+  async function handleGeneratePreviewRelated() {
+    if (!preview) return;
+    setPreviewRelatedState({ loading: true, error: null });
+    try {
+      setPreviewAiRelatedWords(
+        await window.api.ai.previewRelatedWords(
+          preview.result.sourceText,
+          preview.result.sourceLang,
+          preview.result.targetText,
+          preview.result.targetLang,
+        ),
+      );
+      setPreviewRelatedState({ loading: false, error: null });
+    } catch (err) {
+      setPreviewRelatedState({ loading: false, error: err instanceof Error ? err.message : String(err) });
+    }
+  }
+
   async function handleSavePreview() {
     if (!preview) return;
     setSaving(true);
     try {
-      await window.api.vocab.save(preview.result);
+      const saved = await window.api.vocab.save(preview.result);
+      // Carry over whatever AI content was generated on the preview —
+      // otherwise saving would silently throw away Groq calls the user
+      // already paid the latency for (same reasoning as Popup.tsx).
+      const patch: VocabEntryPatch = {};
+      if (previewAiExamples.length > 0) patch.aiExamples = previewAiExamples;
+      if (previewAiNuance) patch.aiNuance = previewAiNuance;
+      if (previewAiRelatedWords) patch.aiRelatedWords = previewAiRelatedWords;
+      if (Object.keys(patch).length > 0) await window.api.vocab.update(saved.id, patch);
       setText("");
       setPreview(null);
       await refresh();
@@ -347,6 +421,22 @@ export default function App() {
                       </Button>
                     </Space>
                     {preview.dictionary && <DictionaryPanel dictionary={preview.dictionary} />}
+                    <AiWordEnrichment
+                      aiExamples={previewAiExamples}
+                      aiNuance={previewAiNuance}
+                      aiRelatedWords={previewAiRelatedWords}
+                      relatedWordsDisabledReason={
+                        preview.result.sourceLang === "en" || preview.result.targetLang === "en"
+                          ? null
+                          : "Chỉ hỗ trợ cho từ tiếng Anh"
+                      }
+                      examplesState={previewExamplesState}
+                      nuanceState={previewNuanceState}
+                      relatedState={previewRelatedState}
+                      onGenerateExamples={handleGeneratePreviewExamples}
+                      onGenerateNuance={handleGeneratePreviewNuance}
+                      onGenerateRelated={handleGeneratePreviewRelated}
+                    />
                   </Card>
                 )}
 

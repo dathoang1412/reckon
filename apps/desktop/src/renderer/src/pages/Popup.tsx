@@ -1,7 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import {
   ApartmentOutlined,
-  BulbOutlined,
   DiffOutlined,
   FileTextOutlined,
   RedoOutlined,
@@ -45,7 +44,6 @@ interface DisplayEntry {
   targetText: string;
   targetMeanings: string[];
   targetLang: string;
-  mnemonic: string | null;
   aiExamples: AiExample[];
   aiNuance: string | null;
   aiRelatedWords: AiRelatedWords | null;
@@ -59,7 +57,6 @@ function fromVocabEntryRow(row: VocabEntryRow): DisplayEntry {
     targetText: row.targetText,
     targetMeanings: row.targetMeanings,
     targetLang: row.targetLang,
-    mnemonic: row.mnemonic,
     aiExamples: row.aiExamples,
     aiNuance: row.aiNuance,
     aiRelatedWords: row.aiRelatedWords,
@@ -74,7 +71,6 @@ function fromPreview(data: TranslationResultData): DisplayEntry {
     targetText: data.targetText,
     targetMeanings: data.targetMeanings,
     targetLang: data.targetLang,
-    mnemonic: null,
     aiExamples: [],
     aiNuance: null,
     aiRelatedWords: null,
@@ -91,15 +87,14 @@ function fromPreview(data: TranslationResultData): DisplayEntry {
 // into, regardless of screen size or the window's current state.
 const MAX_CONTENT_HEIGHT = 480;
 
-type TabKey = "dict" | "examples" | "nuance" | "related" | "mnemonic";
-type AiFeature = "examples" | "nuance" | "related" | "mnemonic";
+type TabKey = "dict" | "examples" | "nuance" | "related";
+type AiFeature = "examples" | "nuance" | "related";
 
 const TAB_DEFS: { key: TabKey; icon: ReactNode; label: string }[] = [
   { key: "dict", icon: <TranslationOutlined />, label: "Dịch & từ điển" },
   { key: "examples", icon: <FileTextOutlined />, label: "Ví dụ câu" },
   { key: "nuance", icon: <DiffOutlined />, label: "Sắc thái & ngữ cảnh" },
   { key: "related", icon: <ApartmentOutlined />, label: "Từ liên quan" },
-  { key: "mnemonic", icon: <BulbOutlined />, label: "Mẹo ghi nhớ" },
 ];
 
 // Compact icon-only tab bar (matching a dictionary-extension-style header)
@@ -240,7 +235,6 @@ export default function Popup() {
     examples: { loading: false, error: null },
     nuance: { loading: false, error: null },
     related: { loading: false, error: null },
-    mnemonic: { loading: false, error: null },
   });
 
   // Search mode: opened via the empty-popup hotkey (no pre-fetched result),
@@ -366,7 +360,6 @@ export default function Popup() {
       if (entry.aiExamples.length > 0) patch.aiExamples = entry.aiExamples;
       if (entry.aiNuance) patch.aiNuance = entry.aiNuance;
       if (entry.aiRelatedWords) patch.aiRelatedWords = entry.aiRelatedWords;
-      if (entry.mnemonic) patch.mnemonic = entry.mnemonic;
       if (Object.keys(patch).length > 0) finalRow = await window.api.vocab.update(finalRow.id, patch);
       setEntry(fromVocabEntryRow(finalRow));
       toast.success("Đã lưu");
@@ -387,9 +380,7 @@ export default function Popup() {
           ? window.api.ai.generateExamples(id)
           : feature === "nuance"
             ? window.api.ai.explainNuance(id)
-            : feature === "related"
-              ? window.api.ai.suggestRelatedWords(id)
-              : window.api.ai.generateMnemonic(id));
+            : window.api.ai.suggestRelatedWords(id));
         setEntry(fromVocabEntryRow(updated));
       } else if (feature === "examples") {
         const aiExamples = await window.api.ai.previewExamples(entry.sourceText, entry.targetMeanings);
@@ -397,7 +388,7 @@ export default function Popup() {
       } else if (feature === "nuance") {
         const aiNuance = await window.api.ai.previewNuance(entry.sourceText, entry.targetMeanings);
         setEntry((prev) => prev && { ...prev, aiNuance });
-      } else if (feature === "related") {
+      } else {
         const aiRelatedWords = await window.api.ai.previewRelatedWords(
           entry.sourceText,
           entry.sourceLang,
@@ -405,9 +396,6 @@ export default function Popup() {
           entry.targetLang,
         );
         setEntry((prev) => prev && { ...prev, aiRelatedWords });
-      } else {
-        const mnemonic = await window.api.ai.previewMnemonic(entry.sourceText, entry.targetMeanings);
-        setEntry((prev) => prev && { ...prev, mnemonic });
       }
       setAiStatus((prev) => ({ ...prev, [feature]: { loading: false, error: null } }));
     } catch (err) {
@@ -535,17 +523,6 @@ export default function Popup() {
                     )}
                   </Space>
                 )}
-              </AiTabPanel>
-            )}
-
-            {activeTab === "mnemonic" && (
-              <AiTabPanel
-                hasContent={!!entry.mnemonic}
-                loading={aiStatus.mnemonic.loading}
-                error={aiStatus.mnemonic.error}
-                onGenerate={() => handleGenerate("mnemonic")}
-              >
-                <Typography.Text style={{ display: "block", marginBottom: 8 }}>{entry.mnemonic}</Typography.Text>
               </AiTabPanel>
             )}
           </div>

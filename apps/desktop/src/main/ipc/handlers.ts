@@ -6,10 +6,8 @@ import {
   extractVocabCandidates,
   explainNuance,
   generateExamples,
-  generateMnemonic,
   generateQuizQuestion,
   previewExamples,
-  previewMnemonic,
   previewNuance,
   previewRelatedWords,
   suggestRelatedWords,
@@ -258,10 +256,6 @@ export function registerIpcHandlers({
     return toVocabEntryRow(await suggestRelatedWords(prisma, deviceId, id));
   });
 
-  ipcMain.handle("ai:generateMnemonic", async (_event, id: string) => {
-    return toVocabEntryRow(await generateMnemonic(prisma, deviceId, id));
-  });
-
   ipcMain.handle("ai:suggestTags", async (_event, id: string) => {
     return suggestTags(prisma, id);
   });
@@ -292,10 +286,6 @@ export function registerIpcHandlers({
       return previewRelatedWords(sourceText, sourceLang, targetText, targetLang);
     },
   );
-
-  ipcMain.handle("ai:previewMnemonic", async (_event, sourceText: string, meanings: string[]) => {
-    return previewMnemonic(sourceText, meanings);
-  });
 
   ipcMain.handle("settings:getAutoSave", () => getAutoSave());
 

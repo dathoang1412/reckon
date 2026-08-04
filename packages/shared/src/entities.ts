@@ -38,7 +38,6 @@ export const vocabEntrySchema = syncMetaSchema.extend({
   // AI-generated (Groq) enrichment, populated on-demand rather than at
   // save time — all default to "not generated yet" so older synced
   // records that predate these fields round-trip cleanly.
-  mnemonic: z.string().max(1000).nullable().default(null),
   aiExamples: z.array(z.object({ sentence: z.string(), translation: z.string() })).default([]),
   aiNuance: z.string().max(2000).nullable().default(null),
   aiRelatedWords: z

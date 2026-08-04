@@ -30,7 +30,6 @@ export interface VocabEntryRow {
   definition: string | null;
   // AI-generated (Groq) enrichment — null/empty until the user asks for it
   // from VocabDetailModal, see window.api.ai.* below.
-  mnemonic: string | null;
   aiExamples: AiExample[];
   aiNuance: string | null;
   aiRelatedWords: AiRelatedWords | null;
@@ -40,7 +39,6 @@ export interface VocabEntryPatch {
   note?: string | null;
   tags?: string[];
   definition?: string | null;
-  mnemonic?: string | null;
   aiExamples?: AiExample[];
   aiNuance?: string | null;
   aiRelatedWords?: AiRelatedWords | null;
@@ -178,7 +176,6 @@ const api = {
     generateExamples: (id: string) => ipcRenderer.invoke("ai:generateExamples", id) as Promise<VocabEntryRow>,
     explainNuance: (id: string) => ipcRenderer.invoke("ai:explainNuance", id) as Promise<VocabEntryRow>,
     suggestRelatedWords: (id: string) => ipcRenderer.invoke("ai:suggestRelatedWords", id) as Promise<VocabEntryRow>,
-    generateMnemonic: (id: string) => ipcRenderer.invoke("ai:generateMnemonic", id) as Promise<VocabEntryRow>,
     suggestTags: (id: string) => ipcRenderer.invoke("ai:suggestTags", id) as Promise<TagSuggestion>,
     quizQuestion: (id: string) => ipcRenderer.invoke("ai:quizQuestion", id) as Promise<QuizQuestion>,
     extractVocab: (paragraph: string) => ipcRenderer.invoke("ai:extractVocab", paragraph) as Promise<VocabCandidate[]>,
@@ -197,8 +194,6 @@ const api = {
         targetText,
         targetLang,
       ) as Promise<AiRelatedWords>,
-    previewMnemonic: (sourceText: string, meanings: string[]) =>
-      ipcRenderer.invoke("ai:previewMnemonic", sourceText, meanings) as Promise<string>,
   },
   popup: {
     resize: (size: { width: number; height: number }) => ipcRenderer.send("popup:resize", size),

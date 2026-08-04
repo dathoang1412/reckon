@@ -4,8 +4,8 @@ import { Button, Space, Spin, Tooltip, Typography } from "antd";
 import { useHasGroqKey } from "../lib/useHasGroqKey";
 import { COLOR_PRIMARY, styleTokens } from "../theme";
 
-// The reusable "AI enrichment block" used by VocabDetailModal's four Groq
-// features (examples, nuance, related words, mnemonic) — one consistent
+// The reusable "AI enrichment block" used by VocabDetailModal's Groq
+// features (examples, nuance, related words) — one consistent
 // header/loading/error/empty treatment so each feature only has to supply
 // its own prompt call and result rendering (children).
 export default function AiSection({

@@ -1,17 +1,9 @@
 import { useEffect, useState } from "react";
-import {
-  ApartmentOutlined,
-  CloseOutlined,
-  DiffOutlined,
-  FileTextOutlined,
-  BulbOutlined,
-  SoundOutlined,
-  ThunderboltOutlined,
-} from "@ant-design/icons";
+import { CloseOutlined, SoundOutlined, ThunderboltOutlined } from "@ant-design/icons";
 import { Button, Input, Modal, Select, Space, Spin, Tag, Tooltip, Typography } from "antd";
 import toast from "react-hot-toast";
 import type { DictionaryInfo, TagSuggestion, VocabEntryRow } from "../../../preload/index";
-import AiSection from "./AiSection";
+import AiWordEnrichment from "./AiWordEnrichment";
 import DictionaryPanel from "./DictionaryPanel";
 import { dayLabel, timeLabel } from "../lib/date";
 import { speak } from "../lib/speak";
@@ -48,8 +40,6 @@ export default function VocabDetailModal({
   const [nuanceError, setNuanceError] = useState<string | null>(null);
   const [relatedLoading, setRelatedLoading] = useState(false);
   const [relatedError, setRelatedError] = useState<string | null>(null);
-  const [mnemonicLoading, setMnemonicLoading] = useState(false);
-  const [mnemonicError, setMnemonicError] = useState<string | null>(null);
 
   // Fetched on demand rather than stored on the entry — the dictionary
   // data can always be re-fetched fresh, so there's no need to widen the
@@ -79,7 +69,6 @@ export default function VocabDetailModal({
     setExamplesError(null);
     setNuanceError(null);
     setRelatedError(null);
-    setMnemonicError(null);
   }, [entry?.id]);
 
   async function handleSaveEdit() {
@@ -162,19 +151,6 @@ export default function VocabDetailModal({
       setRelatedError(errorMessage(err));
     } finally {
       setRelatedLoading(false);
-    }
-  }
-
-  async function handleGenerateMnemonic() {
-    if (!entry) return;
-    setMnemonicLoading(true);
-    setMnemonicError(null);
-    try {
-      onUpdate(await window.api.ai.generateMnemonic(entry.id));
-    } catch (err) {
-      setMnemonicError(errorMessage(err));
-    } finally {
-      setMnemonicLoading(false);
     }
   }
 
@@ -336,108 +312,20 @@ export default function VocabDetailModal({
               </Button>
             </div>
 
-            <AiSection
-              icon={<FileTextOutlined />}
-              title="Ví dụ câu"
-              hasContent={entry.aiExamples.length > 0}
-              loading={examplesLoading}
-              error={examplesError}
-              onGenerate={handleGenerateExamples}
-            >
-              <Space direction="vertical" size={8} style={{ width: "100%" }}>
-                {entry.aiExamples.map((ex, i) => (
-                  <div key={i}>
-                    <Typography.Text>{ex.sentence}</Typography.Text>
-                    <Typography.Text
-                      type="secondary"
-                      italic
-                      style={{ display: "block", fontSize: styleTokens.secondaryFontSize }}
-                    >
-                      {ex.translation}
-                    </Typography.Text>
-                  </div>
-                ))}
-              </Space>
-            </AiSection>
-
-            <AiSection
-              icon={<DiffOutlined />}
-              title="Sắc thái & ngữ cảnh"
-              hasContent={!!entry.aiNuance}
-              loading={nuanceLoading}
-              error={nuanceError}
-              onGenerate={handleExplainNuance}
-            >
-              <Typography.Paragraph style={{ margin: 0 }}>{entry.aiNuance}</Typography.Paragraph>
-            </AiSection>
-
-            <AiSection
-              icon={<ApartmentOutlined />}
-              title="Từ liên quan"
-              hasContent={!!entry.aiRelatedWords}
-              loading={relatedLoading}
-              error={relatedError}
-              disabledReason={
+            <AiWordEnrichment
+              aiExamples={entry.aiExamples}
+              aiNuance={entry.aiNuance}
+              aiRelatedWords={entry.aiRelatedWords}
+              relatedWordsDisabledReason={
                 entry.sourceLang === "en" || entry.targetLang === "en" ? null : "Chỉ hỗ trợ cho từ tiếng Anh"
               }
-              onGenerate={handleSuggestRelatedWords}
-            >
-              {entry.aiRelatedWords && (
-                <Space direction="vertical" size={6} style={{ width: "100%" }}>
-                  {entry.aiRelatedWords.synonyms.length > 0 && (
-                    <div>
-                      <Typography.Text type="secondary" style={{ fontSize: styleTokens.secondaryFontSize }}>
-                        Đồng nghĩa
-                      </Typography.Text>
-                      <div>
-                        {entry.aiRelatedWords.synonyms.map((w) => (
-                          <Tag key={w}>{w}</Tag>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                  {entry.aiRelatedWords.antonyms.length > 0 && (
-                    <div>
-                      <Typography.Text type="secondary" style={{ fontSize: styleTokens.secondaryFontSize }}>
-                        Trái nghĩa
-                      </Typography.Text>
-                      <div>
-                        {entry.aiRelatedWords.antonyms.map((w) => (
-                          <Tag key={w} color="default">
-                            {w}
-                          </Tag>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                  {entry.aiRelatedWords.forms.length > 0 && (
-                    <div>
-                      <Typography.Text type="secondary" style={{ fontSize: styleTokens.secondaryFontSize }}>
-                        Dạng từ khác
-                      </Typography.Text>
-                      <div>
-                        {entry.aiRelatedWords.forms.map((f, i) => (
-                          <Tag key={i} color="blue">
-                            {f.word} <Typography.Text type="secondary">({f.pos})</Typography.Text>
-                          </Tag>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                </Space>
-              )}
-            </AiSection>
-
-            <AiSection
-              icon={<BulbOutlined />}
-              title="Mẹo ghi nhớ"
-              hasContent={!!entry.mnemonic}
-              loading={mnemonicLoading}
-              error={mnemonicError}
-              onGenerate={handleGenerateMnemonic}
-            >
-              <Typography.Text>{entry.mnemonic}</Typography.Text>
-            </AiSection>
+              examplesState={{ loading: examplesLoading, error: examplesError }}
+              nuanceState={{ loading: nuanceLoading, error: nuanceError }}
+              relatedState={{ loading: relatedLoading, error: relatedError }}
+              onGenerateExamples={handleGenerateExamples}
+              onGenerateNuance={handleExplainNuance}
+              onGenerateRelated={handleSuggestRelatedWords}
+            />
           </div>
         </>
       )}

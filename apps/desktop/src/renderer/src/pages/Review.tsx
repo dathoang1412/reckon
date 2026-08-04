@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { BulbOutlined, CheckOutlined, CloseOutlined, SoundOutlined } from "@ant-design/icons";
+import { CheckOutlined, CloseOutlined, SoundOutlined } from "@ant-design/icons";
 import { Button, Card, Empty, Progress, Segmented, Select, Skeleton, Space, Tag, Typography } from "antd";
 import type { DueEntryRow, QuizQuestion, VocabSetRow } from "../../../preload/index";
 import { speak } from "../lib/speak";
@@ -23,10 +23,9 @@ export default function Review() {
   const [setId, setSetId] = useState<string | null>(null);
 
   const [mode, setMode] = useState<ReviewMode>("flashcard");
-  const [showMnemonic, setShowMnemonic] = useState(false);
 
-  // Not persisted/cached like mnemonics — a fresh question every time keeps
-  // quiz mode from just becoming "guess the same 4 options again".
+  // Not persisted/cached — a fresh question every time keeps quiz mode from
+  // just becoming "guess the same 4 options again".
   const [quiz, setQuiz] = useState<QuizQuestion | null>(null);
   const [quizLoading, setQuizLoading] = useState(false);
   const [quizError, setQuizError] = useState<string | null>(null);
@@ -78,7 +77,6 @@ export default function Review() {
       await window.api.review.rate(queue[0].id, remembered);
       setQueue(queue.slice(1));
       setRevealed(false);
-      setShowMnemonic(false);
     } finally {
       setRating(false);
     }
@@ -180,24 +178,7 @@ export default function Review() {
                 )}
               </>
             ) : (
-              <Space direction="vertical" size={4}>
-                <Button onClick={() => setRevealed(true)}>Hiện đáp án</Button>
-                {card.mnemonic && (
-                  <Button
-                    type="link"
-                    size="small"
-                    icon={<BulbOutlined />}
-                    onClick={() => setShowMnemonic((v) => !v)}
-                  >
-                    {showMnemonic ? "Ẩn mẹo ghi nhớ" : "Xem mẹo ghi nhớ"}
-                  </Button>
-                )}
-                {showMnemonic && card.mnemonic && (
-                  <Typography.Text type="secondary" italic style={{ display: "block", maxWidth: 360 }}>
-                    {card.mnemonic}
-                  </Typography.Text>
-                )}
-              </Space>
+              <Button onClick={() => setRevealed(true)}>Hiện đáp án</Button>
             ))}
 
           {mode === "quiz" &&
