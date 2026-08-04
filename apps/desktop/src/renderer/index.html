@@ -8,6 +8,21 @@
     />
     <title>Reckon</title>
     <style>
+      /* antd's own reset.css (which includes this) is never imported, so
+         without this every plain element with both an explicit width and
+         its own padding/border — e.g. the sidebar column in App.tsx
+         (width:220 + paddingLeft:20) — silently renders WIDER than its
+         stated width under the browser's content-box default, since
+         padding/border add on top instead of eating into it. That
+         mismatch between "what the layout math assumes" and "what
+         actually renders" is what let the sidebar overflow off the
+         window's right edge even at widths that should have been enough. */
+      *,
+      *::before,
+      *::after {
+        box-sizing: border-box;
+      }
+
       html,
       body {
         margin: 0;
