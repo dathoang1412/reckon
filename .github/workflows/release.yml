@@ -97,8 +97,16 @@ jobs:
       # electron-builder's own GitHub publish creates the release with an
       # empty body — this fills it in with the same auto-generated
       # (commits-since-last-tag) notes the old softprops/action-gh-release
-      # step used to produce.
+      # step used to produce. `gh release edit` has no --generate-notes
+      # flag (only `gh release create` does, and the release already
+      # exists by this point) — has to go through the REST endpoint that
+      # flag calls internally, then apply the result by hand.
       - name: Generate release notes
+        shell: bash
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: gh release edit ${{ github.ref_name }} --generate-notes
+        run: |
+          gh api "repos/${{ github.repository }}/releases/generate-notes" \
+            -f tag_name="${{ github.ref_name }}" \
+            --jq .body > release-notes.md
+          gh release edit "${{ github.ref_name }}" --notes-file release-notes.md

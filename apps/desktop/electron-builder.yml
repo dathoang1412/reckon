@@ -11,6 +11,12 @@ publish:
   provider: github
   owner: dathoang1412
   repo: reckon
+  # electron-builder defaults to creating a DRAFT release, invisible to
+  # both regular users browsing Releases and to electron-updater's GitHub
+  # provider (it only ever looks at published releases) — every prior
+  # release published fine because the old softprops/action-gh-release
+  # step did the actual publishing, not electron-builder itself.
+  releaseType: release
 files:
   - out/**/*
   - generated/**/*
