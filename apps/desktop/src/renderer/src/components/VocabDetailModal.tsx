@@ -5,6 +5,7 @@ import toast from "react-hot-toast";
 import type { DictionaryInfo, TagSuggestion, VocabEntryRow } from "../../../preload/index";
 import AiWordEnrichment from "./AiWordEnrichment";
 import DictionaryPanel from "./DictionaryPanel";
+import WordChat from "./WordChat";
 import { dayLabel, timeLabel } from "../lib/date";
 import { speak } from "../lib/speak";
 import { useHasGroqKey } from "../lib/useHasGroqKey";
@@ -326,6 +327,20 @@ export default function VocabDetailModal({
               onGenerateNuance={handleExplainNuance}
               onGenerateRelated={handleSuggestRelatedWords}
             />
+
+            <div style={{ marginTop: 16, borderTop: `1px solid ${styleTokens.borderColorLight}`, paddingTop: 12 }}>
+              <Typography.Text strong style={{ display: "block", marginBottom: 8 }}>
+                Hỏi AI về từ này
+              </Typography.Text>
+              <WordChat
+                sourceText={entry.sourceText}
+                sourceLang={entry.sourceLang}
+                targetText={entry.targetText}
+                targetLang={entry.targetLang}
+                targetMeanings={entry.targetMeanings}
+                height={260}
+              />
+            </div>
           </div>
         </>
       )}

@@ -107,6 +107,11 @@ export interface VocabCandidate {
   reason: string;
 }
 
+export interface ChatMessage {
+  role: "user" | "assistant";
+  content: string;
+}
+
 export type UpdateStatus =
   | { state: "checking" }
   | { state: "available"; version: string }
@@ -197,6 +202,26 @@ const api = {
         targetText,
         targetLang,
       ) as Promise<AiRelatedWords>,
+    // Never persisted — works the same for a saved entry or a not-yet-saved
+    // preview, so takes the word's info directly instead of a vocabId (see
+    // WordChat.tsx, used from both VocabDetailModal and Popup.tsx).
+    chatAboutWord: (
+      sourceText: string,
+      sourceLang: string,
+      targetText: string,
+      targetLang: string,
+      meanings: string[],
+      history: ChatMessage[],
+    ) =>
+      ipcRenderer.invoke(
+        "ai:chatAboutWord",
+        sourceText,
+        sourceLang,
+        targetText,
+        targetLang,
+        meanings,
+        history,
+      ) as Promise<string>,
   },
   popup: {
     resize: (size: { width: number; height: number }) => ipcRenderer.send("popup:resize", size),

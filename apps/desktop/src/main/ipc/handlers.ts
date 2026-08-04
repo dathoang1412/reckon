@@ -3,6 +3,7 @@ import type { UpdateProfileRequest } from "@reckon/shared";
 import { getPrisma } from "../db/client";
 import { getDeviceId } from "../utils/deviceId";
 import {
+  chatAboutWord,
   extractVocabCandidates,
   explainNuance,
   generateExamples,
@@ -12,6 +13,7 @@ import {
   previewRelatedWords,
   suggestRelatedWords,
   suggestTags,
+  type ChatMessage,
 } from "../services/ai";
 import { getProfile, login, loginWithGoogle, signup, updateProfile } from "../services/auth";
 import { clearSession, getSession } from "../utils/authSession";
@@ -284,6 +286,23 @@ export function registerIpcHandlers({
     "ai:previewRelatedWords",
     async (_event, sourceText: string, sourceLang: string, targetText: string, targetLang: string) => {
       return previewRelatedWords(sourceText, sourceLang, targetText, targetLang);
+    },
+  );
+
+  // Never persisted (see ai.ts's chatAboutWord) — works the same whether
+  // the word is saved or still just a preview, so no vocabId here either.
+  ipcMain.handle(
+    "ai:chatAboutWord",
+    async (
+      _event,
+      sourceText: string,
+      sourceLang: string,
+      targetText: string,
+      targetLang: string,
+      meanings: string[],
+      history: ChatMessage[],
+    ) => {
+      return chatAboutWord(sourceText, sourceLang, targetText, targetLang, meanings, history);
     },
   );
 

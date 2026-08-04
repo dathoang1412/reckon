@@ -3,6 +3,7 @@ import {
   ApartmentOutlined,
   DiffOutlined,
   FileTextOutlined,
+  MessageOutlined,
   RedoOutlined,
   SoundOutlined,
   ThunderboltOutlined,
@@ -20,6 +21,7 @@ import type {
   VocabSetRow,
 } from "../../../preload/index";
 import DictionaryPanel from "../components/DictionaryPanel";
+import WordChat from "../components/WordChat";
 import { speak } from "../lib/speak";
 import { COLOR_PRIMARY, styleTokens } from "../theme";
 
@@ -89,7 +91,7 @@ function fromPreview(data: TranslationResultData): DisplayEntry {
 // measures the same, and switching tabs never jumps the window's height.
 const MAX_CONTENT_HEIGHT = 288;
 
-type TabKey = "dict" | "examples" | "nuance" | "related";
+type TabKey = "dict" | "examples" | "nuance" | "related" | "chat";
 type AiFeature = "examples" | "nuance" | "related";
 
 const TAB_DEFS: { key: TabKey; icon: ReactNode; label: string }[] = [
@@ -97,6 +99,7 @@ const TAB_DEFS: { key: TabKey; icon: ReactNode; label: string }[] = [
   { key: "examples", icon: <FileTextOutlined />, label: "Ví dụ câu" },
   { key: "nuance", icon: <DiffOutlined />, label: "Sắc thái & ngữ cảnh" },
   { key: "related", icon: <ApartmentOutlined />, label: "Từ liên quan" },
+  { key: "chat", icon: <MessageOutlined />, label: "Hỏi AI" },
 ];
 
 // Compact icon-only tab bar (matching a dictionary-extension-style header)
@@ -593,6 +596,17 @@ export default function Popup() {
                   </Space>
                 )}
               </AiTabPanel>
+            )}
+
+            {activeTab === "chat" && (
+              <WordChat
+                sourceText={entry.sourceText}
+                sourceLang={entry.sourceLang}
+                targetText={entry.targetText}
+                targetLang={entry.targetLang}
+                targetMeanings={entry.targetMeanings}
+                height="100%"
+              />
             )}
           </div>
 

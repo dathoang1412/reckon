@@ -65,3 +65,42 @@ export async function chatJSON<T>(opts: ChatJSONOptions): Promise<T> {
     throw new Error("Groq: phản hồi không đúng định dạng JSON");
   }
 }
+
+export interface ChatMessage {
+  role: "user" | "assistant";
+  content: string;
+}
+
+interface ChatOptions {
+  system: string;
+  messages: ChatMessage[];
+  maxTokens?: number;
+}
+
+// Plain freeform reply, not JSON — used for the word-chat feature (see
+// ai.ts's chatAboutWord), which is open-ended Q&A rather than one of the
+// other features' fixed-shape completions.
+export async function chat(opts: ChatOptions): Promise<string> {
+  const apiKey = getGroqApiKey();
+  if (!apiKey) throw new GroqNotConfiguredError();
+
+  const res = await fetch(GROQ_URL, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
+    body: JSON.stringify({
+      model: MODEL,
+      messages: [{ role: "system", content: opts.system }, ...opts.messages],
+      temperature: 0.5,
+      max_tokens: opts.maxTokens ?? 500,
+    }),
+  });
+
+  if (res.status === 401) throw new Error("Groq API key không hợp lệ.");
+  if (res.status === 429) throw new Error("Groq: vượt quá giới hạn tốc độ — thử lại sau.");
+  if (!res.ok) throw new Error(`Groq HTTP ${res.status}`);
+
+  const json = (await res.json()) as GroqChatResponse;
+  const content = json.choices?.[0]?.message?.content;
+  if (!content) throw new Error("Groq: phản hồi rỗng");
+  return content;
+}

@@ -1,6 +1,6 @@
 import type { PrismaClient, VocabEntry } from "../../../generated/client";
 import type { AiExample, AiRelatedWords } from "./aiTypes";
-import { chatJSON } from "./groq";
+import { chat, chatJSON, type ChatMessage } from "./groq";
 import { parseTags, parseTargetMeanings, updateVocabEntry } from "./vocab";
 
 function loadEntry(prisma: PrismaClient, vocabId: string): Promise<VocabEntry> {
@@ -208,4 +208,30 @@ export async function extractVocabCandidates(paragraph: string): Promise<VocabCa
     maxTokens: 1200,
   });
   return candidates.slice(0, 15);
+}
+
+// ---- Feature 8: freeform chat about a word ----
+//
+// Never persisted (no DB column, no sync payload) — unlike the other
+// features, there's no single "current" answer to cache, so this always
+// takes the word's info directly rather than a vocabId, working the same
+// way for both saved entries and not-yet-saved previews (see WordChat.tsx,
+// used from both VocabDetailModal and Popup.tsx).
+
+export type { ChatMessage };
+
+export async function chatAboutWord(
+  sourceText: string,
+  sourceLang: string,
+  targetText: string,
+  targetLang: string,
+  meanings: string[],
+  history: ChatMessage[],
+): Promise<string> {
+  const system =
+    `Bạn là gia sư ngôn ngữ, đang trò chuyện với người dùng về một từ/cụm từ họ vừa tra: ` +
+    `"${sourceText}" (${sourceLang}) — nghĩa: ${meanings.join(", ") || targetText} (${targetLang}). ` +
+    `Trả lời các câu hỏi của họ về từ này — cách dùng, sắc thái, ví dụ thêm, so sánh với từ khác, ` +
+    `nguồn gốc, v.v. Trả lời ngắn gọn, tự nhiên, bằng tiếng Việt trừ khi họ hỏi bằng ngôn ngữ khác.`;
+  return chat({ system, messages: history, maxTokens: 500 });
 }

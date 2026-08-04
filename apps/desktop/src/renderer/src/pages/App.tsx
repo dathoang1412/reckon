@@ -388,12 +388,23 @@ export default function App() {
                 Trích xuất từ đoạn văn
               </Button>
 
-              {/* Everything below the lookup box shares one scroll region — the
-                  preview card can grow arbitrarily tall (long dictionary
-                  entries), and without this it could push the entries list
-                  past the window's bottom edge with no way to reach it, since
-                  only this region (not the whole window) scrolls. */}
-              <div style={{ flex: 1, minHeight: 0, overflowY: "auto" }}>
+              {/* Pinned above the scroll region below, not inside it — a
+                  search box you have to scroll back up to reach defeats its
+                  own purpose once the list is long. */}
+              <Input.Search
+                allowClear
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Tìm trong từ đã lưu..."
+                style={{ marginTop: 16 }}
+              />
+
+              {/* Everything below shares one scroll region — the preview
+                  card can grow arbitrarily tall (long dictionary entries),
+                  and without this it could push the entries list past the
+                  window's bottom edge with no way to reach it, since only
+                  this region (not the whole window) scrolls. */}
+              <div style={{ flex: 1, minHeight: 0, overflowY: "auto", marginTop: 16 }}>
                 {preview && (
                   <Card size="small" style={{ marginBottom: 16 }}>
                     {preview.spellingSuggestion && (
@@ -464,14 +475,6 @@ export default function App() {
                     />
                   </Card>
                 )}
-
-                <Input.Search
-                  allowClear
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="Tìm trong từ đã lưu..."
-                  style={{ marginBottom: 16 }}
-                />
 
                 {visibleEntries.length === 0 && (
                   <Empty description={query ? "Không tìm thấy từ nào" : "No lookups yet"} />
