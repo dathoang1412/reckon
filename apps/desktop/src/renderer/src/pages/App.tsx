@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { DeleteOutlined, ImportOutlined, SoundOutlined } from "@ant-design/icons";
 import { Button, Card, Empty, Input, List, Select, Space, Tag, Typography } from "antd";
 import toast from "react-hot-toast";
-import type { VocabEntryRow, VocabPreview, VocabSetRow } from "../../../preload/index";
+import type { UserProfile, VocabEntryRow, VocabPreview, VocabSetRow } from "../../../preload/index";
 import AppHeader, { type AppView } from "../components/AppHeader";
 import BulkExtractModal from "../components/BulkExtractModal";
 import DictionaryPanel from "../components/DictionaryPanel";
@@ -12,6 +12,7 @@ import VocabDetailModal from "../components/VocabDetailModal";
 import { dayKey, dayLabel, timeLabel } from "../lib/date";
 import { speak } from "../lib/speak";
 import { styleTokens } from "../theme";
+import Profile from "./Profile";
 import Review from "./Review";
 import Settings from "./Settings";
 
@@ -32,6 +33,7 @@ export default function App() {
   const [view, setView] = useState<AppView>("list");
   const [bulkExtractOpen, setBulkExtractOpen] = useState(false);
   const [loginModalOpen, setLoginModalOpen] = useState(false);
+  const [profile, setProfile] = useState<UserProfile | null>(null);
 
   // Local read only (no network) — see authSession.ts. Login is opt-in
   // (see LoginModal), not a gate the app sits behind, so this is only
@@ -40,6 +42,18 @@ export default function App() {
   useEffect(() => {
     window.api.auth.getSession().then((session) => setAuthed(!!session));
   }, []);
+
+  // Drives the header's avatar/name (see AppHeader) — re-fetched whenever
+  // authed flips (login/logout), and also refreshed directly by Settings
+  // right after a profile save so the header doesn't wait for a full
+  // refetch to reflect it.
+  useEffect(() => {
+    if (!authed) {
+      setProfile(null);
+      return;
+    }
+    window.api.auth.getProfile().then(setProfile);
+  }, [authed]);
 
   async function refresh() {
     setEntries(await window.api.vocab.list());
@@ -218,7 +232,7 @@ export default function App() {
   return (
     <>
       <div style={{ height: "100vh", display: "flex", flexDirection: "column" }}>
-        <AppHeader view={view} onChangeView={setView} onSync={handleSync} syncing={syncing} />
+        <AppHeader view={view} onChangeView={setView} onSync={handleSync} syncing={syncing} profile={profile} />
 
         {view === "review" && (
           <div style={{ flex: 1, minHeight: 0, overflowY: "auto" }}>
@@ -228,13 +242,20 @@ export default function App() {
           </div>
         )}
 
-        {view === "settings" && (
+        {view === "profile" && (
           <div style={{ flex: 1, minHeight: 0, overflowY: "auto" }}>
-            <Settings
+            <Profile
               authed={authed}
               onLogout={() => setAuthed(false)}
               onRequireLogin={() => setLoginModalOpen(true)}
+              onProfileUpdated={setProfile}
             />
+          </div>
+        )}
+
+        {view === "settings" && (
+          <div style={{ flex: 1, minHeight: 0, overflowY: "auto" }}>
+            <Settings />
           </div>
         )}
 

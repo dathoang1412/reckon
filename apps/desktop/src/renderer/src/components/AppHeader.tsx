@@ -1,12 +1,14 @@
-import { SyncOutlined } from "@ant-design/icons";
-import { Button, Segmented, Typography } from "antd";
+import { SyncOutlined, UserOutlined } from "@ant-design/icons";
+import { Avatar, Button, Segmented, Space, Typography } from "antd";
+import type { UserProfile } from "../../../preload/index";
 import { COLOR_PRIMARY, styleTokens } from "../theme";
 
-export type AppView = "list" | "review" | "settings";
+export type AppView = "list" | "review" | "profile" | "settings";
 
 const VIEW_OPTIONS: { label: string; value: AppView }[] = [
   { label: "Từ vựng", value: "list" },
   { label: "Ôn tập", value: "review" },
+  { label: "Hồ sơ", value: "profile" },
   { label: "Cài đặt", value: "settings" },
 ];
 
@@ -23,11 +25,15 @@ export default function AppHeader({
   onChangeView,
   onSync,
   syncing,
+  profile,
 }: {
   view: AppView;
   onChangeView: (view: AppView) => void;
   onSync: () => void;
   syncing: boolean;
+  // null while logged out — the "Reckon" wordmark stays put then, since
+  // there's no account to show instead.
+  profile: UserProfile | null;
 }) {
   return (
     <div
@@ -44,9 +50,26 @@ export default function AppHeader({
         flexShrink: 0,
       }}
     >
-      <Typography.Title level={4} style={{ margin: 0, color: COLOR_PRIMARY, flexShrink: 0 }}>
-        Reckon
-      </Typography.Title>
+      {profile ? (
+        <Space
+          align="center"
+          style={{ flexShrink: 0, cursor: "pointer" }}
+          onClick={() => onChangeView("profile")}
+        >
+          <Avatar
+            size={32}
+            src={profile.avatarBase64 ?? undefined}
+            icon={!profile.avatarBase64 && <UserOutlined />}
+          />
+          <Typography.Text strong style={{ color: COLOR_PRIMARY }}>
+            {profile.name || profile.email}
+          </Typography.Text>
+        </Space>
+      ) : (
+        <Typography.Title level={4} style={{ margin: 0, color: COLOR_PRIMARY, flexShrink: 0 }}>
+          Reckon
+        </Typography.Title>
+      )}
       <Segmented value={view} onChange={(value) => onChangeView(value as AppView)} options={VIEW_OPTIONS} />
       <Button icon={<SyncOutlined spin={syncing} />} loading={syncing} onClick={onSync} style={{ flexShrink: 0 }}>
         Sync now

@@ -10,6 +10,24 @@ import { PrismaService } from "../prisma/prisma.service";
 // see apps/desktop's runSync error handling.
 const JWT_EXPIRES_IN = "365d";
 
+// Best-effort import of a brand-new Google user's profile photo — Google's
+// default-size photo is already small (typically well under the 500KB cap
+// updateProfileRequestSchema enforces), so unlike user-uploaded avatars
+// (resized client-side in Settings.tsx) this needs no further processing.
+// Never throws: a failed fetch just means the user starts with no avatar,
+// same as signing up with email/password.
+async function fetchAvatarAsBase64(url: string): Promise<string | null> {
+  try {
+    const res = await fetch(url);
+    if (!res.ok) return null;
+    const contentType = res.headers.get("content-type") ?? "image/jpeg";
+    const buffer = Buffer.from(await res.arrayBuffer());
+    return `data:${contentType};base64,${buffer.toString("base64")}`;
+  } catch {
+    return null;
+  }
+}
+
 export interface AuthResult {
   token: string;
   email: string;
@@ -74,7 +92,7 @@ export class AuthService {
     if (!payload?.sub || !payload.email) {
       throw new UnauthorizedException("Google token thiếu thông tin cần thiết");
     }
-    const { sub: googleId, email, name } = payload;
+    const { sub: googleId, email, name, picture } = payload;
 
     // Prefer an existing Google-linked account; fall back to linking an
     // existing email/password account with the same address (so someone
@@ -83,12 +101,16 @@ export class AuthService {
     let user = await this.prisma.user.findUnique({ where: { googleId } });
     if (!user) {
       const byEmail = await this.prisma.user.findUnique({ where: { email } });
+      // Only import Google's photo when there's no avatar already —
+      // never clobber one the user picked themselves in Settings.
+      const avatarBase64 =
+        byEmail?.avatarBase64 ?? (picture ? await fetchAvatarAsBase64(picture) : null);
       user = byEmail
         ? await this.prisma.user.update({
             where: { id: byEmail.id },
-            data: { googleId, name: byEmail.name ?? name },
+            data: { googleId, name: byEmail.name ?? name, avatarBase64 },
           })
-        : await this.prisma.user.create({ data: { email, googleId, name } });
+        : await this.prisma.user.create({ data: { email, googleId, name, avatarBase64 } });
     }
 
     return { token: this.sign(user.id), email: user.email };

@@ -1,6 +1,8 @@
 import { contextBridge, ipcRenderer } from "electron";
 import type { UpdateProfileRequest, UserProfile } from "@reckon/shared";
 
+export type { UpdateProfileRequest, UserProfile };
+
 export interface AiExample {
   sentence: string;
   translation: string;
