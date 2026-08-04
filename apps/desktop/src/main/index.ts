@@ -1,10 +1,10 @@
 import { app, BrowserWindow, globalShortcut, type Tray } from "electron";
-import { createHotkeyManager } from "./app/hotkey";
+import { createHotkeyManager, createSearchHotkeyManager } from "./app/hotkey";
 import { getPrisma } from "./db/client";
 import { runMigrations } from "./db/migrate";
 import { registerIpcHandlers } from "./ipc/handlers";
 import { startServer, stopServer, waitForServerReady } from "./services/server";
-import { getHotkey } from "./utils/settings";
+import { getHotkey, getSearchHotkey } from "./utils/settings";
 import { createMainWindow } from "./windows/mainWindow";
 import { closeSplashWindow, createSplashWindow } from "./windows/splash";
 import { createTray } from "./windows/tray";
@@ -21,6 +21,7 @@ let trayRef: Tray | null = null;
 let isQuitting = false;
 
 const hotkeyManager = createHotkeyManager(() => mainWindow);
+const searchHotkeyManager = createSearchHotkeyManager(() => mainWindow);
 
 function openMainWindow(): void {
   mainWindow = createMainWindow(() => !isQuitting);
@@ -65,7 +66,11 @@ if (!app.requestSingleInstanceLock()) {
       console.error("[startup] sync backend not ready yet:", err);
     }
 
-    registerIpcHandlers({ registerHotkey: (accelerator) => hotkeyManager.register(accelerator) });
+    registerIpcHandlers({
+      registerHotkey: (accelerator) => hotkeyManager.register(accelerator),
+      registerSearchHotkey: (accelerator) => searchHotkeyManager.register(accelerator),
+      getMainWindow: () => mainWindow,
+    });
     openMainWindow();
     mainWindow?.once("ready-to-show", () => closeSplashWindow());
     trayRef = createTray({
@@ -77,6 +82,7 @@ if (!app.requestSingleInstanceLock()) {
     });
 
     hotkeyManager.register(getHotkey());
+    searchHotkeyManager.register(getSearchHotkey());
 
     app.on("activate", () => {
       if (BrowserWindow.getAllWindows().length === 0) openMainWindow();

@@ -1,11 +1,11 @@
-import { ipcMain } from "electron";
+import { type BrowserWindow, ipcMain } from "electron";
 import { getPrisma } from "../db/client";
 import { getDeviceId } from "../utils/deviceId";
 import { login, signup } from "../services/auth";
 import { clearSession, getSession } from "../utils/authSession";
 import { lookupEnglishWord } from "../services/dictionary";
 import { listDueEntries, rateReview } from "../services/review";
-import { getHotkey, setHotkey } from "../utils/settings";
+import { getHotkey, getSearchHotkey, setHotkey, setSearchHotkey } from "../utils/settings";
 import { runSync } from "../services/sync";
 import { synthesizeSpeech } from "../services/tts";
 import type { TranslationResult } from "../services/translate";
@@ -27,6 +27,12 @@ interface IpcHandlerDeps {
   // hotkey manager (see app/hotkey.ts), since that's where the handler
   // triggered by the hotkey lives.
   registerHotkey: (accelerator: string) => boolean;
+  // Same, for the second (empty search popup) hotkey.
+  registerSearchHotkey: (accelerator: string) => boolean;
+  // Lets a save made from the search popup (a separate window/renderer)
+  // push the new entry into the main window's list, the same way the
+  // selection-lookup hotkey already does in app/hotkey.ts.
+  getMainWindow: () => BrowserWindow | null;
 }
 
 // Prisma stores targetMeanings/tags as JSON string columns, and createdAt as
@@ -46,7 +52,7 @@ function toVocabEntryRow<
   };
 }
 
-export function registerIpcHandlers({ registerHotkey }: IpcHandlerDeps): void {
+export function registerIpcHandlers({ registerHotkey, registerSearchHotkey, getMainWindow }: IpcHandlerDeps): void {
   const prisma = getPrisma();
   const deviceId = getDeviceId();
 
@@ -60,7 +66,13 @@ export function registerIpcHandlers({ registerHotkey }: IpcHandlerDeps): void {
   });
 
   ipcMain.handle("vocab:save", async (_event, result: TranslationResult) => {
-    return toVocabEntryRow(await saveVocab(prisma, deviceId, result));
+    const entry = toVocabEntryRow(await saveVocab(prisma, deviceId, result));
+    // Only meaningfully different from the caller's own state when the save
+    // came from the search popup (a separate window) — the main window's
+    // own save flow (App.tsx) already refreshes its list itself, and
+    // onVocabCreated there dedupes by id, so this is a harmless no-op then.
+    getMainWindow()?.webContents.send("vocab:created", entry);
+    return entry;
   });
 
   ipcMain.handle("vocab:delete", async (_event, id: string) => {
@@ -137,6 +149,14 @@ export function registerIpcHandlers({ registerHotkey }: IpcHandlerDeps): void {
   ipcMain.handle("settings:setHotkey", (_event, accelerator: string) => {
     const ok = registerHotkey(accelerator);
     if (ok) setHotkey(accelerator);
+    return ok;
+  });
+
+  ipcMain.handle("settings:getSearchHotkey", () => getSearchHotkey());
+
+  ipcMain.handle("settings:setSearchHotkey", (_event, accelerator: string) => {
+    const ok = registerSearchHotkey(accelerator);
+    if (ok) setSearchHotkey(accelerator);
     return ok;
   });
 }

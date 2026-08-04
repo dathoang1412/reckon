@@ -4,7 +4,7 @@ import { parseTargetMeanings, previewVocab, saveVocab } from "../services/vocab"
 import { getSession } from "../utils/authSession";
 import { getDeviceId } from "../utils/deviceId";
 import { readSelectedText } from "../utils/selection";
-import { showPopup } from "../windows/popup";
+import { showPopup, showSearchPopup } from "../windows/popup";
 
 export interface HotkeyManager {
   register(accelerator: string): boolean;
@@ -39,14 +39,25 @@ async function onHotkeyTriggered(getMainWindow: () => BrowserWindow | null): Pro
   }
 }
 
+// A search-hotkey trigger has no selected text to work from — it just pops
+// the popup up empty (anchored at the cursor, same as the lookup one) for
+// the user to type a word into themselves.
+function onSearchHotkeyTriggered(getMainWindow: () => BrowserWindow | null): void {
+  if (!getSession()) {
+    getMainWindow()?.show();
+    return;
+  }
+  showSearchPopup(screen.getCursorScreenPoint());
+}
+
 // Wraps globalShortcut registration so callers don't need to track "what's
 // currently bound" themselves — re-registering swaps the old binding out
 // first and falls back to it if the new one is already claimed by another
 // app at the OS level, so the app never ends up with no working hotkey at
-// all.
-export function createHotkeyManager(getMainWindow: () => BrowserWindow | null): HotkeyManager {
+// all. Shared by both the lookup and search-popup hotkeys (see the two
+// factories below) since each just needs its own independent binding.
+function createManager(trigger: () => void): HotkeyManager {
   let currentHotkey: string | null = null;
-  const trigger = () => onHotkeyTriggered(getMainWindow);
 
   function register(accelerator: string): boolean {
     const previous = currentHotkey;
@@ -65,4 +76,12 @@ export function createHotkeyManager(getMainWindow: () => BrowserWindow | null): 
   }
 
   return { register };
+}
+
+export function createHotkeyManager(getMainWindow: () => BrowserWindow | null): HotkeyManager {
+  return createManager(() => onHotkeyTriggered(getMainWindow));
+}
+
+export function createSearchHotkeyManager(getMainWindow: () => BrowserWindow | null): HotkeyManager {
+  return createManager(() => onSearchHotkeyTriggered(getMainWindow));
 }

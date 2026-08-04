@@ -111,12 +111,19 @@ const api = {
   settings: {
     getHotkey: () => ipcRenderer.invoke("settings:getHotkey") as Promise<string>,
     setHotkey: (accelerator: string) => ipcRenderer.invoke("settings:setHotkey", accelerator) as Promise<boolean>,
+    getSearchHotkey: () => ipcRenderer.invoke("settings:getSearchHotkey") as Promise<string>,
+    setSearchHotkey: (accelerator: string) =>
+      ipcRenderer.invoke("settings:setSearchHotkey", accelerator) as Promise<boolean>,
   },
   popup: {
     resize: (size: { width: number; height: number }) => ipcRenderer.send("popup:resize", size),
+    hide: () => ipcRenderer.send("popup:hide"),
   },
   onTranslationResult: (callback: (payload: TranslationResultPayload) => void) => {
     ipcRenderer.on("translation:result", (_event, payload: TranslationResultPayload) => callback(payload));
+  },
+  onOpenSearchPopup: (callback: () => void) => {
+    ipcRenderer.on("popup:openSearch", () => callback());
   },
   onVocabCreated: (callback: (entry: VocabEntryRow) => void) => {
     ipcRenderer.on("vocab:created", (_event, entry: VocabEntryRow) => callback(entry));

@@ -132,21 +132,22 @@ function Keycap({ children }: { children: ReactNode }) {
   );
 }
 
-export default function Settings({ onLogout }: { onLogout: () => void }) {
-  const [savedHotkey, setSavedHotkey] = useState<string | null>(null);
+// One recorder instance per configurable hotkey (lookup vs. empty-search
+// popup) — each needs its own independent useRecordHotkeys recording state,
+// so this can't just be a render function sharing the parent's state.
+function HotkeySection({
+  description,
+  savedHotkey,
+  onSaved,
+  save,
+}: {
+  description: string;
+  savedHotkey: string | null;
+  onSaved: (accelerator: string) => void;
+  save: (accelerator: string) => Promise<boolean>;
+}) {
   const [saving, setSaving] = useState(false);
-  const [email, setEmail] = useState<string | null>(null);
   const [keys, { start, stop, resetKeys, isRecording }] = useRecordHotkeys();
-
-  useEffect(() => {
-    window.api.settings.getHotkey().then(setSavedHotkey);
-    window.api.auth.getSession().then((session) => setEmail(session?.email ?? null));
-  }, []);
-
-  async function handleLogout() {
-    await window.api.auth.logout();
-    onLogout();
-  }
 
   // Stop listening for keys if the user navigates away mid-recording.
   useEffect(() => stop, [stop]);
@@ -159,9 +160,9 @@ export default function Settings({ onLogout }: { onLogout: () => void }) {
     }
     setSaving(true);
     try {
-      const ok = await window.api.settings.setHotkey(accelerator);
+      const ok = await save(accelerator);
       if (ok) {
-        setSavedHotkey(accelerator);
+        onSaved(accelerator);
         stop();
         resetKeys();
         toast.success("Đã lưu phím tắt mới");
@@ -177,9 +178,9 @@ export default function Settings({ onLogout }: { onLogout: () => void }) {
   const displayLabel = isRecording ? recordingKeyLabel : acceleratorKeyLabel;
 
   return (
-    <PageShell>
+    <div>
       <Typography.Paragraph type="secondary" style={{ marginTop: 8 }}>
-        Bôi đen một đoạn văn bản rồi bấm tổ hợp phím này để tra từ nhanh.
+        {description}
       </Typography.Paragraph>
 
       <Space size={8} wrap style={{ margin: "20px 0", minHeight: 32 }}>
@@ -217,6 +218,47 @@ export default function Settings({ onLogout }: { onLogout: () => void }) {
           </>
         )}
       </Space>
+    </div>
+  );
+}
+
+export default function Settings({ onLogout }: { onLogout: () => void }) {
+  const [savedHotkey, setSavedHotkey] = useState<string | null>(null);
+  const [savedSearchHotkey, setSavedSearchHotkey] = useState<string | null>(null);
+  const [email, setEmail] = useState<string | null>(null);
+
+  useEffect(() => {
+    window.api.settings.getHotkey().then(setSavedHotkey);
+    window.api.settings.getSearchHotkey().then(setSavedSearchHotkey);
+    window.api.auth.getSession().then((session) => setEmail(session?.email ?? null));
+  }, []);
+
+  async function handleLogout() {
+    await window.api.auth.logout();
+    onLogout();
+  }
+
+  return (
+    <PageShell>
+      <Typography.Title level={4} style={{ marginTop: 0 }}>
+        Tra từ đang chọn
+      </Typography.Title>
+      <HotkeySection
+        description="Bôi đen một đoạn văn bản rồi bấm tổ hợp phím này để tra từ nhanh."
+        savedHotkey={savedHotkey}
+        save={(accelerator) => window.api.settings.setHotkey(accelerator)}
+        onSaved={setSavedHotkey}
+      />
+
+      <Typography.Title level={4} style={{ marginTop: 32 }}>
+        Mở khung tìm từ
+      </Typography.Title>
+      <HotkeySection
+        description="Bấm tổ hợp phím này ở bất kỳ đâu để mở khung nhỏ và gõ một từ cần tìm."
+        savedHotkey={savedSearchHotkey}
+        save={(accelerator) => window.api.settings.setSearchHotkey(accelerator)}
+        onSaved={setSavedSearchHotkey}
+      />
 
       <Typography.Title level={4} style={{ marginTop: 32 }}>
         Tài khoản

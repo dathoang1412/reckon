@@ -92,15 +92,23 @@ ipcMain.on("popup:resize", (event, size: { width: number; height: number }) => {
   win.focus();
 });
 
-export function showPopup(result: TranslationResult, point: ScreenPoint, dictionary: DictionaryInfo | null): void {
+// Renderer asks to be hidden (e.g. the search popup's Escape handler)
+// instead of closing itself — closing would tear down and recreate the
+// BrowserWindow on every dismissal instead of reusing it like the rest of
+// this module does.
+ipcMain.on("popup:hide", (event) => {
+  const win = BrowserWindow.fromWebContents(event.sender);
+  if (win && win === popupWindow) win.hide();
+});
+
+function sendToPopup(channel: string, payload: unknown, point: ScreenPoint): void {
   anchor = point;
-  const payload = { result, dictionary };
 
   if (!popupWindow) {
     popupWindow = createPopupWindow();
     const win = popupWindow;
     win.webContents.once("did-finish-load", () => {
-      win.webContents.send("translation:result", payload);
+      win.webContents.send(channel, payload);
     });
     return;
   }
@@ -114,5 +122,16 @@ export function showPopup(result: TranslationResult, point: ScreenPoint, diction
   // the height it actually needs at its true (wider) final size.
   popupWindow.setContentSize(BASELINE_WIDTH, BASELINE_HEIGHT);
   popupWindow.hide();
-  popupWindow.webContents.send("translation:result", payload);
+  popupWindow.webContents.send(channel, payload);
+}
+
+export function showPopup(result: TranslationResult, point: ScreenPoint, dictionary: DictionaryInfo | null): void {
+  sendToPopup("translation:result", { result, dictionary }, point);
+}
+
+// Opens the popup with no pre-fetched result — the renderer switches to a
+// text-input "search" view (see Popup.tsx) instead of the read-only result
+// view, since there's no selected text to look up here.
+export function showSearchPopup(point: ScreenPoint): void {
+  sendToPopup("popup:openSearch", {}, point);
 }
