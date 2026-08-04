@@ -77,13 +77,19 @@ jobs:
       # generating it entirely, not just the upload. So the release build
       # has to invoke electron-builder itself with --publish always and a
       # real token, rather than going through that shared script.
+      #
+      # Must stay `pnpm --filter @reckon/desktop exec ...` run from the
+      # repo root — NOT `working-directory: apps/desktop` + `pnpm exec`,
+      # which pnpm treats as reason to "verify" node_modules against the
+      # lockfile and silently reinstalls apps/desktop --production,
+      # wiping every devDependency (electron, electron-vite,
+      # electron-builder, ...) it needs to even run this. See .npmrc.
       - name: Build and publish installer
-        working-directory: apps/desktop
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          pnpm exec electron-vite build
-          pnpm exec electron-builder --publish always
+          pnpm --filter @reckon/desktop exec electron-vite build
+          pnpm --filter @reckon/desktop exec electron-builder --publish always
 
       # electron-builder's own GitHub publish creates the release with an
       # empty body — this fills it in with the same auto-generated
