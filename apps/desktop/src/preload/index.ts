@@ -37,6 +37,10 @@ export interface VocabEntryPatch {
   note?: string | null;
   tags?: string[];
   definition?: string | null;
+  mnemonic?: string | null;
+  aiExamples?: AiExample[];
+  aiNuance?: string | null;
+  aiRelatedWords?: AiRelatedWords | null;
 }
 
 export interface DueEntryRow extends VocabEntryRow {
@@ -160,6 +164,8 @@ const api = {
     setGroqApiKey: (key: string) => ipcRenderer.invoke("settings:setGroqApiKey", key) as Promise<void>,
     hasGroqApiKey: () => ipcRenderer.invoke("settings:hasGroqApiKey") as Promise<boolean>,
     testGroqApiKey: (key: string) => ipcRenderer.invoke("settings:testGroqApiKey", key) as Promise<void>,
+    getAutoSave: () => ipcRenderer.invoke("settings:getAutoSave") as Promise<boolean>,
+    setAutoSave: (value: boolean) => ipcRenderer.invoke("settings:setAutoSave", value) as Promise<void>,
   },
   ai: {
     generateExamples: (id: string) => ipcRenderer.invoke("ai:generateExamples", id) as Promise<VocabEntryRow>,
@@ -169,6 +175,23 @@ const api = {
     suggestTags: (id: string) => ipcRenderer.invoke("ai:suggestTags", id) as Promise<TagSuggestion>,
     quizQuestion: (id: string) => ipcRenderer.invoke("ai:quizQuestion", id) as Promise<QuizQuestion>,
     extractVocab: (paragraph: string) => ipcRenderer.invoke("ai:extractVocab", paragraph) as Promise<VocabCandidate[]>,
+    // Preview variants: same Groq prompts, but work on raw text instead of
+    // a saved vocabId and don't persist anything — used by the popup's AI
+    // tabs before the word has been saved.
+    previewExamples: (sourceText: string, meanings: string[]) =>
+      ipcRenderer.invoke("ai:previewExamples", sourceText, meanings) as Promise<AiExample[]>,
+    previewNuance: (sourceText: string, meanings: string[]) =>
+      ipcRenderer.invoke("ai:previewNuance", sourceText, meanings) as Promise<string>,
+    previewRelatedWords: (sourceText: string, sourceLang: string, targetText: string, targetLang: string) =>
+      ipcRenderer.invoke(
+        "ai:previewRelatedWords",
+        sourceText,
+        sourceLang,
+        targetText,
+        targetLang,
+      ) as Promise<AiRelatedWords>,
+    previewMnemonic: (sourceText: string, meanings: string[]) =>
+      ipcRenderer.invoke("ai:previewMnemonic", sourceText, meanings) as Promise<string>,
   },
   popup: {
     resize: (size: { width: number; height: number }) => ipcRenderer.send("popup:resize", size),
@@ -183,6 +206,12 @@ const api = {
   },
   onTranslationResult: (callback: (payload: TranslationResultPayload) => void) => {
     ipcRenderer.on("translation:result", (_event, payload: TranslationResultPayload) => callback(payload));
+  },
+  // Selection-lookup hotkey with auto-save off (see Settings) — same shape
+  // as vocab.preview's result, just pushed instead of returned, since the
+  // popup (not the main window) initiates this lookup.
+  onTranslationPreview: (callback: (payload: VocabPreview) => void) => {
+    ipcRenderer.on("translation:preview", (_event, payload: VocabPreview) => callback(payload));
   },
   onOpenSearchPopup: (callback: () => void) => {
     ipcRenderer.on("popup:openSearch", () => callback());

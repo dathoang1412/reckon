@@ -1,46 +1,156 @@
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
-import { SoundOutlined } from "@ant-design/icons";
-import { Button, Input, type InputRef, Space, Tag, Typography } from "antd";
+import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
+import {
+  ApartmentOutlined,
+  BulbOutlined,
+  DiffOutlined,
+  FileTextOutlined,
+  RedoOutlined,
+  SoundOutlined,
+  ThunderboltOutlined,
+  TranslationOutlined,
+} from "@ant-design/icons";
+import { Button, Input, type InputRef, Space, Spin, Tag, Tooltip, Typography } from "antd";
 import toast from "react-hot-toast";
-import type { DictionaryInfo, TranslationResultData, TranslationResultPayload, VocabPreview } from "../../../preload/index";
+import type {
+  AiExample,
+  AiRelatedWords,
+  DictionaryInfo,
+  TranslationResultData,
+  VocabEntryPatch,
+  VocabEntryRow,
+} from "../../../preload/index";
 import DictionaryPanel from "../components/DictionaryPanel";
 import { speak } from "../lib/speak";
+import { COLOR_PRIMARY } from "../theme";
 
-// Shared by both popup modes: a pre-fetched selection lookup (payload) and a
-// manually typed search (searchPreview) render their translation the same
-// way, just wrapped by different surrounding chrome (see below).
-function TranslationView({ result, dictionary }: { result: TranslationResultData; dictionary: DictionaryInfo | null }) {
+function errorMessage(err: unknown): string {
+  return err instanceof Error ? err.message : String(err);
+}
+
+// Normalizes the two ways a word ends up in this popup — already saved
+// (selection hotkey with auto-save on, or a VocabDetailModal-style entry)
+// vs. just previewed (auto-save off, or a manually typed search) — into
+// one shape the rest of the component works with. id is the only thing
+// that tells the two apart: null means "not saved yet, AI tabs work on
+// ad-hoc text via the ai:preview* channels and a Lưu button appears".
+interface DisplayEntry {
+  id: string | null;
+  sourceText: string;
+  sourceLang: string;
+  targetText: string;
+  targetMeanings: string[];
+  targetLang: string;
+  mnemonic: string | null;
+  aiExamples: AiExample[];
+  aiNuance: string | null;
+  aiRelatedWords: AiRelatedWords | null;
+}
+
+function fromVocabEntryRow(row: VocabEntryRow): DisplayEntry {
+  return {
+    id: row.id,
+    sourceText: row.sourceText,
+    sourceLang: row.sourceLang,
+    targetText: row.targetText,
+    targetMeanings: row.targetMeanings,
+    targetLang: row.targetLang,
+    mnemonic: row.mnemonic,
+    aiExamples: row.aiExamples,
+    aiNuance: row.aiNuance,
+    aiRelatedWords: row.aiRelatedWords,
+  };
+}
+
+function fromPreview(data: TranslationResultData): DisplayEntry {
+  return {
+    id: null,
+    sourceText: data.sourceText,
+    sourceLang: data.sourceLang,
+    targetText: data.targetText,
+    targetMeanings: data.targetMeanings,
+    targetLang: data.targetLang,
+    mnemonic: null,
+    aiExamples: [],
+    aiNuance: null,
+    aiRelatedWords: null,
+  };
+}
+
+type TabKey = "dict" | "examples" | "nuance" | "related" | "mnemonic";
+type AiFeature = "examples" | "nuance" | "related" | "mnemonic";
+
+const TAB_DEFS: { key: TabKey; icon: ReactNode; label: string }[] = [
+  { key: "dict", icon: <TranslationOutlined />, label: "Dịch & từ điển" },
+  { key: "examples", icon: <FileTextOutlined />, label: "Ví dụ câu" },
+  { key: "nuance", icon: <DiffOutlined />, label: "Sắc thái & ngữ cảnh" },
+  { key: "related", icon: <ApartmentOutlined />, label: "Từ liên quan" },
+  { key: "mnemonic", icon: <BulbOutlined />, label: "Mẹo ghi nhớ" },
+];
+
+// Compact icon-only tab bar (matching a dictionary-extension-style header)
+// — hand-rolled rather than antd's Tabs, which fights back on a colored,
+// icon-only, evenly-spaced bar like this one.
+function TabBar({ active, onChange }: { active: TabKey; onChange: (key: TabKey) => void }) {
+  return (
+    <div style={{ display: "flex", background: COLOR_PRIMARY, flexShrink: 0 }}>
+      {TAB_DEFS.map((tab) => (
+        <Tooltip key={tab.key} title={tab.label} mouseEnterDelay={0.3}>
+          <button
+            onClick={() => onChange(tab.key)}
+            style={{
+              flex: 1,
+              display: "flex",
+              justifyContent: "center",
+              alignItems: "center",
+              padding: "10px 0",
+              border: "none",
+              cursor: "pointer",
+              background: active === tab.key ? "rgba(255,255,255,0.22)" : "transparent",
+              color: "#fff",
+              fontSize: 16,
+              lineHeight: 1,
+            }}
+          >
+            {tab.icon}
+          </button>
+        </Tooltip>
+      ))}
+    </div>
+  );
+}
+
+function TranslationTab({ entry, dictionary }: { entry: DisplayEntry; dictionary: DictionaryInfo | null }) {
   return (
     <>
-      <Tag color="blue">{result.sourceLang}</Tag>
+      <Tag color="blue">{entry.sourceLang}</Tag>
       <Space align="center" style={{ margin: "8px 0" }}>
-        <Typography.Paragraph style={{ margin: 0 }}>{result.sourceText}</Typography.Paragraph>
-        {result.sourceLang !== "vi" && (
+        <Typography.Paragraph style={{ margin: 0 }}>{entry.sourceText}</Typography.Paragraph>
+        {entry.sourceLang !== "vi" && (
           <Button
             type="text"
             size="small"
             icon={<SoundOutlined />}
-            onClick={() => speak(result.sourceText, result.sourceLang)}
+            onClick={() => speak(entry.sourceText, entry.sourceLang)}
           />
         )}
       </Space>
-      <Tag color="green">{result.targetLang}</Tag>
+      <Tag color="green">{entry.targetLang}</Tag>
       <Space align="center" style={{ margin: "8px 0 0" }}>
         <Typography.Paragraph strong style={{ margin: 0 }}>
-          {result.targetText}
+          {entry.targetText}
         </Typography.Paragraph>
-        {result.targetLang !== "vi" && (
+        {entry.targetLang !== "vi" && (
           <Button
             type="text"
             size="small"
             icon={<SoundOutlined />}
-            onClick={() => speak(result.targetText, result.targetLang)}
+            onClick={() => speak(entry.targetText, entry.targetLang)}
           />
         )}
       </Space>
-      {result.targetMeanings.length > 1 && (
+      {entry.targetMeanings.length > 1 && (
         <Space size={[4, 4]} wrap style={{ marginTop: 4 }}>
-          {result.targetMeanings.slice(1).map((meaning) => (
+          {entry.targetMeanings.slice(1).map((meaning) => (
             <Tag key={meaning} color="default">
               {meaning}
             </Tag>
@@ -53,18 +163,76 @@ function TranslationView({ result, dictionary }: { result: TranslationResultData
   );
 }
 
+// Shared chrome for the four AI tabs — empty/generate button, loading,
+// error+retry, or the generated content plus a "Tạo lại" link.
+function AiTabPanel({
+  hasContent,
+  loading,
+  error,
+  disabledReason,
+  onGenerate,
+  children,
+}: {
+  hasContent: boolean;
+  loading: boolean;
+  error: string | null;
+  disabledReason?: string | null;
+  onGenerate: () => void;
+  children: ReactNode;
+}) {
+  if (disabledReason) {
+    return <Typography.Text type="secondary">{disabledReason}</Typography.Text>;
+  }
+  if (loading) {
+    return <Spin size="small" />;
+  }
+  if (error) {
+    return (
+      <Space direction="vertical" size={8}>
+        <Typography.Text type="danger">{error}</Typography.Text>
+        <Button size="small" onClick={onGenerate}>
+          Thử lại
+        </Button>
+      </Space>
+    );
+  }
+  if (hasContent) {
+    return (
+      <div>
+        {children}
+        <Button type="link" size="small" icon={<RedoOutlined />} onClick={onGenerate} style={{ paddingLeft: 0 }}>
+          Tạo lại
+        </Button>
+      </div>
+    );
+  }
+  return (
+    <Button type="primary" ghost icon={<ThunderboltOutlined />} onClick={onGenerate}>
+      Tạo với AI
+    </Button>
+  );
+}
+
 export default function Popup() {
-  const [payload, setPayload] = useState<TranslationResultPayload | null>(null);
+  const [entry, setEntry] = useState<DisplayEntry | null>(null);
+  const [dictionary, setDictionary] = useState<DictionaryInfo | null>(null);
+  const [activeTab, setActiveTab] = useState<TabKey>("dict");
+  const [saving, setSaving] = useState(false);
+
+  const [aiStatus, setAiStatus] = useState<Record<AiFeature, { loading: boolean; error: string | null }>>({
+    examples: { loading: false, error: null },
+    nuance: { loading: false, error: null },
+    related: { loading: false, error: null },
+    mnemonic: { loading: false, error: null },
+  });
 
   // Search mode: opened via the empty-popup hotkey (no pre-fetched result),
   // the user types a word themselves instead of it coming from a selection.
   const [searchMode, setSearchMode] = useState(false);
   const [searchText, setSearchText] = useState("");
   const [searching, setSearching] = useState(false);
-  const [searchPreview, setSearchPreview] = useState<VocabPreview | null>(null);
-  const [saving, setSaving] = useState(false);
 
-  // Bumped on every popup:openSearch event, even if the mode/text/preview
+  // Bumped on every popup:openSearch event, even if the mode/text/entry
   // state it resets to is identical to what's already there (e.g. the
   // hotkey fired twice in a row with nothing typed in between) — without
   // this, React sees no state change, skips the re-render, and the resize
@@ -79,12 +247,21 @@ export default function Popup() {
   useEffect(() => {
     window.api.onTranslationResult((data) => {
       setSearchMode(false);
-      setPayload(data);
+      setDictionary(data.dictionary);
+      setEntry(fromVocabEntryRow(data.result));
+      setActiveTab("dict");
+    });
+    window.api.onTranslationPreview((data) => {
+      setSearchMode(false);
+      setDictionary(data.dictionary);
+      setEntry(fromPreview(data.result));
+      setActiveTab("dict");
     });
     window.api.onOpenSearchPopup(() => {
-      setPayload(null);
+      setEntry(null);
+      setDictionary(null);
       setSearchText("");
-      setSearchPreview(null);
+      setActiveTab("dict");
       setSearchMode(true);
       setSearchOpenSeq((n) => n + 1);
     });
@@ -94,12 +271,12 @@ export default function Popup() {
   // turned on), not on some later render — there's no other way for the
   // user to start typing since this window never had keyboard focus before.
   useEffect(() => {
-    if (searchMode) inputRef.current?.focus();
-  }, [searchMode, searchOpenSeq]);
+    if (searchMode && !entry) inputRef.current?.focus();
+  }, [searchMode, entry, searchOpenSeq]);
 
-  // Escape dismisses either popup mode. The window already hides on blur,
-  // but a keyboard-only escape hatch matters here specifically because it's
-  // a keyboard-triggered popup in the first place.
+  // Escape dismisses the popup. The window already hides on blur, but a
+  // keyboard-only escape hatch matters here specifically because it's a
+  // keyboard-triggered popup in the first place.
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
       if (e.key === "Escape") window.api.popup.hide();
@@ -117,7 +294,8 @@ export default function Popup() {
   // resize triggers another measurement, feeding back into itself. A
   // single post-layout measurement per state change is enough since each
   // one already carries all the data it'll ever show (nothing arrives
-  // after the fact).
+  // after the fact) — aiStatus is included so a tab's loading spinner or
+  // freshly generated content also gets measured.
   //
   // Must be useLayoutEffect (synchronous, no requestAnimationFrame): the
   // window is hidden between lookups (see popup.ts), and Chromium pauses
@@ -128,96 +306,242 @@ export default function Popup() {
     const el = contentRef.current;
     if (!el) return;
     window.api.popup.resize({ width: el.scrollWidth, height: el.scrollHeight });
-  }, [payload, searchMode, searchPreview, searchOpenSeq]);
+  }, [entry, dictionary, searchMode, searchOpenSeq, activeTab, aiStatus]);
 
   async function handleSearch() {
     const text = searchText.trim();
     if (!text) return;
     setSearching(true);
-    setSearchPreview(null);
     try {
-      setSearchPreview(await window.api.vocab.preview(text));
+      const preview = await window.api.vocab.preview(text);
+      setDictionary(preview.dictionary);
+      setEntry(fromPreview(preview.result));
+      setActiveTab("dict");
     } catch (err) {
-      toast.error(`Tra từ thất bại: ${err instanceof Error ? err.message : String(err)}`);
+      toast.error(`Tra từ thất bại: ${errorMessage(err)}`);
     } finally {
       setSearching(false);
     }
   }
 
-  async function handleSaveSearch() {
-    if (!searchPreview) return;
+  async function handleSave() {
+    if (!entry || entry.id) return;
     setSaving(true);
     try {
-      await window.api.vocab.save(searchPreview.result);
+      const saved = await window.api.vocab.save({
+        sourceText: entry.sourceText,
+        sourceLang: entry.sourceLang,
+        targetText: entry.targetText,
+        targetMeanings: entry.targetMeanings,
+        targetLang: entry.targetLang,
+      });
+      // Carry over whatever AI content the tabs already generated while
+      // this was still just a preview — otherwise saving would silently
+      // throw away Groq calls the user already paid the latency for.
+      const patch: VocabEntryPatch = {};
+      if (entry.aiExamples.length > 0) patch.aiExamples = entry.aiExamples;
+      if (entry.aiNuance) patch.aiNuance = entry.aiNuance;
+      if (entry.aiRelatedWords) patch.aiRelatedWords = entry.aiRelatedWords;
+      if (entry.mnemonic) patch.mnemonic = entry.mnemonic;
+      const finalRow = Object.keys(patch).length > 0 ? await window.api.vocab.update(saved.id, patch) : saved;
+      setEntry(fromVocabEntryRow(finalRow));
       toast.success("Đã lưu");
-      window.api.popup.hide();
     } catch (err) {
-      toast.error(`Lưu thất bại: ${err instanceof Error ? err.message : String(err)}`);
+      toast.error(`Lưu thất bại: ${errorMessage(err)}`);
     } finally {
       setSaving(false);
     }
   }
 
-  if (searchMode) {
-    return (
-      <div
-        ref={contentRef}
-        className="fade-in"
-        style={{
-          padding: 16,
-          fontFamily: "system-ui, sans-serif",
-          width: 380,
-          maxHeight: "80vh",
-          overflowY: "auto",
-        }}
-      >
-        <Space.Compact style={{ width: "100%" }}>
-          <Input
-            ref={inputRef}
-            value={searchText}
-            onChange={(e) => setSearchText(e.target.value)}
-            onPressEnter={handleSearch}
-            placeholder="Tìm một từ hoặc cụm từ…"
-          />
-          <Button type="primary" loading={searching} onClick={handleSearch}>
-            Tra từ
-          </Button>
-        </Space.Compact>
-
-        {searchPreview && (
-          <div style={{ marginTop: 12 }}>
-            <TranslationView result={searchPreview.result} dictionary={searchPreview.dictionary} />
-            <Button type="primary" block loading={saving} onClick={handleSaveSearch} style={{ marginTop: 10 }}>
-              Lưu
-            </Button>
-          </div>
-        )}
-      </div>
-    );
+  async function handleGenerate(feature: AiFeature) {
+    if (!entry) return;
+    setAiStatus((prev) => ({ ...prev, [feature]: { loading: true, error: null } }));
+    try {
+      if (entry.id) {
+        const id = entry.id;
+        const updated = await (feature === "examples"
+          ? window.api.ai.generateExamples(id)
+          : feature === "nuance"
+            ? window.api.ai.explainNuance(id)
+            : feature === "related"
+              ? window.api.ai.suggestRelatedWords(id)
+              : window.api.ai.generateMnemonic(id));
+        setEntry(fromVocabEntryRow(updated));
+      } else if (feature === "examples") {
+        const aiExamples = await window.api.ai.previewExamples(entry.sourceText, entry.targetMeanings);
+        setEntry((prev) => prev && { ...prev, aiExamples });
+      } else if (feature === "nuance") {
+        const aiNuance = await window.api.ai.previewNuance(entry.sourceText, entry.targetMeanings);
+        setEntry((prev) => prev && { ...prev, aiNuance });
+      } else if (feature === "related") {
+        const aiRelatedWords = await window.api.ai.previewRelatedWords(
+          entry.sourceText,
+          entry.sourceLang,
+          entry.targetText,
+          entry.targetLang,
+        );
+        setEntry((prev) => prev && { ...prev, aiRelatedWords });
+      } else {
+        const mnemonic = await window.api.ai.previewMnemonic(entry.sourceText, entry.targetMeanings);
+        setEntry((prev) => prev && { ...prev, mnemonic });
+      }
+      setAiStatus((prev) => ({ ...prev, [feature]: { loading: false, error: null } }));
+    } catch (err) {
+      setAiStatus((prev) => ({ ...prev, [feature]: { loading: false, error: errorMessage(err) } }));
+    }
   }
 
-  if (!payload) {
-    return (
-      <div style={{ padding: 16, fontFamily: "system-ui, sans-serif" }}>
-        <Typography.Text type="secondary">Waiting for lookup…</Typography.Text>
-      </div>
-    );
-  }
+  const isEnglishPair = !!entry && (entry.sourceLang === "en" || entry.targetLang === "en");
 
   return (
     <div
       ref={contentRef}
       className="fade-in"
       style={{
-        padding: 16,
         fontFamily: "system-ui, sans-serif",
-        width: "fit-content",
+        width: entry ? 400 : 380,
         maxWidth: 420,
         maxHeight: "80vh",
-        overflowY: "auto",
+        display: "flex",
+        flexDirection: "column",
       }}
     >
-      <TranslationView result={payload.result} dictionary={payload.dictionary} />
+      {searchMode && !entry && (
+        <div style={{ padding: 16 }}>
+          <Space.Compact style={{ width: "100%" }}>
+            <Input
+              ref={inputRef}
+              value={searchText}
+              onChange={(e) => setSearchText(e.target.value)}
+              onPressEnter={handleSearch}
+              placeholder="Tìm một từ hoặc cụm từ…"
+            />
+            <Button type="primary" loading={searching} onClick={handleSearch}>
+              Tra từ
+            </Button>
+          </Space.Compact>
+        </div>
+      )}
+
+      {entry && (
+        <>
+          <TabBar active={activeTab} onChange={setActiveTab} />
+          <div style={{ padding: 16, overflowY: "auto" }}>
+            {activeTab === "dict" && <TranslationTab entry={entry} dictionary={dictionary} />}
+
+            {activeTab === "examples" && (
+              <AiTabPanel
+                hasContent={entry.aiExamples.length > 0}
+                loading={aiStatus.examples.loading}
+                error={aiStatus.examples.error}
+                onGenerate={() => handleGenerate("examples")}
+              >
+                <Space direction="vertical" size={8} style={{ width: "100%", marginBottom: 8 }}>
+                  {entry.aiExamples.map((ex, i) => (
+                    <div key={i}>
+                      <Typography.Text>{ex.sentence}</Typography.Text>
+                      <Typography.Text type="secondary" italic style={{ display: "block", fontSize: 12 }}>
+                        {ex.translation}
+                      </Typography.Text>
+                    </div>
+                  ))}
+                </Space>
+              </AiTabPanel>
+            )}
+
+            {activeTab === "nuance" && (
+              <AiTabPanel
+                hasContent={!!entry.aiNuance}
+                loading={aiStatus.nuance.loading}
+                error={aiStatus.nuance.error}
+                onGenerate={() => handleGenerate("nuance")}
+              >
+                <Typography.Paragraph style={{ margin: 0, marginBottom: 8 }}>{entry.aiNuance}</Typography.Paragraph>
+              </AiTabPanel>
+            )}
+
+            {activeTab === "related" && (
+              <AiTabPanel
+                hasContent={!!entry.aiRelatedWords}
+                loading={aiStatus.related.loading}
+                error={aiStatus.related.error}
+                disabledReason={isEnglishPair ? null : "Chỉ hỗ trợ cho từ tiếng Anh"}
+                onGenerate={() => handleGenerate("related")}
+              >
+                {entry.aiRelatedWords && (
+                  <Space direction="vertical" size={6} style={{ width: "100%", marginBottom: 8 }}>
+                    {entry.aiRelatedWords.synonyms.length > 0 && (
+                      <div>
+                        <Typography.Text type="secondary" style={{ fontSize: 12 }}>
+                          Đồng nghĩa
+                        </Typography.Text>
+                        <div>
+                          {entry.aiRelatedWords.synonyms.map((w) => (
+                            <Tag key={w}>{w}</Tag>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                    {entry.aiRelatedWords.antonyms.length > 0 && (
+                      <div>
+                        <Typography.Text type="secondary" style={{ fontSize: 12 }}>
+                          Trái nghĩa
+                        </Typography.Text>
+                        <div>
+                          {entry.aiRelatedWords.antonyms.map((w) => (
+                            <Tag key={w} color="default">
+                              {w}
+                            </Tag>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                    {entry.aiRelatedWords.forms.length > 0 && (
+                      <div>
+                        <Typography.Text type="secondary" style={{ fontSize: 12 }}>
+                          Dạng từ khác
+                        </Typography.Text>
+                        <div>
+                          {entry.aiRelatedWords.forms.map((f, i) => (
+                            <Tag key={i} color="blue">
+                              {f.word} <Typography.Text type="secondary">({f.pos})</Typography.Text>
+                            </Tag>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </Space>
+                )}
+              </AiTabPanel>
+            )}
+
+            {activeTab === "mnemonic" && (
+              <AiTabPanel
+                hasContent={!!entry.mnemonic}
+                loading={aiStatus.mnemonic.loading}
+                error={aiStatus.mnemonic.error}
+                onGenerate={() => handleGenerate("mnemonic")}
+              >
+                <Typography.Text style={{ display: "block", marginBottom: 8 }}>{entry.mnemonic}</Typography.Text>
+              </AiTabPanel>
+            )}
+          </div>
+
+          {!entry.id && (
+            <div style={{ padding: "0 16px 16px", flexShrink: 0 }}>
+              <Button type="primary" block loading={saving} onClick={handleSave}>
+                Lưu
+              </Button>
+            </div>
+          )}
+        </>
+      )}
+
+      {!searchMode && !entry && (
+        <div style={{ padding: 16 }}>
+          <Typography.Text type="secondary">Waiting for lookup…</Typography.Text>
+        </div>
+      )}
     </div>
   );
 }

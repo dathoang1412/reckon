@@ -7,6 +7,10 @@ import {
   generateExamples,
   generateMnemonic,
   generateQuizQuestion,
+  previewExamples,
+  previewMnemonic,
+  previewNuance,
+  previewRelatedWords,
   suggestRelatedWords,
   suggestTags,
 } from "../services/ai";
@@ -15,7 +19,16 @@ import { clearSession, getSession } from "../utils/authSession";
 import { lookupEnglishWord } from "../services/dictionary";
 import { chatJSON } from "../services/groq";
 import { listDueEntries, rateReview } from "../services/review";
-import { getGroqApiKey, getHotkey, getSearchHotkey, setGroqApiKey, setHotkey, setSearchHotkey } from "../utils/settings";
+import {
+  getAutoSave,
+  getGroqApiKey,
+  getHotkey,
+  getSearchHotkey,
+  setAutoSave,
+  setGroqApiKey,
+  setHotkey,
+  setSearchHotkey,
+} from "../utils/settings";
 import { runSync } from "../services/sync";
 import { synthesizeSpeech } from "../services/tts";
 import type { TranslationResult } from "../services/translate";
@@ -249,6 +262,35 @@ export function registerIpcHandlers({
 
   ipcMain.handle("ai:extractVocab", async (_event, paragraph: string) => {
     return extractVocabCandidates(paragraph);
+  });
+
+  // Preview variants: same Groq prompts as the persisted ai:* handlers
+  // above, but operate on raw text instead of a saved vocabId and don't
+  // touch the database — used by the popup's AI tabs so they work before
+  // the word has been saved (see Popup.tsx).
+  ipcMain.handle("ai:previewExamples", async (_event, sourceText: string, meanings: string[]) => {
+    return previewExamples(sourceText, meanings);
+  });
+
+  ipcMain.handle("ai:previewNuance", async (_event, sourceText: string, meanings: string[]) => {
+    return previewNuance(sourceText, meanings);
+  });
+
+  ipcMain.handle(
+    "ai:previewRelatedWords",
+    async (_event, sourceText: string, sourceLang: string, targetText: string, targetLang: string) => {
+      return previewRelatedWords(sourceText, sourceLang, targetText, targetLang);
+    },
+  );
+
+  ipcMain.handle("ai:previewMnemonic", async (_event, sourceText: string, meanings: string[]) => {
+    return previewMnemonic(sourceText, meanings);
+  });
+
+  ipcMain.handle("settings:getAutoSave", () => getAutoSave());
+
+  ipcMain.handle("settings:setAutoSave", (_event, value: boolean) => {
+    setAutoSave(value);
   });
 
   ipcMain.handle("app:getVersion", () => app.getVersion());

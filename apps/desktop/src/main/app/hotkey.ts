@@ -3,8 +3,9 @@ import { getPrisma } from "../db/client";
 import { parseTargetMeanings, previewVocab, saveVocab } from "../services/vocab";
 import { getSession } from "../utils/authSession";
 import { getDeviceId } from "../utils/deviceId";
+import { getAutoSave } from "../utils/settings";
 import { readSelectedText } from "../utils/selection";
-import { showPopup, showSearchPopup } from "../windows/popup";
+import { showPopup, showPreviewPopup, showSearchPopup } from "../windows/popup";
 
 export interface HotkeyManager {
   register(accelerator: string): boolean;
@@ -28,6 +29,16 @@ async function onHotkeyTriggered(getMainWindow: () => BrowserWindow | null): Pro
   if (!text) return;
   try {
     const { result, dictionary } = await previewVocab(text);
+
+    // Off (see Settings): the popup gets an unsaved preview with a manual
+    // Save button instead — same "preview, then decide" flow the
+    // empty-search-popup hotkey already uses, just anchored at the
+    // selection point instead of centered (there's a real selection here).
+    if (!getAutoSave()) {
+      showPreviewPopup({ result, dictionary }, cursorPosition);
+      return;
+    }
+
     const saved = await saveVocab(getPrisma(), getDeviceId(), result);
     const entry = { ...saved, targetMeanings: parseTargetMeanings(saved), createdAt: saved.createdAt.toISOString() };
     showPopup(entry, cursorPosition, dictionary);

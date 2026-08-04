@@ -7,9 +7,9 @@ function loadEntry(prisma: PrismaClient, vocabId: string): Promise<VocabEntry> {
   return prisma.vocabEntry.findUniqueOrThrow({ where: { id: vocabId } });
 }
 
-export async function generateExamples(prisma: PrismaClient, deviceId: string, vocabId: string): Promise<VocabEntry> {
-  const entry = await loadEntry(prisma, vocabId);
-  const meanings = parseTargetMeanings(entry);
+// ---- Feature 1: example sentences ----
+
+async function examplesContent(sourceText: string, meanings: string[]): Promise<AiExample[]> {
   const { examples } = await chatJSON<{ examples: AiExample[] }>({
     system:
       `Bạn là trợ lý học từ vựng. Với một từ/cụm từ, tạo chính xác 3 câu ví dụ tự nhiên, ` +
@@ -17,23 +17,75 @@ export async function generateExamples(prisma: PrismaClient, deviceId: string, v
       `tiếng Anh kèm bản dịch tiếng Việt ngắn gọn ở "translation". Nếu là tiếng Việt thì câu ví dụ ` +
       `viết bằng tiếng Việt kèm bản dịch tiếng Anh. Chỉ trả về JSON: ` +
       `{"examples":[{"sentence":string,"translation":string}]}.`,
-    user: `Từ/cụm từ: "${entry.sourceText}" — nghĩa: ${meanings.join(", ")}`,
+    user: `Từ/cụm từ: "${sourceText}" — nghĩa: ${meanings.join(", ")}`,
   });
-  return updateVocabEntry(prisma, deviceId, vocabId, { aiExamples: examples.slice(0, 3) });
+  return examples.slice(0, 3);
 }
 
-export async function explainNuance(prisma: PrismaClient, deviceId: string, vocabId: string): Promise<VocabEntry> {
+// Not tied to a saved vocabId — used by the popup's AI tabs before the
+// word has been saved (see Popup.tsx), so nothing here touches Prisma.
+export function previewExamples(sourceText: string, meanings: string[]): Promise<AiExample[]> {
+  return examplesContent(sourceText, meanings);
+}
+
+export async function generateExamples(prisma: PrismaClient, deviceId: string, vocabId: string): Promise<VocabEntry> {
   const entry = await loadEntry(prisma, vocabId);
-  const meanings = parseTargetMeanings(entry);
+  const examples = await examplesContent(entry.sourceText, parseTargetMeanings(entry));
+  return updateVocabEntry(prisma, deviceId, vocabId, { aiExamples: examples });
+}
+
+// ---- Feature 2: nuance/context explanation ----
+
+async function nuanceContent(sourceText: string, meanings: string[]): Promise<string> {
   const { explanation } = await chatJSON<{ explanation: string }>({
     system:
       `Bạn là gia sư ngôn ngữ. Với một từ, cụm động từ hoặc thành ngữ, giải thích ngắn gọn ` +
       `(3-5 câu, tiếng Việt): sắc thái nghĩa, mức độ trang trọng/thân mật, các từ dễ nhầm lẫn ` +
       `(nếu có), và ngữ cảnh sử dụng phù hợp. Nếu là thành ngữ/cụm động từ, giải thích nghĩa bóng. ` +
       `Chỉ trả về JSON: {"explanation": string}.`,
-    user: `Từ/cụm từ: "${entry.sourceText}" — nghĩa: ${meanings.join(", ")}`,
+    user: `Từ/cụm từ: "${sourceText}" — nghĩa: ${meanings.join(", ")}`,
   });
+  return explanation;
+}
+
+export function previewNuance(sourceText: string, meanings: string[]): Promise<string> {
+  return nuanceContent(sourceText, meanings);
+}
+
+export async function explainNuance(prisma: PrismaClient, deviceId: string, vocabId: string): Promise<VocabEntry> {
+  const entry = await loadEntry(prisma, vocabId);
+  const explanation = await nuanceContent(entry.sourceText, parseTargetMeanings(entry));
   return updateVocabEntry(prisma, deviceId, vocabId, { aiNuance: explanation });
+}
+
+// ---- Feature 3: related words ----
+
+async function relatedWordsContent(englishWord: string): Promise<AiRelatedWords> {
+  return chatJSON<AiRelatedWords>({
+    system:
+      `Bạn là từ điển đồng nghĩa tiếng Anh. Với một từ, liệt kê tối đa 5 từ đồng nghĩa, ` +
+      `tối đa 5 từ trái nghĩa, và các dạng từ loại liên quan (danh từ/động từ/tính từ/trạng từ). ` +
+      `Chỉ trả về JSON: {"synonyms":string[],"antonyms":string[],"forms":[{"pos":string,"word":string}]}.`,
+    user: `Từ: "${englishWord}"`,
+  });
+}
+
+// Same englishWord derivation the persisted version below and
+// VocabDetailModal's dictionary lookup both use — kept in one place so a
+// word that doesn't qualify fails the same way from either path.
+function deriveEnglishWord(sourceText: string, sourceLang: string, targetText: string, targetLang: string): string {
+  const englishWord = sourceLang === "en" ? sourceText : targetLang === "en" ? targetText : null;
+  if (!englishWord) throw new Error("Chỉ hỗ trợ từ liên quan cho từ tiếng Anh.");
+  return englishWord;
+}
+
+export function previewRelatedWords(
+  sourceText: string,
+  sourceLang: string,
+  targetText: string,
+  targetLang: string,
+): Promise<AiRelatedWords> {
+  return relatedWordsContent(deriveEnglishWord(sourceText, sourceLang, targetText, targetLang));
 }
 
 export async function suggestRelatedWords(
@@ -42,34 +94,36 @@ export async function suggestRelatedWords(
   vocabId: string,
 ): Promise<VocabEntry> {
   const entry = await loadEntry(prisma, vocabId);
-  // Same englishWord derivation VocabDetailModal uses for the dictionary lookup.
-  const englishWord =
-    entry.sourceLang === "en" ? entry.sourceText : entry.targetLang === "en" ? entry.targetText : null;
-  if (!englishWord) throw new Error("Chỉ hỗ trợ từ liên quan cho từ tiếng Anh.");
-
-  const related = await chatJSON<AiRelatedWords>({
-    system:
-      `Bạn là từ điển đồng nghĩa tiếng Anh. Với một từ, liệt kê tối đa 5 từ đồng nghĩa, ` +
-      `tối đa 5 từ trái nghĩa, và các dạng từ loại liên quan (danh từ/động từ/tính từ/trạng từ). ` +
-      `Chỉ trả về JSON: {"synonyms":string[],"antonyms":string[],"forms":[{"pos":string,"word":string}]}.`,
-    user: `Từ: "${englishWord}"`,
-  });
+  const englishWord = deriveEnglishWord(entry.sourceText, entry.sourceLang, entry.targetText, entry.targetLang);
+  const related = await relatedWordsContent(englishWord);
   return updateVocabEntry(prisma, deviceId, vocabId, { aiRelatedWords: related });
 }
 
-export async function generateMnemonic(prisma: PrismaClient, deviceId: string, vocabId: string): Promise<VocabEntry> {
-  const entry = await loadEntry(prisma, vocabId);
-  const meanings = parseTargetMeanings(entry);
+// ---- Feature 4: mnemonic ----
+
+async function mnemonicContent(sourceText: string, meanings: string[]): Promise<string> {
   const { mnemonic } = await chatJSON<{ mnemonic: string }>({
     system:
       `Bạn là chuyên gia ghi nhớ (mnemonics). Tạo MỘT mẹo ghi nhớ ngắn gọn, sáng tạo bằng tiếng Việt ` +
       `(liên tưởng âm thanh/hình ảnh/câu chuyện ngắn), tối đa 2 câu, giúp nhớ nghĩa của từ. ` +
       `Chỉ trả về JSON: {"mnemonic": string}.`,
-    user: `Từ: "${entry.sourceText}" — nghĩa: ${meanings.join(", ")}`,
+    user: `Từ: "${sourceText}" — nghĩa: ${meanings.join(", ")}`,
     maxTokens: 200,
   });
+  return mnemonic;
+}
+
+export function previewMnemonic(sourceText: string, meanings: string[]): Promise<string> {
+  return mnemonicContent(sourceText, meanings);
+}
+
+export async function generateMnemonic(prisma: PrismaClient, deviceId: string, vocabId: string): Promise<VocabEntry> {
+  const entry = await loadEntry(prisma, vocabId);
+  const mnemonic = await mnemonicContent(entry.sourceText, parseTargetMeanings(entry));
   return updateVocabEntry(prisma, deviceId, vocabId, { mnemonic });
 }
+
+// ---- Feature 5: quiz question (not persisted, review-only) ----
 
 export interface QuizQuestion {
   question: string;
@@ -114,6 +168,8 @@ export async function generateQuizQuestion(prisma: PrismaClient, vocabId: string
   };
 }
 
+// ---- Feature 6: tag/set suggestions (not persisted) ----
+
 export interface TagSuggestion {
   tags: string[];
   suggestedSetId: string | null;
@@ -155,6 +211,8 @@ export async function suggestTags(prisma: PrismaClient, vocabId: string): Promis
     suggestedSetName: matchedSet?.name ?? null,
   };
 }
+
+// ---- Feature 7: bulk extraction (no DB, pure text -> candidates) ----
 
 export interface VocabCandidate {
   text: string;

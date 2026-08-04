@@ -3,6 +3,11 @@ import path from "node:path";
 import type { DictionaryInfo } from "../services/dictionary";
 import type { TranslationResult } from "../services/translate";
 
+interface VocabPreviewPayload {
+  result: TranslationResult;
+  dictionary: DictionaryInfo | null;
+}
+
 export interface ScreenPoint {
   x: number;
   y: number;
@@ -142,6 +147,15 @@ function sendToPopup(channel: string, payload: unknown, point: ScreenPoint, cent
 
 export function showPopup(result: TranslationResult, point: ScreenPoint, dictionary: DictionaryInfo | null): void {
   sendToPopup("translation:result", { result, dictionary }, point, false);
+}
+
+// Selection-lookup hotkey with auto-save off (see Settings) — same anchor
+// behavior as showPopup (there's a real selection point to anchor to,
+// unlike showSearchPopup below), but the renderer gets an unsaved preview
+// instead of an already-persisted entry, so it shows a Save button instead
+// of AI-panel data assumed to already exist in the database.
+export function showPreviewPopup(preview: VocabPreviewPayload, point: ScreenPoint): void {
+  sendToPopup("translation:preview", preview, point, false);
 }
 
 // Opens the popup with no pre-fetched result — the renderer switches to a

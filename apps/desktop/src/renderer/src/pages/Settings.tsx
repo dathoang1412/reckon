@@ -1,7 +1,7 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { useRecordHotkeys } from "react-hotkeys-hook";
 import { SyncOutlined, ThunderboltOutlined } from "@ant-design/icons";
-import { Button, Input, Progress, Space, Typography } from "antd";
+import { Button, Input, Progress, Space, Switch, Typography } from "antd";
 import toast from "react-hot-toast";
 import PageShell from "../components/PageShell";
 import type { UpdateStatus } from "../../../preload/index";
@@ -240,14 +240,30 @@ export default function Settings({ onLogout }: { onLogout: () => void }) {
   const [appVersion, setAppVersion] = useState<string | null>(null);
   const [updateStatus, setUpdateStatus] = useState<UpdateStatus | null>(null);
 
+  const [autoSave, setAutoSaveState] = useState<boolean | null>(null);
+  const [savingAutoSave, setSavingAutoSave] = useState(false);
+
   useEffect(() => {
     window.api.settings.getHotkey().then(setSavedHotkey);
     window.api.settings.getSearchHotkey().then(setSavedSearchHotkey);
     window.api.settings.getGroqApiKey().then(setGroqKey);
+    window.api.settings.getAutoSave().then(setAutoSaveState);
     window.api.auth.getSession().then((session) => setEmail(session?.email ?? null));
     window.api.app.getVersion().then(setAppVersion);
     window.api.onUpdateStatus(setUpdateStatus);
   }, []);
+
+  async function handleToggleAutoSave(value: boolean) {
+    setSavingAutoSave(true);
+    try {
+      await window.api.settings.setAutoSave(value);
+      setAutoSaveState(value);
+    } catch (err) {
+      toast.error(`Lưu thất bại: ${errorMessage(err)}`);
+    } finally {
+      setSavingAutoSave(false);
+    }
+  }
 
   async function handleLogout() {
     await window.api.auth.logout();
@@ -289,6 +305,14 @@ export default function Settings({ onLogout }: { onLogout: () => void }) {
         save={(accelerator) => window.api.settings.setHotkey(accelerator)}
         onSaved={setSavedHotkey}
       />
+
+      <Space align="center" style={{ marginTop: 4 }}>
+        <Switch checked={autoSave ?? true} loading={savingAutoSave} onChange={handleToggleAutoSave} />
+        <Typography.Text>Tự động lưu từ khi tra</Typography.Text>
+      </Space>
+      <Typography.Paragraph type="secondary" style={{ marginTop: 4, marginBottom: 0 }}>
+        Tắt để chỉ xem trước trong khung popup — bấm "Lưu" khi bạn thực sự muốn giữ lại từ đó.
+      </Typography.Paragraph>
 
       <Typography.Title level={4} style={{ marginTop: 32 }}>
         Mở khung tìm từ
