@@ -64,14 +64,32 @@ jobs:
             fs.writeFileSync(path, JSON.stringify(pkg, null, 2) + '\n');
           " "$VERSION"
 
-      - name: Build installer
-        run: pnpm package:desktop
+      - name: Build shared package + server bundle
+        run: |
+          pnpm --filter @reckon/shared build
+          pnpm bundle:server
+          node apps/desktop/scripts/materialize-shared.cjs
 
-      - name: Publish release
-        uses: softprops/action-gh-release@v2
-        with:
-          files: |
-            apps/desktop/release/*.exe
-            apps/desktop/release/*.exe.blockmap
-            apps/desktop/release/latest.yml
-          generate_release_notes: true
+      # electron-builder writes latest.yml (the file electron-updater
+      # checks) only as part of an actual publish — "electron-builder
+      # --publish never" (what apps/desktop's own "package" script uses,
+      # so a plain local `pnpm package:desktop` never needs a token) skips
+      # generating it entirely, not just the upload. So the release build
+      # has to invoke electron-builder itself with --publish always and a
+      # real token, rather than going through that shared script.
+      - name: Build and publish installer
+        working-directory: apps/desktop
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          pnpm exec electron-vite build
+          pnpm exec electron-builder --publish always
+
+      # electron-builder's own GitHub publish creates the release with an
+      # empty body — this fills it in with the same auto-generated
+      # (commits-since-last-tag) notes the old softprops/action-gh-release
+      # step used to produce.
+      - name: Generate release notes
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh release edit ${{ github.ref_name }} --generate-notes
