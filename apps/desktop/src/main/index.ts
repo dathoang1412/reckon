@@ -22,7 +22,7 @@ let trayRef: Tray | null = null;
 let isQuitting = false;
 
 const hotkeyManager = createHotkeyManager(() => mainWindow);
-const searchHotkeyManager = createSearchHotkeyManager(() => mainWindow);
+const searchHotkeyManager = createSearchHotkeyManager();
 const updater = createUpdater(() => mainWindow);
 
 function openMainWindow(): void {

@@ -1,11 +1,24 @@
 import { useState } from "react";
 import { GoogleOutlined } from "@ant-design/icons";
-import { Button, Divider, Form, Input, Typography } from "antd";
+import { Button, Divider, Form, Input, Modal, Typography } from "antd";
 import toast from "react-hot-toast";
-import PageShell from "../components/PageShell";
 import { COLOR_PRIMARY } from "../theme";
 
-export default function Login({ onSuccess }: { onSuccess: () => void }) {
+// Login is opt-in, not a gate the whole app sits behind — everything here
+// works entirely offline against the local SQLite database (see
+// main/services/vocab.ts and friends), so there's nothing to require an
+// account for. This modal only ever pops up when something that actually
+// needs the shared account (right now: Sync, and the profile section in
+// Settings) is used without one — see App.tsx/Settings.tsx.
+export default function LoginModal({
+  open,
+  onClose,
+  onSuccess,
+}: {
+  open: boolean;
+  onClose: () => void;
+  onSuccess: () => void;
+}) {
   const [mode, setMode] = useState<"login" | "signup">("login");
   const [submitting, setSubmitting] = useState(false);
   const [googleSubmitting, setGoogleSubmitting] = useState(false);
@@ -42,12 +55,12 @@ export default function Login({ onSuccess }: { onSuccess: () => void }) {
   }
 
   return (
-    <PageShell maxWidth={360} margin="4rem auto" padding="0 1.5rem">
-      <Typography.Title level={2} style={{ marginBottom: 0, color: COLOR_PRIMARY }}>
+    <Modal open={open} onCancel={onClose} footer={null} destroyOnHidden centered width={360}>
+      <Typography.Title level={3} style={{ marginTop: 0, marginBottom: 0, color: COLOR_PRIMARY }}>
         Reckon
       </Typography.Title>
       <Typography.Paragraph type="secondary">
-        {mode === "login" ? "Đăng nhập để tiếp tục" : "Tạo tài khoản mới"}
+        {mode === "login" ? "Đăng nhập để đồng bộ & quản lý tài khoản" : "Tạo tài khoản mới"}
       </Typography.Paragraph>
 
       <Form layout="vertical" onFinish={handleSubmit} requiredMark={false}>
@@ -99,6 +112,6 @@ export default function Login({ onSuccess }: { onSuccess: () => void }) {
           </>
         )}
       </Typography.Paragraph>
-    </PageShell>
+    </Modal>
   );
 }

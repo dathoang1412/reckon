@@ -6,12 +6,12 @@ import type { VocabEntryRow, VocabPreview, VocabSetRow } from "../../../preload/
 import AppHeader, { type AppView } from "../components/AppHeader";
 import BulkExtractModal from "../components/BulkExtractModal";
 import DictionaryPanel from "../components/DictionaryPanel";
+import LoginModal from "../components/LoginModal";
 import SetsBar from "../components/SetsBar";
 import VocabDetailModal from "../components/VocabDetailModal";
 import { dayKey, dayLabel, timeLabel } from "../lib/date";
 import { speak } from "../lib/speak";
 import { styleTokens } from "../theme";
-import Login from "./Login";
 import Review from "./Review";
 import Settings from "./Settings";
 
@@ -31,10 +31,12 @@ export default function App() {
   const [syncing, setSyncing] = useState(false);
   const [view, setView] = useState<AppView>("list");
   const [bulkExtractOpen, setBulkExtractOpen] = useState(false);
+  const [loginModalOpen, setLoginModalOpen] = useState(false);
 
-  // Local read only (no network) — see authSession.ts — so login gating
-  // never blocks app startup on connectivity, just on "have we ever
-  // logged in and not logged out".
+  // Local read only (no network) — see authSession.ts. Login is opt-in
+  // (see LoginModal), not a gate the app sits behind, so this is only
+  // tracked to decide whether Sync (and Settings' profile section) can
+  // run straight away or need to prompt for one first.
   useEffect(() => {
     window.api.auth.getSession().then((session) => setAuthed(!!session));
   }, []);
@@ -149,6 +151,14 @@ export default function App() {
   }
 
   async function handleSync() {
+    // Sync is the only thing here that touches the shared server/Postgres
+    // — everything else works fully offline against local SQLite, so this
+    // is also the only place that needs to prompt for an account instead
+    // of just working.
+    if (!authed) {
+      setLoginModalOpen(true);
+      return;
+    }
     setSyncing(true);
     try {
       const result = await window.api.sync.run();
@@ -163,10 +173,6 @@ export default function App() {
   }
 
   if (authed === null) return null;
-
-  if (!authed) {
-    return <Login onSuccess={() => setAuthed(true)} />;
-  }
 
   const bySet = activeSet === null ? entries : entries.filter((e) => e.setId === activeSet);
   const query = searchQuery.trim().toLowerCase();
@@ -224,7 +230,11 @@ export default function App() {
 
         {view === "settings" && (
           <div style={{ flex: 1, minHeight: 0, overflowY: "auto" }}>
-            <Settings onLogout={() => setAuthed(false)} />
+            <Settings
+              authed={authed}
+              onLogout={() => setAuthed(false)}
+              onRequireLogin={() => setLoginModalOpen(true)}
+            />
           </div>
         )}
 
@@ -451,6 +461,14 @@ export default function App() {
         onClose={() => setBulkExtractOpen(false)}
         entries={entries}
         onSaved={refresh}
+      />
+      <LoginModal
+        open={loginModalOpen}
+        onClose={() => setLoginModalOpen(false)}
+        onSuccess={() => {
+          setAuthed(true);
+          setLoginModalOpen(false);
+        }}
       />
     </>
   );

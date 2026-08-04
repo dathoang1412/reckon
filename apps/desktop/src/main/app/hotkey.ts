@@ -1,7 +1,6 @@
 import { BrowserWindow, globalShortcut, screen } from "electron";
 import { getPrisma } from "../db/client";
 import { parseTargetMeanings, previewVocab, saveVocab } from "../services/vocab";
-import { getSession } from "../utils/authSession";
 import { getDeviceId } from "../utils/deviceId";
 import { getAutoSave } from "../utils/settings";
 import { readSelectedText } from "../utils/selection";
@@ -11,15 +10,11 @@ export interface HotkeyManager {
   register(accelerator: string): boolean;
 }
 
+// Login is opt-in (see components/LoginModal.tsx), not required to use the
+// app — this lookup/save is entirely local (SQLite via services/vocab.ts),
+// no account needed. Only Sync and the profile section in Settings ever
+// touch the shared server.
 async function onHotkeyTriggered(getMainWindow: () => BrowserWindow | null): Promise<void> {
-  // Login is mandatory app-wide, including this hotkey path — if there's no
-  // session, surface the (already-rendered) login screen instead of running
-  // a lookup that would just save data with no account attached to it.
-  if (!getSession()) {
-    getMainWindow()?.show();
-    return;
-  }
-
   // Captured before the async selection/translate/DB round-trip so the
   // popup lands where the user's selection was, not wherever the cursor
   // has drifted to by the time the lookup finishes.
@@ -53,11 +48,7 @@ async function onHotkeyTriggered(getMainWindow: () => BrowserWindow | null): Pro
 // A search-hotkey trigger has no selected text to work from — it just pops
 // the popup up empty (anchored at the cursor, same as the lookup one) for
 // the user to type a word into themselves.
-function onSearchHotkeyTriggered(getMainWindow: () => BrowserWindow | null): void {
-  if (!getSession()) {
-    getMainWindow()?.show();
-    return;
-  }
+function onSearchHotkeyTriggered(): void {
   showSearchPopup(screen.getCursorScreenPoint());
 }
 
@@ -93,6 +84,6 @@ export function createHotkeyManager(getMainWindow: () => BrowserWindow | null): 
   return createManager(() => onHotkeyTriggered(getMainWindow));
 }
 
-export function createSearchHotkeyManager(getMainWindow: () => BrowserWindow | null): HotkeyManager {
-  return createManager(() => onSearchHotkeyTriggered(getMainWindow));
+export function createSearchHotkeyManager(): HotkeyManager {
+  return createManager(onSearchHotkeyTriggered);
 }

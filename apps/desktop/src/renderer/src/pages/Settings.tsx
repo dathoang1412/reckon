@@ -253,7 +253,15 @@ function HotkeySection({
   );
 }
 
-export default function Settings({ onLogout }: { onLogout: () => void }) {
+export default function Settings({
+  authed,
+  onLogout,
+  onRequireLogin,
+}: {
+  authed: boolean | null;
+  onLogout: () => void;
+  onRequireLogin: () => void;
+}) {
   const [savedHotkey, setSavedHotkey] = useState<string | null>(null);
   const [savedSearchHotkey, setSavedSearchHotkey] = useState<string | null>(null);
   const [email, setEmail] = useState<string | null>(null);
@@ -279,13 +287,19 @@ export default function Settings({ onLogout }: { onLogout: () => void }) {
     window.api.settings.getGroqApiKey().then(setGroqKey);
     window.api.settings.getAutoSave().then(setAutoSaveState);
     window.api.auth.getSession().then((session) => setEmail(session?.email ?? null));
+    window.api.app.getVersion().then(setAppVersion);
+    window.api.onUpdateStatus(setUpdateStatus);
+  }, []);
+
+  // GET /auth/me is guarded server-side — only fetch once actually logged
+  // in, and again right after LoginModal succeeds (authed flips to true).
+  useEffect(() => {
+    if (!authed) return;
     window.api.auth.getProfile().then((profile) => {
       setName(profile.name ?? "");
       setAvatarBase64(profile.avatarBase64);
     });
-    window.api.app.getVersion().then(setAppVersion);
-    window.api.onUpdateStatus(setUpdateStatus);
-  }, []);
+  }, [authed]);
 
   async function handleAvatarChange(e: ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -384,39 +398,53 @@ export default function Settings({ onLogout }: { onLogout: () => void }) {
       <Typography.Title level={4} style={{ marginTop: 32 }}>
         Tài khoản
       </Typography.Title>
-      <Space align="center" size={16} style={{ marginTop: 8 }}>
-        <Avatar size={64} src={avatarBase64 ?? undefined} icon={!avatarBase64 && <UserOutlined />} />
-        <div>
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept="image/*"
-            style={{ display: "none" }}
-            onChange={handleAvatarChange}
+      {authed ? (
+        <>
+          <Space align="center" size={16} style={{ marginTop: 8 }}>
+            <Avatar size={64} src={avatarBase64 ?? undefined} icon={!avatarBase64 && <UserOutlined />} />
+            <div>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                style={{ display: "none" }}
+                onChange={handleAvatarChange}
+              />
+              <Button size="small" onClick={() => fileInputRef.current?.click()}>
+                Đổi ảnh đại diện
+              </Button>
+            </div>
+          </Space>
+          <Input
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            placeholder="Tên hiển thị"
+            style={{ maxWidth: 300, marginTop: 12 }}
           />
-          <Button size="small" onClick={() => fileInputRef.current?.click()}>
-            Đổi ảnh đại diện
-          </Button>
-        </div>
-      </Space>
-      <Input
-        value={name}
-        onChange={(e) => setName(e.target.value)}
-        placeholder="Tên hiển thị"
-        style={{ maxWidth: 300, marginTop: 12 }}
-      />
-      <div style={{ marginTop: 12 }}>
-        <Button type="primary" loading={savingProfile} onClick={handleSaveProfile}>
-          Lưu hồ sơ
-        </Button>
-      </div>
+          <div style={{ marginTop: 12 }}>
+            <Button type="primary" loading={savingProfile} onClick={handleSaveProfile}>
+              Lưu hồ sơ
+            </Button>
+          </div>
 
-      <Space align="center" style={{ width: "100%", justifyContent: "space-between", marginTop: 20 }}>
-        <Typography.Text type="secondary">{email}</Typography.Text>
-        <Button danger onClick={handleLogout}>
-          Đăng xuất
-        </Button>
-      </Space>
+          <Space align="center" style={{ width: "100%", justifyContent: "space-between", marginTop: 20 }}>
+            <Typography.Text type="secondary">{email}</Typography.Text>
+            <Button danger onClick={handleLogout}>
+              Đăng xuất
+            </Button>
+          </Space>
+        </>
+      ) : (
+        <>
+          <Typography.Paragraph type="secondary" style={{ marginTop: 8 }}>
+            Chưa đăng nhập — chỉ cần thiết cho đồng bộ nhiều thiết bị và hồ sơ (ảnh đại diện, tên hiển
+            thị). Mọi tính năng tra từ, lưu từ, ôn tập đều dùng được bình thường mà không cần tài khoản.
+          </Typography.Paragraph>
+          <Button type="primary" onClick={onRequireLogin}>
+            Đăng nhập
+          </Button>
+        </>
+      )}
 
       <Typography.Title level={4} style={{ marginTop: 32 }}>
         Groq API (tính năng AI)
