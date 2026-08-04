@@ -9,7 +9,7 @@ import {
   ThunderboltOutlined,
   TranslationOutlined,
 } from "@ant-design/icons";
-import { Button, Input, type InputRef, Space, Spin, Tag, Tooltip, Typography } from "antd";
+import { Button, Input, type InputRef, Select, Space, Spin, Tag, Tooltip, Typography } from "antd";
 import toast from "react-hot-toast";
 import type {
   AiExample,
@@ -18,10 +18,15 @@ import type {
   TranslationResultData,
   VocabEntryPatch,
   VocabEntryRow,
+  VocabSetRow,
 } from "../../../preload/index";
 import DictionaryPanel from "../components/DictionaryPanel";
 import { speak } from "../lib/speak";
-import { COLOR_PRIMARY } from "../theme";
+import { COLOR_PRIMARY, styleTokens } from "../theme";
+
+// Mirrors App.tsx's UNASSIGNED sentinel — antd's Select needs a real string
+// value for "no set chosen", it can't use null/undefined as an option value.
+const UNASSIGNED = "__unassigned__";
 
 function errorMessage(err: unknown): string {
   return err instanceof Error ? err.message : String(err);
@@ -218,6 +223,8 @@ export default function Popup() {
   const [dictionary, setDictionary] = useState<DictionaryInfo | null>(null);
   const [activeTab, setActiveTab] = useState<TabKey>("dict");
   const [saving, setSaving] = useState(false);
+  const [sets, setSets] = useState<VocabSetRow[]>([]);
+  const [selectedSetId, setSelectedSetId] = useState(UNASSIGNED);
 
   const [aiStatus, setAiStatus] = useState<Record<AiFeature, { loading: boolean; error: string | null }>>({
     examples: { loading: false, error: null },
@@ -245,6 +252,7 @@ export default function Popup() {
   const inputRef = useRef<InputRef>(null);
 
   useEffect(() => {
+    window.api.vocabSet.list().then(setSets);
     window.api.onTranslationResult((data) => {
       setSearchMode(false);
       setDictionary(data.dictionary);
@@ -256,12 +264,14 @@ export default function Popup() {
       setDictionary(data.dictionary);
       setEntry(fromPreview(data.result));
       setActiveTab("dict");
+      setSelectedSetId(UNASSIGNED);
     });
     window.api.onOpenSearchPopup(() => {
       setEntry(null);
       setDictionary(null);
       setSearchText("");
       setActiveTab("dict");
+      setSelectedSetId(UNASSIGNED);
       setSearchMode(true);
       setSearchOpenSeq((n) => n + 1);
     });
@@ -317,6 +327,7 @@ export default function Popup() {
       setDictionary(preview.dictionary);
       setEntry(fromPreview(preview.result));
       setActiveTab("dict");
+      setSelectedSetId(UNASSIGNED);
     } catch (err) {
       toast.error(`Tra từ thất bại: ${errorMessage(err)}`);
     } finally {
@@ -328,13 +339,16 @@ export default function Popup() {
     if (!entry || entry.id) return;
     setSaving(true);
     try {
-      const saved = await window.api.vocab.save({
+      let finalRow = await window.api.vocab.save({
         sourceText: entry.sourceText,
         sourceLang: entry.sourceLang,
         targetText: entry.targetText,
         targetMeanings: entry.targetMeanings,
         targetLang: entry.targetLang,
       });
+      if (selectedSetId !== UNASSIGNED) {
+        finalRow = await window.api.vocab.setSet(finalRow.id, selectedSetId);
+      }
       // Carry over whatever AI content the tabs already generated while
       // this was still just a preview — otherwise saving would silently
       // throw away Groq calls the user already paid the latency for.
@@ -343,7 +357,7 @@ export default function Popup() {
       if (entry.aiNuance) patch.aiNuance = entry.aiNuance;
       if (entry.aiRelatedWords) patch.aiRelatedWords = entry.aiRelatedWords;
       if (entry.mnemonic) patch.mnemonic = entry.mnemonic;
-      const finalRow = Object.keys(patch).length > 0 ? await window.api.vocab.update(saved.id, patch) : saved;
+      if (Object.keys(patch).length > 0) finalRow = await window.api.vocab.update(finalRow.id, patch);
       setEntry(fromVocabEntryRow(finalRow));
       toast.success("Đã lưu");
     } catch (err) {
@@ -528,8 +542,28 @@ export default function Popup() {
           </div>
 
           {!entry.id && (
-            <div style={{ padding: "0 16px 16px", flexShrink: 0 }}>
-              <Button type="primary" block loading={saving} onClick={handleSave}>
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "flex-end",
+                alignItems: "center",
+                gap: 8,
+                padding: "10px 16px",
+                borderTop: `1px solid ${styleTokens.borderColorLight}`,
+                flexShrink: 0,
+              }}
+            >
+              <Select
+                size="small"
+                value={selectedSetId}
+                onChange={setSelectedSetId}
+                style={{ minWidth: 140 }}
+                options={[
+                  { value: UNASSIGNED, label: "Không phân loại" },
+                  ...sets.map((s) => ({ value: s.id, label: s.name })),
+                ]}
+              />
+              <Button type="primary" size="small" loading={saving} onClick={handleSave}>
                 Lưu
               </Button>
             </div>
