@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import type { PrismaClient, VocabEntry } from "../../../generated/client";
+import type { AiExample, AiRelatedWords } from "./aiTypes";
 import { lookupEnglishWord, type DictionaryInfo } from "./dictionary";
 import { translate, type TranslationResult } from "./translate";
 
@@ -84,10 +85,35 @@ export function parseTags(entry: { tags: string | null }): string[] {
   }
 }
 
+// aiExamples/aiRelatedWords store as JSON-encoded columns, same
+// reasoning/shape as targetMeanings/tags above.
+export function parseAiExamples(entry: { aiExamples: string | null }): AiExample[] {
+  if (!entry.aiExamples) return [];
+  try {
+    const parsed = JSON.parse(entry.aiExamples);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+export function parseAiRelatedWords(entry: { aiRelatedWords: string | null }): AiRelatedWords | null {
+  if (!entry.aiRelatedWords) return null;
+  try {
+    return JSON.parse(entry.aiRelatedWords) as AiRelatedWords;
+  } catch {
+    return null;
+  }
+}
+
 export interface VocabEntryPatch {
   note?: string | null;
   tags?: string[];
   definition?: string | null;
+  mnemonic?: string | null;
+  aiExamples?: AiExample[];
+  aiNuance?: string | null;
+  aiRelatedWords?: AiRelatedWords | null;
 }
 
 export function updateVocabEntry(
@@ -102,6 +128,10 @@ export function updateVocabEntry(
       note: patch.note,
       tags: patch.tags ? JSON.stringify(patch.tags) : undefined,
       definition: patch.definition,
+      mnemonic: patch.mnemonic,
+      aiExamples: patch.aiExamples ? JSON.stringify(patch.aiExamples) : undefined,
+      aiNuance: patch.aiNuance,
+      aiRelatedWords: patch.aiRelatedWords !== undefined ? JSON.stringify(patch.aiRelatedWords) : undefined,
       updatedAt: new Date(),
       deviceId,
     },

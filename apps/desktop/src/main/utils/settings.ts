@@ -9,6 +9,11 @@ export const DEFAULT_SEARCH_HOTKEY = "CommandOrControl+Shift+F";
 interface SettingsSchema {
   hotkey: string;
   searchHotkey: string;
+  // Plaintext on disk, same as authSession.ts's stored token — no
+  // OS-keychain wrapper exists anywhere in this codebase yet. Each user
+  // supplies their own key (see Settings.tsx); it's never bundled into the
+  // packaged app.
+  groqApiKey: string;
 }
 
 // Lazy like getPrisma()/getDeviceId() in this file's siblings — Store reads
@@ -19,7 +24,9 @@ let store: Store<SettingsSchema> | null = null;
 
 function getStore(): Store<SettingsSchema> {
   if (!store) {
-    store = new Store<SettingsSchema>({ defaults: { hotkey: DEFAULT_HOTKEY, searchHotkey: DEFAULT_SEARCH_HOTKEY } });
+    store = new Store<SettingsSchema>({
+      defaults: { hotkey: DEFAULT_HOTKEY, searchHotkey: DEFAULT_SEARCH_HOTKEY, groqApiKey: "" },
+    });
   }
   return store;
 }
@@ -38,4 +45,12 @@ export function getSearchHotkey(): string {
 
 export function setSearchHotkey(accelerator: string): void {
   getStore().set("searchHotkey", accelerator);
+}
+
+export function getGroqApiKey(): string {
+  return getStore().get("groqApiKey");
+}
+
+export function setGroqApiKey(key: string): void {
+  getStore().set("groqApiKey", key);
 }

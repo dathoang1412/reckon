@@ -35,6 +35,20 @@ export const vocabEntrySchema = syncMetaSchema.extend({
   // User-authored definition — most useful for words the built-in English
   // dictionary lookup found nothing for.
   definition: z.string().max(2000).nullable().default(null),
+  // AI-generated (Groq) enrichment, populated on-demand rather than at
+  // save time — all default to "not generated yet" so older synced
+  // records that predate these fields round-trip cleanly.
+  mnemonic: z.string().max(1000).nullable().default(null),
+  aiExamples: z.array(z.object({ sentence: z.string(), translation: z.string() })).default([]),
+  aiNuance: z.string().max(2000).nullable().default(null),
+  aiRelatedWords: z
+    .object({
+      synonyms: z.array(z.string()),
+      antonyms: z.array(z.string()),
+      forms: z.array(z.object({ pos: z.string(), word: z.string() })),
+    })
+    .nullable()
+    .default(null),
 });
 export type VocabEntry = z.infer<typeof vocabEntrySchema>;
 

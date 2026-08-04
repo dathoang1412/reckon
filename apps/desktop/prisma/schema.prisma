@@ -25,6 +25,15 @@ model VocabEntry {
   definition String?
   note       String?
   tags       String?
+  // AI-generated (Groq) enrichment — all optional/nullable, populated
+  // on-demand from VocabDetailModal rather than at save time, so a row
+  // with none of these is just a word nobody has asked for AI help with
+  // yet. examples/relatedWords are JSON-encoded (see aiTypes.ts), same
+  // reasoning as targetMeanings/tags above.
+  mnemonic       String?
+  aiExamples     String?
+  aiNuance       String?
+  aiRelatedWords String?
   // References VocabSet.id — not a Prisma relation, matching the rest of
   // this schema's loosely-coupled, sync-friendly style.
   setId      String?

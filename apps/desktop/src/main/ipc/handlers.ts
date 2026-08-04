@@ -1,17 +1,29 @@
 import { type BrowserWindow, ipcMain } from "electron";
 import { getPrisma } from "../db/client";
 import { getDeviceId } from "../utils/deviceId";
+import {
+  extractVocabCandidates,
+  explainNuance,
+  generateExamples,
+  generateMnemonic,
+  generateQuizQuestion,
+  suggestRelatedWords,
+  suggestTags,
+} from "../services/ai";
 import { login, signup } from "../services/auth";
 import { clearSession, getSession } from "../utils/authSession";
 import { lookupEnglishWord } from "../services/dictionary";
+import { chatJSON } from "../services/groq";
 import { listDueEntries, rateReview } from "../services/review";
-import { getHotkey, getSearchHotkey, setHotkey, setSearchHotkey } from "../utils/settings";
+import { getGroqApiKey, getHotkey, getSearchHotkey, setGroqApiKey, setHotkey, setSearchHotkey } from "../utils/settings";
 import { runSync } from "../services/sync";
 import { synthesizeSpeech } from "../services/tts";
 import type { TranslationResult } from "../services/translate";
 import {
   deleteVocabEntry,
   listVocabEntries,
+  parseAiExamples,
+  parseAiRelatedWords,
   parseTags,
   parseTargetMeanings,
   previewVocab,
@@ -35,20 +47,36 @@ interface IpcHandlerDeps {
   getMainWindow: () => BrowserWindow | null;
 }
 
-// Prisma stores targetMeanings/tags as JSON string columns, and createdAt as
-// a Date; the renderer works with the parsed string[] shapes and an ISO
-// string (see preload's VocabEntryRow) so it doesn't need to deal with
-// structured clone semantics for dates crossing the IPC boundary.
+// Prisma stores targetMeanings/tags/aiExamples/aiRelatedWords as JSON string
+// columns, and createdAt as a Date; the renderer works with the parsed
+// shapes and an ISO string (see preload's VocabEntryRow) so it doesn't need
+// to deal with structured clone semantics for dates crossing the IPC
+// boundary.
 function toVocabEntryRow<
-  T extends { targetText: string; targetMeanings: string | null; tags: string | null; createdAt: Date },
+  T extends {
+    targetText: string;
+    targetMeanings: string | null;
+    tags: string | null;
+    createdAt: Date;
+    aiExamples: string | null;
+    aiRelatedWords: string | null;
+  },
 >(
   entry: T,
-): Omit<T, "targetMeanings" | "tags" | "createdAt"> & { targetMeanings: string[]; tags: string[]; createdAt: string } {
+): Omit<T, "targetMeanings" | "tags" | "createdAt" | "aiExamples" | "aiRelatedWords"> & {
+  targetMeanings: string[];
+  tags: string[];
+  createdAt: string;
+  aiExamples: ReturnType<typeof parseAiExamples>;
+  aiRelatedWords: ReturnType<typeof parseAiRelatedWords>;
+} {
   return {
     ...entry,
     targetMeanings: parseTargetMeanings(entry),
     tags: parseTags(entry),
     createdAt: entry.createdAt.toISOString(),
+    aiExamples: parseAiExamples(entry),
+    aiRelatedWords: parseAiRelatedWords(entry),
   };
 }
 
@@ -158,5 +186,48 @@ export function registerIpcHandlers({ registerHotkey, registerSearchHotkey, getM
     const ok = registerSearchHotkey(accelerator);
     if (ok) setSearchHotkey(accelerator);
     return ok;
+  });
+
+  ipcMain.handle("settings:getGroqApiKey", () => getGroqApiKey());
+
+  ipcMain.handle("settings:setGroqApiKey", (_event, key: string) => {
+    setGroqApiKey(key);
+  });
+
+  ipcMain.handle("settings:hasGroqApiKey", () => !!getGroqApiKey());
+
+  // Validates a just-typed (maybe-not-yet-saved) key, bypassing the store
+  // via apiKeyOverride — that's why this takes a key argument instead of
+  // just reading settings itself.
+  ipcMain.handle("settings:testGroqApiKey", async (_event, key: string) => {
+    await chatJSON({ system: 'Trả lời chính xác: {"ok":true}', user: "ping", maxTokens: 20, apiKeyOverride: key });
+  });
+
+  ipcMain.handle("ai:generateExamples", async (_event, id: string) => {
+    return toVocabEntryRow(await generateExamples(prisma, deviceId, id));
+  });
+
+  ipcMain.handle("ai:explainNuance", async (_event, id: string) => {
+    return toVocabEntryRow(await explainNuance(prisma, deviceId, id));
+  });
+
+  ipcMain.handle("ai:suggestRelatedWords", async (_event, id: string) => {
+    return toVocabEntryRow(await suggestRelatedWords(prisma, deviceId, id));
+  });
+
+  ipcMain.handle("ai:generateMnemonic", async (_event, id: string) => {
+    return toVocabEntryRow(await generateMnemonic(prisma, deviceId, id));
+  });
+
+  ipcMain.handle("ai:suggestTags", async (_event, id: string) => {
+    return suggestTags(prisma, id);
+  });
+
+  ipcMain.handle("ai:quizQuestion", async (_event, id: string) => {
+    return generateQuizQuestion(prisma, id);
+  });
+
+  ipcMain.handle("ai:extractVocab", async (_event, paragraph: string) => {
+    return extractVocabCandidates(paragraph);
   });
 }

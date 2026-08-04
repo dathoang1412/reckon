@@ -1,12 +1,26 @@
 import { useEffect, useState } from "react";
-import { CloseOutlined, SoundOutlined } from "@ant-design/icons";
-import { Button, Input, Modal, Select, Space, Spin, Tag, Typography } from "antd";
+import {
+  ApartmentOutlined,
+  CloseOutlined,
+  DiffOutlined,
+  FileTextOutlined,
+  BulbOutlined,
+  SoundOutlined,
+  ThunderboltOutlined,
+} from "@ant-design/icons";
+import { Button, Input, Modal, Select, Space, Spin, Tag, Tooltip, Typography } from "antd";
 import toast from "react-hot-toast";
-import type { DictionaryInfo, VocabEntryRow } from "../../../preload/index";
+import type { DictionaryInfo, TagSuggestion, VocabEntryRow } from "../../../preload/index";
+import AiSection from "./AiSection";
 import DictionaryPanel from "./DictionaryPanel";
 import { dayLabel, timeLabel } from "../lib/date";
 import { speak } from "../lib/speak";
+import { useHasGroqKey } from "../lib/useHasGroqKey";
 import { styleTokens } from "../theme";
+
+function errorMessage(err: unknown): string {
+  return err instanceof Error ? err.message : String(err);
+}
 
 export default function VocabDetailModal({
   entry,
@@ -23,6 +37,19 @@ export default function VocabDetailModal({
   const [definition, setDefinition] = useState("");
   const [tags, setTags] = useState<string[]>([]);
   const [savingEdit, setSavingEdit] = useState(false);
+
+  const [suggesting, setSuggesting] = useState(false);
+  const [suggestedTags, setSuggestedTags] = useState<TagSuggestion | null>(null);
+  const hasGroqKey = useHasGroqKey();
+
+  const [examplesLoading, setExamplesLoading] = useState(false);
+  const [examplesError, setExamplesError] = useState<string | null>(null);
+  const [nuanceLoading, setNuanceLoading] = useState(false);
+  const [nuanceError, setNuanceError] = useState<string | null>(null);
+  const [relatedLoading, setRelatedLoading] = useState(false);
+  const [relatedError, setRelatedError] = useState<string | null>(null);
+  const [mnemonicLoading, setMnemonicLoading] = useState(false);
+  const [mnemonicError, setMnemonicError] = useState<string | null>(null);
 
   // Fetched on demand rather than stored on the entry — the dictionary
   // data can always be re-fetched fresh, so there's no need to widen the
@@ -48,6 +75,11 @@ export default function VocabDetailModal({
     setNote(entry?.note ?? "");
     setDefinition(entry?.definition ?? "");
     setTags(entry?.tags ?? []);
+    setSuggestedTags(null);
+    setExamplesError(null);
+    setNuanceError(null);
+    setRelatedError(null);
+    setMnemonicError(null);
   }, [entry?.id]);
 
   async function handleSaveEdit() {
@@ -65,6 +97,84 @@ export default function VocabDetailModal({
       toast.error(`Lưu thất bại: ${err instanceof Error ? err.message : String(err)}`);
     } finally {
       setSavingEdit(false);
+    }
+  }
+
+  async function handleSuggestTags() {
+    if (!entry) return;
+    setSuggesting(true);
+    try {
+      setSuggestedTags(await window.api.ai.suggestTags(entry.id));
+    } catch (err) {
+      toast.error(`Gợi ý thất bại: ${errorMessage(err)}`);
+    } finally {
+      setSuggesting(false);
+    }
+  }
+
+  function acceptSuggestedTag(tag: string) {
+    setTags((prev) => (prev.includes(tag) ? prev : [...prev, tag]));
+  }
+
+  async function acceptSuggestedSet() {
+    if (!entry || !suggestedTags?.suggestedSetId) return;
+    try {
+      onUpdate(await window.api.vocab.setSet(entry.id, suggestedTags.suggestedSetId));
+      toast.success("Đã xếp vào bộ từ");
+    } catch (err) {
+      toast.error(`Thất bại: ${errorMessage(err)}`);
+    }
+  }
+
+  async function handleGenerateExamples() {
+    if (!entry) return;
+    setExamplesLoading(true);
+    setExamplesError(null);
+    try {
+      onUpdate(await window.api.ai.generateExamples(entry.id));
+    } catch (err) {
+      setExamplesError(errorMessage(err));
+    } finally {
+      setExamplesLoading(false);
+    }
+  }
+
+  async function handleExplainNuance() {
+    if (!entry) return;
+    setNuanceLoading(true);
+    setNuanceError(null);
+    try {
+      onUpdate(await window.api.ai.explainNuance(entry.id));
+    } catch (err) {
+      setNuanceError(errorMessage(err));
+    } finally {
+      setNuanceLoading(false);
+    }
+  }
+
+  async function handleSuggestRelatedWords() {
+    if (!entry) return;
+    setRelatedLoading(true);
+    setRelatedError(null);
+    try {
+      onUpdate(await window.api.ai.suggestRelatedWords(entry.id));
+    } catch (err) {
+      setRelatedError(errorMessage(err));
+    } finally {
+      setRelatedLoading(false);
+    }
+  }
+
+  async function handleGenerateMnemonic() {
+    if (!entry) return;
+    setMnemonicLoading(true);
+    setMnemonicError(null);
+    try {
+      onUpdate(await window.api.ai.generateMnemonic(entry.id));
+    } catch (err) {
+      setMnemonicError(errorMessage(err));
+    } finally {
+      setMnemonicLoading(false);
     }
   }
 
@@ -163,9 +273,30 @@ export default function VocabDetailModal({
                 autoSize={{ minRows: 2, maxRows: 4 }}
                 style={{ marginTop: 4 }}
               />
-              <Typography.Text strong style={{ display: "block", marginTop: 12 }}>
-                Nhãn
-              </Typography.Text>
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  marginTop: 12,
+                }}
+              >
+                <Typography.Text strong>Nhãn</Typography.Text>
+                <Tooltip title={hasGroqKey === false ? "Cần thêm Groq API key trong Cài đặt" : undefined}>
+                  <span>
+                    <Button
+                      type="link"
+                      size="small"
+                      icon={<ThunderboltOutlined />}
+                      loading={suggesting}
+                      disabled={hasGroqKey === false}
+                      onClick={handleSuggestTags}
+                    >
+                      Gợi ý
+                    </Button>
+                  </span>
+                </Tooltip>
+              </div>
               <Select
                 mode="tags"
                 value={tags}
@@ -174,6 +305,26 @@ export default function VocabDetailModal({
                 placeholder="Thêm nhãn..."
                 tokenSeparators={[","]}
               />
+              {suggestedTags && (suggestedTags.tags.length > 0 || suggestedTags.suggestedSetId) && (
+                <Space size={[4, 4]} wrap style={{ marginTop: 6 }}>
+                  {suggestedTags.tags
+                    .filter((t) => !tags.includes(t))
+                    .map((t) => (
+                      <Tag
+                        key={t}
+                        style={{ cursor: "pointer", borderStyle: "dashed" }}
+                        onClick={() => acceptSuggestedTag(t)}
+                      >
+                        + {t}
+                      </Tag>
+                    ))}
+                  {suggestedTags.suggestedSetId && (
+                    <Tag color="blue" style={{ cursor: "pointer" }} onClick={acceptSuggestedSet}>
+                      Xếp vào: {suggestedTags.suggestedSetName}
+                    </Tag>
+                  )}
+                </Space>
+              )}
               <Button
                 type="primary"
                 size="small"
@@ -184,6 +335,109 @@ export default function VocabDetailModal({
                 Lưu
               </Button>
             </div>
+
+            <AiSection
+              icon={<FileTextOutlined />}
+              title="Ví dụ câu"
+              hasContent={entry.aiExamples.length > 0}
+              loading={examplesLoading}
+              error={examplesError}
+              onGenerate={handleGenerateExamples}
+            >
+              <Space direction="vertical" size={8} style={{ width: "100%" }}>
+                {entry.aiExamples.map((ex, i) => (
+                  <div key={i}>
+                    <Typography.Text>{ex.sentence}</Typography.Text>
+                    <Typography.Text
+                      type="secondary"
+                      italic
+                      style={{ display: "block", fontSize: styleTokens.secondaryFontSize }}
+                    >
+                      {ex.translation}
+                    </Typography.Text>
+                  </div>
+                ))}
+              </Space>
+            </AiSection>
+
+            <AiSection
+              icon={<DiffOutlined />}
+              title="Sắc thái & ngữ cảnh"
+              hasContent={!!entry.aiNuance}
+              loading={nuanceLoading}
+              error={nuanceError}
+              onGenerate={handleExplainNuance}
+            >
+              <Typography.Paragraph style={{ margin: 0 }}>{entry.aiNuance}</Typography.Paragraph>
+            </AiSection>
+
+            <AiSection
+              icon={<ApartmentOutlined />}
+              title="Từ liên quan"
+              hasContent={!!entry.aiRelatedWords}
+              loading={relatedLoading}
+              error={relatedError}
+              disabledReason={
+                entry.sourceLang === "en" || entry.targetLang === "en" ? null : "Chỉ hỗ trợ cho từ tiếng Anh"
+              }
+              onGenerate={handleSuggestRelatedWords}
+            >
+              {entry.aiRelatedWords && (
+                <Space direction="vertical" size={6} style={{ width: "100%" }}>
+                  {entry.aiRelatedWords.synonyms.length > 0 && (
+                    <div>
+                      <Typography.Text type="secondary" style={{ fontSize: styleTokens.secondaryFontSize }}>
+                        Đồng nghĩa
+                      </Typography.Text>
+                      <div>
+                        {entry.aiRelatedWords.synonyms.map((w) => (
+                          <Tag key={w}>{w}</Tag>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  {entry.aiRelatedWords.antonyms.length > 0 && (
+                    <div>
+                      <Typography.Text type="secondary" style={{ fontSize: styleTokens.secondaryFontSize }}>
+                        Trái nghĩa
+                      </Typography.Text>
+                      <div>
+                        {entry.aiRelatedWords.antonyms.map((w) => (
+                          <Tag key={w} color="default">
+                            {w}
+                          </Tag>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  {entry.aiRelatedWords.forms.length > 0 && (
+                    <div>
+                      <Typography.Text type="secondary" style={{ fontSize: styleTokens.secondaryFontSize }}>
+                        Dạng từ khác
+                      </Typography.Text>
+                      <div>
+                        {entry.aiRelatedWords.forms.map((f, i) => (
+                          <Tag key={i} color="blue">
+                            {f.word} <Typography.Text type="secondary">({f.pos})</Typography.Text>
+                          </Tag>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </Space>
+              )}
+            </AiSection>
+
+            <AiSection
+              icon={<BulbOutlined />}
+              title="Mẹo ghi nhớ"
+              hasContent={!!entry.mnemonic}
+              loading={mnemonicLoading}
+              error={mnemonicError}
+              onGenerate={handleGenerateMnemonic}
+            >
+              <Typography.Text>{entry.mnemonic}</Typography.Text>
+            </AiSection>
           </div>
         </>
       )}

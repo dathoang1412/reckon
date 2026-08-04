@@ -8,7 +8,7 @@ import {
 import type { PrismaClient, VocabEntry, VocabSet } from "../../../generated/client";
 import { getSession } from "../utils/authSession";
 import { SERVER_PORT, waitForServerReady } from "./server";
-import { parseTags, parseTargetMeanings } from "./vocab";
+import { parseAiExamples, parseAiRelatedWords, parseTags, parseTargetMeanings } from "./vocab";
 
 const SERVER_URL = `http://localhost:${SERVER_PORT}`;
 
@@ -30,6 +30,10 @@ function vocabToChange(entry: VocabEntry): SyncChange {
       note: entry.note,
       tags: parseTags(entry),
       definition: entry.definition,
+      mnemonic: entry.mnemonic,
+      aiExamples: parseAiExamples(entry),
+      aiNuance: entry.aiNuance,
+      aiRelatedWords: parseAiRelatedWords(entry),
     },
   };
 }
@@ -58,6 +62,10 @@ async function applyVocabChange(prisma: PrismaClient, change: SyncChange): Promi
       note: data.note,
       tags: JSON.stringify(data.tags),
       definition: data.definition,
+      mnemonic: data.mnemonic,
+      aiExamples: JSON.stringify(data.aiExamples),
+      aiNuance: data.aiNuance,
+      aiRelatedWords: data.aiRelatedWords ? JSON.stringify(data.aiRelatedWords) : null,
       updatedAt: new Date(change.updatedAt),
       deviceId: change.deviceId,
       deletedAt: change.deletedAt ? new Date(change.deletedAt) : null,
@@ -73,6 +81,10 @@ async function applyVocabChange(prisma: PrismaClient, change: SyncChange): Promi
       note: data.note,
       tags: JSON.stringify(data.tags),
       definition: data.definition,
+      mnemonic: data.mnemonic,
+      aiExamples: JSON.stringify(data.aiExamples),
+      aiNuance: data.aiNuance,
+      aiRelatedWords: data.aiRelatedWords ? JSON.stringify(data.aiRelatedWords) : null,
       updatedAt: new Date(change.updatedAt),
       deviceId: change.deviceId,
       deletedAt: change.deletedAt ? new Date(change.deletedAt) : null,

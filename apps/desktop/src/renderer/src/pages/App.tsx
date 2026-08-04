@@ -1,9 +1,10 @@
 import { useEffect, useState } from "react";
-import { DeleteOutlined, SoundOutlined } from "@ant-design/icons";
+import { DeleteOutlined, ImportOutlined, SoundOutlined } from "@ant-design/icons";
 import { Button, Card, Empty, Input, List, Select, Space, Tag, Typography } from "antd";
 import toast from "react-hot-toast";
 import type { VocabEntryRow, VocabPreview, VocabSetRow } from "../../../preload/index";
 import AppHeader, { type AppView } from "../components/AppHeader";
+import BulkExtractModal from "../components/BulkExtractModal";
 import DictionaryPanel from "../components/DictionaryPanel";
 import SetsBar from "../components/SetsBar";
 import VocabDetailModal from "../components/VocabDetailModal";
@@ -29,6 +30,7 @@ export default function App() {
   const [preview, setPreview] = useState<VocabPreview | null>(null);
   const [syncing, setSyncing] = useState(false);
   const [view, setView] = useState<AppView>("list");
+  const [bulkExtractOpen, setBulkExtractOpen] = useState(false);
 
   // Local read only (no network) — see authSession.ts — so login gating
   // never blocks app startup on connectivity, just on "have we ever
@@ -216,7 +218,7 @@ export default function App() {
                 Copy a word anywhere, press the hotkey — or look one up here.
               </Typography.Paragraph>
 
-              <Space.Compact style={{ width: "100%", margin: "16px 0" }}>
+              <Space.Compact style={{ width: "100%", marginTop: 16 }}>
                 <Input
                   value={text}
                   onChange={(e) => setText(e.target.value)}
@@ -227,6 +229,15 @@ export default function App() {
                   Look up
                 </Button>
               </Space.Compact>
+              <Button
+                type="dashed"
+                size="small"
+                icon={<ImportOutlined />}
+                onClick={() => setBulkExtractOpen(true)}
+                style={{ marginTop: 8, alignSelf: "flex-end" }}
+              >
+                Trích xuất từ đoạn văn
+              </Button>
 
               {/* Everything below the lookup box shares one scroll region — the
                   preview card can grow arbitrarily tall (long dictionary
@@ -407,6 +418,12 @@ export default function App() {
       </div>
 
       <VocabDetailModal entry={detailEntry} onClose={() => setDetailEntry(null)} onUpdate={handleUpdateEntry} />
+      <BulkExtractModal
+        open={bulkExtractOpen}
+        onClose={() => setBulkExtractOpen(false)}
+        entries={entries}
+        onSaved={refresh}
+      />
     </>
   );
 }

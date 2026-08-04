@@ -1,8 +1,13 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { useRecordHotkeys } from "react-hotkeys-hook";
-import { Button, Space, Typography } from "antd";
+import { ThunderboltOutlined } from "@ant-design/icons";
+import { Button, Input, Space, Typography } from "antd";
 import toast from "react-hot-toast";
 import PageShell from "../components/PageShell";
+
+function errorMessage(err: unknown): string {
+  return err instanceof Error ? err.message : String(err);
+}
 
 const MODIFIER_ORDER = ["ctrl", "meta", "alt", "shift"];
 
@@ -227,15 +232,44 @@ export default function Settings({ onLogout }: { onLogout: () => void }) {
   const [savedSearchHotkey, setSavedSearchHotkey] = useState<string | null>(null);
   const [email, setEmail] = useState<string | null>(null);
 
+  const [groqKey, setGroqKey] = useState("");
+  const [savingKey, setSavingKey] = useState(false);
+  const [testingKey, setTestingKey] = useState(false);
+
   useEffect(() => {
     window.api.settings.getHotkey().then(setSavedHotkey);
     window.api.settings.getSearchHotkey().then(setSavedSearchHotkey);
+    window.api.settings.getGroqApiKey().then(setGroqKey);
     window.api.auth.getSession().then((session) => setEmail(session?.email ?? null));
   }, []);
 
   async function handleLogout() {
     await window.api.auth.logout();
     onLogout();
+  }
+
+  async function handleSaveGroqKey() {
+    setSavingKey(true);
+    try {
+      await window.api.settings.setGroqApiKey(groqKey.trim());
+      toast.success("Đã lưu API key");
+    } catch (err) {
+      toast.error(`Lưu thất bại: ${errorMessage(err)}`);
+    } finally {
+      setSavingKey(false);
+    }
+  }
+
+  async function handleTestGroqKey() {
+    setTestingKey(true);
+    try {
+      await window.api.settings.testGroqApiKey(groqKey.trim());
+      toast.success("Kết nối thành công");
+    } catch (err) {
+      toast.error(errorMessage(err));
+    } finally {
+      setTestingKey(false);
+    }
   }
 
   return (
@@ -267,6 +301,33 @@ export default function Settings({ onLogout }: { onLogout: () => void }) {
         <Typography.Text type="secondary">{email}</Typography.Text>
         <Button danger onClick={handleLogout}>
           Đăng xuất
+        </Button>
+      </Space>
+
+      <Typography.Title level={4} style={{ marginTop: 32 }}>
+        Groq API (tính năng AI)
+      </Typography.Title>
+      <Typography.Paragraph type="secondary" style={{ marginTop: 8 }}>
+        Cần để dùng ví dụ câu, giải thích sắc thái, từ liên quan, mẹo ghi nhớ, trắc nghiệm ôn tập và
+        trích xuất từ vựng. Lấy key miễn phí tại{" "}
+        <Typography.Link href="https://console.groq.com/keys" target="_blank">
+          console.groq.com/keys
+        </Typography.Link>
+        .
+      </Typography.Paragraph>
+      <Input.Password
+        value={groqKey}
+        onChange={(e) => setGroqKey(e.target.value)}
+        placeholder="gsk_..."
+        autoComplete="off"
+        style={{ maxWidth: 420 }}
+      />
+      <Space style={{ marginTop: 12 }}>
+        <Button type="primary" loading={savingKey} onClick={handleSaveGroqKey}>
+          Lưu
+        </Button>
+        <Button icon={<ThunderboltOutlined />} loading={testingKey} onClick={handleTestGroqKey}>
+          Kiểm tra kết nối
         </Button>
       </Space>
     </PageShell>
