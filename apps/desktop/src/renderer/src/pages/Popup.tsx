@@ -64,6 +64,15 @@ export default function Popup() {
   const [searchPreview, setSearchPreview] = useState<VocabPreview | null>(null);
   const [saving, setSaving] = useState(false);
 
+  // Bumped on every popup:openSearch event, even if the mode/text/preview
+  // state it resets to is identical to what's already there (e.g. the
+  // hotkey fired twice in a row with nothing typed in between) — without
+  // this, React sees no state change, skips the re-render, and the resize
+  // effect below (the only thing that re-shows the window; see popup.ts's
+  // hide-then-wait-for-resize reuse path) never re-runs, leaving the popup
+  // stuck hidden after the second press.
+  const [searchOpenSeq, setSearchOpenSeq] = useState(0);
+
   const contentRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<InputRef>(null);
 
@@ -77,6 +86,7 @@ export default function Popup() {
       setSearchText("");
       setSearchPreview(null);
       setSearchMode(true);
+      setSearchOpenSeq((n) => n + 1);
     });
   }, []);
 
@@ -85,7 +95,7 @@ export default function Popup() {
   // user to start typing since this window never had keyboard focus before.
   useEffect(() => {
     if (searchMode) inputRef.current?.focus();
-  }, [searchMode]);
+  }, [searchMode, searchOpenSeq]);
 
   // Escape dismisses either popup mode. The window already hides on blur,
   // but a keyboard-only escape hatch matters here specifically because it's
@@ -118,7 +128,7 @@ export default function Popup() {
     const el = contentRef.current;
     if (!el) return;
     window.api.popup.resize({ width: el.scrollWidth, height: el.scrollHeight });
-  }, [payload, searchMode, searchPreview]);
+  }, [payload, searchMode, searchPreview, searchOpenSeq]);
 
   async function handleSearch() {
     const text = searchText.trim();
