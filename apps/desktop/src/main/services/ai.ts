@@ -61,13 +61,24 @@ export async function explainNuance(prisma: PrismaClient, deviceId: string, voca
 // ---- Feature 3: related words ----
 
 async function relatedWordsContent(englishWord: string): Promise<AiRelatedWords> {
-  return chatJSON<AiRelatedWords>({
+  // response_format: json_object only guarantees syntactically valid JSON —
+  // not that the model actually included every field it was asked for. A
+  // word with no obvious antonym (e.g. "binding") can come back missing
+  // that key entirely, and the renderer unconditionally does
+  // `.antonyms.length` — normalize here, at the boundary where untrusted
+  // model output enters the app, rather than trusting the shape downstream.
+  const raw = await chatJSON<Partial<AiRelatedWords>>({
     system:
       `Bạn là từ điển đồng nghĩa tiếng Anh. Với một từ, liệt kê tối đa 5 từ đồng nghĩa, ` +
       `tối đa 5 từ trái nghĩa, và các dạng từ loại liên quan (danh từ/động từ/tính từ/trạng từ). ` +
       `Chỉ trả về JSON: {"synonyms":string[],"antonyms":string[],"forms":[{"pos":string,"word":string}]}.`,
     user: `Từ: "${englishWord}"`,
   });
+  return {
+    synonyms: raw.synonyms ?? [],
+    antonyms: raw.antonyms ?? [],
+    forms: raw.forms ?? [],
+  };
 }
 
 // Same englishWord derivation the persisted version below and
