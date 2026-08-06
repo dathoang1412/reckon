@@ -317,6 +317,7 @@ export default function VocabDetailModal({
               aiExamples={entry.aiExamples}
               aiNuance={entry.aiNuance}
               aiRelatedWords={entry.aiRelatedWords}
+              sourceLang={entry.sourceLang}
               relatedWordsDisabledReason={
                 entry.sourceLang === "en" || entry.targetLang === "en" ? null : "Chỉ hỗ trợ cho từ tiếng Anh"
               }

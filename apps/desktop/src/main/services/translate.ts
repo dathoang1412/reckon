@@ -1,3 +1,5 @@
+import type { TranslateDirection } from "../utils/settings";
+
 export interface TranslationResult {
   sourceText: string;
   sourceLang: string;
@@ -27,6 +29,12 @@ const VIETNAMESE_CHARS =
 
 function detectDirection(text: string): { source: string; target: string } {
   return VIETNAMESE_CHARS.test(text) ? { source: "vi", target: "en" } : { source: "en", target: "vi" };
+}
+
+function resolveDirection(text: string, direction: TranslateDirection): { source: string; target: string } {
+  if (direction === "en-vi") return { source: "en", target: "vi" };
+  if (direction === "vi-en") return { source: "vi", target: "en" };
+  return detectDirection(text);
 }
 
 // Segment shape from Google's translate_a/single endpoint: [translated, original, ...unused].
@@ -117,8 +125,8 @@ async function translateWithMyMemory(text: string, source: string, target: strin
   return translated;
 }
 
-export async function translate(text: string): Promise<TranslateOutcome> {
-  const { source, target } = detectDirection(text);
+export async function translate(text: string, direction: TranslateDirection = "auto"): Promise<TranslateOutcome> {
+  const { source, target } = resolveDirection(text, direction);
 
   let targetText: string;
   let targetMeanings: string[];

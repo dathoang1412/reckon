@@ -21,6 +21,7 @@ import type {
   VocabSetRow,
 } from "../../../preload/index";
 import DictionaryPanel from "../components/DictionaryPanel";
+import TranslateDirectionToggle from "../components/TranslateDirectionToggle";
 import WordChat from "../components/WordChat";
 import { speak } from "../lib/speak";
 import { COLOR_PRIMARY, styleTokens } from "../theme";
@@ -490,6 +491,9 @@ export default function Popup() {
               Tra từ
             </Button>
           </Space.Compact>
+          <div style={{ marginTop: 8 }}>
+            <TranslateDirectionToggle size="small" />
+          </div>
         </div>
       )}
 
@@ -522,7 +526,17 @@ export default function Popup() {
                 <Space direction="vertical" size={8} style={{ width: "100%", marginBottom: 8 }}>
                   {entry.aiExamples.map((ex, i) => (
                     <div key={i}>
-                      <Typography.Text>{ex.sentence}</Typography.Text>
+                      <Space align="start" size={4}>
+                        <Typography.Text>{ex.sentence}</Typography.Text>
+                        {entry.sourceLang !== "vi" && (
+                          <Button
+                            type="text"
+                            size="small"
+                            icon={<SoundOutlined />}
+                            onClick={() => speak(ex.sentence, entry.sourceLang)}
+                          />
+                        )}
+                      </Space>
                       <Typography.Text type="secondary" italic style={{ display: "block", fontSize: 12 }}>
                         {ex.translation}
                       </Typography.Text>

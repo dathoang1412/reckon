@@ -3,6 +3,7 @@ import type { PrismaClient, VocabEntry } from "../../../generated/client";
 import type { AiExample, AiRelatedWords } from "./aiTypes";
 import { lookupEnglishWord, type DictionaryInfo } from "./dictionary";
 import { translate, type TranslationResult } from "./translate";
+import { getTranslateDirection } from "../utils/settings";
 
 export function listVocabEntries(prisma: PrismaClient): Promise<VocabEntry[]> {
   return prisma.vocabEntry.findMany({
@@ -24,7 +25,11 @@ export async function previewVocab(text: string): Promise<VocabPreview> {
   // Destructuring off spellingSuggestion here (not just typing it away)
   // matters: `result` goes on to saveVocab, which spreads it straight into
   // a Prisma `create` — a stray extra property would fail there.
-  const { spellingSuggestion, ...result } = await translate(text);
+  // getTranslateDirection() here (not a param) means every lookup path —
+  // manual search in Popup.tsx/App.tsx and the selection hotkey in
+  // hotkey.ts — honors the same direction override without each caller
+  // having to thread it through.
+  const { spellingSuggestion, ...result } = await translate(text, getTranslateDirection());
   const englishWord =
     result.sourceLang === "en" ? result.sourceText : result.targetLang === "en" ? result.targetText : null;
   const dictionary = englishWord ? await lookupEnglishWord(englishWord) : null;

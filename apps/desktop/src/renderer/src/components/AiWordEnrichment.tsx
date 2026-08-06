@@ -1,7 +1,8 @@
-import { ApartmentOutlined, DiffOutlined, FileTextOutlined } from "@ant-design/icons";
-import { Space, Tag, Typography } from "antd";
+import { ApartmentOutlined, DiffOutlined, FileTextOutlined, SoundOutlined } from "@ant-design/icons";
+import { Button, Space, Tag, Typography } from "antd";
 import type { AiExample, AiRelatedWords } from "../../../preload/index";
 import AiSection from "./AiSection";
+import { speak } from "../lib/speak";
 import { styleTokens } from "../theme";
 
 interface GenerateState {
@@ -19,6 +20,7 @@ export default function AiWordEnrichment({
   aiNuance,
   aiRelatedWords,
   relatedWordsDisabledReason,
+  sourceLang,
   examplesState,
   nuanceState,
   relatedState,
@@ -30,6 +32,11 @@ export default function AiWordEnrichment({
   aiNuance: string | null;
   aiRelatedWords: AiRelatedWords | null;
   relatedWordsDisabledReason: string | null;
+  // Example sentences are generated in whichever language the looked-up
+  // word itself is (see ai.ts's examplesContent prompt) — always the
+  // word's sourceLang, not necessarily "en", so the speaker button needs
+  // this to pass the right language to speak().
+  sourceLang: string;
   examplesState: GenerateState;
   nuanceState: GenerateState;
   relatedState: GenerateState;
@@ -50,7 +57,17 @@ export default function AiWordEnrichment({
         <Space direction="vertical" size={8} style={{ width: "100%" }}>
           {aiExamples.map((ex, i) => (
             <div key={i}>
-              <Typography.Text>{ex.sentence}</Typography.Text>
+              <Space align="start" size={4}>
+                <Typography.Text>{ex.sentence}</Typography.Text>
+                {sourceLang !== "vi" && (
+                  <Button
+                    type="text"
+                    size="small"
+                    icon={<SoundOutlined />}
+                    onClick={() => speak(ex.sentence, sourceLang)}
+                  />
+                )}
+              </Space>
               <Typography.Text
                 type="secondary"
                 italic

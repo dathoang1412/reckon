@@ -17,6 +17,7 @@ import BulkExtractModal from "../components/BulkExtractModal";
 import DictionaryPanel from "../components/DictionaryPanel";
 import LoginModal from "../components/LoginModal";
 import SetsBar from "../components/SetsBar";
+import TranslateDirectionToggle from "../components/TranslateDirectionToggle";
 import VocabDetailModal from "../components/VocabDetailModal";
 import { dayKey, dayLabel, timeLabel } from "../lib/date";
 import { speak } from "../lib/speak";
@@ -378,6 +379,9 @@ export default function App() {
                   Look up
                 </Button>
               </Space.Compact>
+              <div style={{ marginTop: 8 }}>
+                <TranslateDirectionToggle size="small" />
+              </div>
               <Button
                 type="dashed"
                 size="small"
@@ -461,6 +465,7 @@ export default function App() {
                       aiExamples={previewAiExamples}
                       aiNuance={previewAiNuance}
                       aiRelatedWords={previewAiRelatedWords}
+                      sourceLang={preview.result.sourceLang}
                       relatedWordsDisabledReason={
                         preview.result.sourceLang === "en" || preview.result.targetLang === "en"
                           ? null

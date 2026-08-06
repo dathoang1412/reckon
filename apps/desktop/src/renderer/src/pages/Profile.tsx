@@ -2,8 +2,9 @@ import { useEffect, useRef, useState, type ChangeEvent } from "react";
 import { UserOutlined } from "@ant-design/icons";
 import { Avatar, Button, Input, Space, Typography } from "antd";
 import toast from "react-hot-toast";
+import ActivityChart from "../components/ActivityChart";
 import PageShell from "../components/PageShell";
-import type { UserProfile } from "../../../preload/index";
+import type { UserProfile, VocabEntryRow } from "../../../preload/index";
 
 function errorMessage(err: unknown): string {
   return err instanceof Error ? err.message : String(err);
@@ -52,9 +53,17 @@ export default function Profile({
   const [avatarBase64, setAvatarBase64] = useState<string | null>(null);
   const [savingProfile, setSavingProfile] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [entries, setEntries] = useState<VocabEntryRow[]>([]);
 
   useEffect(() => {
     window.api.auth.getSession().then((session) => setEmail(session?.email ?? null));
+  }, []);
+
+  // Entirely local (SQLite via vocab.list) — unlike the rest of this page,
+  // the activity chart doesn't need an account, so it's fetched
+  // unconditionally rather than gated behind `authed`.
+  useEffect(() => {
+    window.api.vocab.list().then(setEntries);
   }, []);
 
   // GET /auth/me is guarded server-side — only fetch once actually logged
@@ -99,6 +108,12 @@ export default function Profile({
     <PageShell>
       <Typography.Title level={4} style={{ marginTop: 0 }}>
         Hồ sơ
+      </Typography.Title>
+
+      <ActivityChart entries={entries} />
+
+      <Typography.Title level={4} style={{ marginTop: 32 }}>
+        Tài khoản
       </Typography.Title>
       {authed ? (
         <>

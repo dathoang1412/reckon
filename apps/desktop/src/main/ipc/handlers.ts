@@ -24,11 +24,16 @@ import {
   getAutoSave,
   getGroqApiKey,
   getHotkey,
+  getReviewLimit,
   getSearchHotkey,
+  getTranslateDirection,
   setAutoSave,
   setGroqApiKey,
   setHotkey,
+  setReviewLimit,
   setSearchHotkey,
+  setTranslateDirection,
+  type TranslateDirection,
 } from "../utils/settings";
 import { runSync } from "../services/sync";
 import { synthesizeSpeech } from "../services/tts";
@@ -170,7 +175,7 @@ export function registerIpcHandlers({
     return runSync(prisma, deviceId);
   });
 
-  ipcMain.handle("review:due", async (_event, limit?: number, setId?: string | null) => {
+  ipcMain.handle("review:due", async (_event, limit?: number | null, setId?: string | null) => {
     const entries = await listDueEntries(prisma, limit, setId);
     return entries.map(toVocabEntryRow);
   });
@@ -310,6 +315,18 @@ export function registerIpcHandlers({
 
   ipcMain.handle("settings:setAutoSave", (_event, value: boolean) => {
     setAutoSave(value);
+  });
+
+  ipcMain.handle("settings:getTranslateDirection", () => getTranslateDirection());
+
+  ipcMain.handle("settings:setTranslateDirection", (_event, value: TranslateDirection) => {
+    setTranslateDirection(value);
+  });
+
+  ipcMain.handle("settings:getReviewLimit", () => getReviewLimit());
+
+  ipcMain.handle("settings:setReviewLimit", (_event, value: number | null) => {
+    setReviewLimit(value);
   });
 
   ipcMain.handle("app:getVersion", () => app.getVersion());

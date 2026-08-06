@@ -6,6 +6,14 @@ export const DEFAULT_HOTKEY = "CommandOrControl+Shift+D";
 // its own binding rather than overloading the same accelerator.
 export const DEFAULT_SEARCH_HOTKEY = "CommandOrControl+Shift+F";
 
+// "auto" lets translate.ts guess from the text itself (Vietnamese diacritics
+// present -> vi->en, else en->vi) — the other two force a direction, for
+// when a diacritic-less Vietnamese word or an ambiguous word would
+// otherwise get misdetected. See TranslateDirectionToggle.tsx (the popup
+// search box and App.tsx's lookup box both surface this, not a dedicated
+// Settings section — it's a per-lookup mode, not a one-time preference).
+export type TranslateDirection = "auto" | "en-vi" | "vi-en";
+
 interface SettingsSchema {
   hotkey: string;
   searchHotkey: string;
@@ -19,6 +27,11 @@ interface SettingsSchema {
   // button in the popup, same as the empty-search-popup hotkey already
   // works — see app/hotkey.ts and windows/popup.ts.
   autoSave: boolean;
+  translateDirection: TranslateDirection;
+  // How many due cards Review.tsx pulls per session — null means no cap
+  // ("ôn hết của ngày đó", review everything currently due) instead of
+  // stopping after a fixed count. See services/review.ts's listDueEntries.
+  reviewLimit: number | null;
 }
 
 // Lazy like getPrisma()/getDeviceId() in this file's siblings — Store reads
@@ -30,7 +43,14 @@ let store: Store<SettingsSchema> | null = null;
 function getStore(): Store<SettingsSchema> {
   if (!store) {
     store = new Store<SettingsSchema>({
-      defaults: { hotkey: DEFAULT_HOTKEY, searchHotkey: DEFAULT_SEARCH_HOTKEY, groqApiKey: "", autoSave: true },
+      defaults: {
+        hotkey: DEFAULT_HOTKEY,
+        searchHotkey: DEFAULT_SEARCH_HOTKEY,
+        groqApiKey: "",
+        autoSave: true,
+        translateDirection: "auto",
+        reviewLimit: 20,
+      },
     });
   }
   return store;
@@ -66,4 +86,20 @@ export function getAutoSave(): boolean {
 
 export function setAutoSave(value: boolean): void {
   getStore().set("autoSave", value);
+}
+
+export function getTranslateDirection(): TranslateDirection {
+  return getStore().get("translateDirection");
+}
+
+export function setTranslateDirection(value: TranslateDirection): void {
+  getStore().set("translateDirection", value);
+}
+
+export function getReviewLimit(): number | null {
+  return getStore().get("reviewLimit");
+}
+
+export function setReviewLimit(value: number | null): void {
+  getStore().set("reviewLimit", value);
 }

@@ -112,6 +112,13 @@ export interface ChatMessage {
   content: string;
 }
 
+// "auto" guesses from the text (Vietnamese diacritics -> vi->en, else
+// en->vi); the other two force a direction for when that guess would be
+// wrong (a diacritic-less Vietnamese word, an ambiguous name, etc.). See
+// TranslateDirectionToggle.tsx — surfaced next to the popup and App.tsx
+// search boxes, not in Settings, since it's a per-lookup mode.
+export type TranslateDirection = "auto" | "en-vi" | "vi-en";
+
 export type UpdateStatus =
   | { state: "checking" }
   | { state: "available"; version: string }
@@ -162,7 +169,9 @@ const api = {
       ipcRenderer.invoke("auth:updateProfile", patch) as Promise<UserProfile>,
   },
   review: {
-    due: (limit?: number, setId?: string | null) =>
+    // limit: null means no cap — review every entry currently due, not
+    // just the first `limit` of them (see Review.tsx's word-limit selector).
+    due: (limit?: number | null, setId?: string | null) =>
       ipcRenderer.invoke("review:due", limit, setId) as Promise<DueEntryRow[]>,
     rate: (vocabId: string, remembered: boolean) =>
       ipcRenderer.invoke("review:rate", vocabId, remembered) as Promise<void>,
@@ -179,6 +188,11 @@ const api = {
     testGroqApiKey: (key: string) => ipcRenderer.invoke("settings:testGroqApiKey", key) as Promise<void>,
     getAutoSave: () => ipcRenderer.invoke("settings:getAutoSave") as Promise<boolean>,
     setAutoSave: (value: boolean) => ipcRenderer.invoke("settings:setAutoSave", value) as Promise<void>,
+    getTranslateDirection: () => ipcRenderer.invoke("settings:getTranslateDirection") as Promise<TranslateDirection>,
+    setTranslateDirection: (value: TranslateDirection) =>
+      ipcRenderer.invoke("settings:setTranslateDirection", value) as Promise<void>,
+    getReviewLimit: () => ipcRenderer.invoke("settings:getReviewLimit") as Promise<number | null>,
+    setReviewLimit: (value: number | null) => ipcRenderer.invoke("settings:setReviewLimit", value) as Promise<void>,
   },
   ai: {
     generateExamples: (id: string) => ipcRenderer.invoke("ai:generateExamples", id) as Promise<VocabEntryRow>,

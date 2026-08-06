@@ -9,6 +9,12 @@ import { speak } from "../lib/speak";
 // option, so null is unambiguous here.
 const ALL_SETS = "__all__";
 
+// String sentinel for the Select (antd options need a scalar, not `null`
+// itself) — mapped back to the actual `number | null` limit (null = "ôn
+// hết", no cap) right before it reaches window.api.review.due.
+const NO_LIMIT = "__no_limit__";
+const LIMIT_OPTIONS = [10, 20, 30, 50];
+
 type ReviewMode = "flashcard" | "quiz";
 
 const CORRECT_STYLE = { borderColor: "#52c41a", color: "#52c41a" };
@@ -21,6 +27,11 @@ export default function Review() {
   const [rating, setRating] = useState(false);
   const [sets, setSets] = useState<VocabSetRow[]>([]);
   const [setId, setSetId] = useState<string | null>(null);
+  // null = "Tất cả" (ôn hết những từ đến hạn hôm nay, không giới hạn số
+  // lượng) — null while still loading the persisted value from settings,
+  // same reasoning as Popup.tsx's searchOpenSeq comment: don't fire the
+  // due-queue fetch below with a wrong default before the real value lands.
+  const [limit, setLimit] = useState<number | null | undefined>(undefined);
 
   const [mode, setMode] = useState<ReviewMode>("flashcard");
 
@@ -33,15 +44,23 @@ export default function Review() {
 
   useEffect(() => {
     window.api.vocabSet.list().then(setSets);
+    window.api.settings.getReviewLimit().then(setLimit);
   }, []);
 
   useEffect(() => {
+    if (limit === undefined) return;
     setQueue(null);
-    window.api.review.due(20, setId ?? undefined).then((due) => {
+    window.api.review.due(limit, setId ?? undefined).then((due) => {
       setQueue(due);
       setTotal(due.length);
     });
-  }, [setId]);
+  }, [setId, limit]);
+
+  function handleLimitChange(value: string) {
+    const next = value === NO_LIMIT ? null : Number(value);
+    setLimit(next);
+    window.api.settings.setReviewLimit(next);
+  }
 
   const current = queue && queue.length > 0 ? queue[0] : null;
 
@@ -91,13 +110,24 @@ export default function Review() {
     setTimeout(() => rate(index === quiz.correctIndex), 700);
   }
 
-  const setSelector = (
-    <Select
-      value={setId ?? ALL_SETS}
-      onChange={(value) => setSetId(value === ALL_SETS ? null : value)}
-      style={{ width: "100%", marginBottom: 16 }}
-      options={[{ value: ALL_SETS, label: "Tất cả" }, ...sets.map((s) => ({ value: s.id, label: s.name }))]}
-    />
+  const filtersRow = (
+    <Space.Compact style={{ width: "100%", marginBottom: 16 }}>
+      <Select
+        value={setId ?? ALL_SETS}
+        onChange={(value) => setSetId(value === ALL_SETS ? null : value)}
+        style={{ width: "60%" }}
+        options={[{ value: ALL_SETS, label: "Tất cả bộ từ" }, ...sets.map((s) => ({ value: s.id, label: s.name }))]}
+      />
+      <Select
+        value={limit === null ? NO_LIMIT : String(limit ?? 20)}
+        onChange={handleLimitChange}
+        style={{ width: "40%" }}
+        options={[
+          ...LIMIT_OPTIONS.map((n) => ({ value: String(n), label: `${n} từ` })),
+          { value: NO_LIMIT, label: "Ôn hết hôm nay" },
+        ]}
+      />
+    </Space.Compact>
   );
 
   const modeSelector = (
@@ -116,7 +146,7 @@ export default function Review() {
   if (queue === null) {
     return (
       <div style={{ maxWidth: 480, margin: "2rem auto", padding: "0 1rem" }}>
-        {setSelector}
+        {filtersRow}
       </div>
     );
   }
@@ -124,7 +154,7 @@ export default function Review() {
   if (queue.length === 0) {
     return (
       <div style={{ maxWidth: 480, margin: "2rem auto", padding: "0 1rem" }}>
-        {setSelector}
+        {filtersRow}
         <div style={{ margin: "4rem 0", textAlign: "center" }}>
           <Empty description={total === 0 ? "Không có từ nào cần ôn" : "Đã ôn xong hết lượt này"} />
         </div>
@@ -137,7 +167,7 @@ export default function Review() {
 
   return (
     <div style={{ maxWidth: 480, margin: "2rem auto", padding: "0 1rem" }}>
-      {setSelector}
+      {filtersRow}
       {modeSelector}
       <Progress percent={Math.round((reviewed / total) * 100)} showInfo={false} />
       <Typography.Text type="secondary">
