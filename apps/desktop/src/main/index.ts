@@ -4,6 +4,7 @@ import { createUpdater } from "./app/updater";
 import { getPrisma } from "./db/client";
 import { runMigrations } from "./db/migrate";
 import { registerIpcHandlers } from "./ipc/handlers";
+import { logError } from "./services/log";
 import { startServer, stopServer, waitForServerReady } from "./services/server";
 import { getHotkey, getSearchHotkey } from "./utils/settings";
 import { createMainWindow } from "./windows/mainWindow";
@@ -65,7 +66,7 @@ if (!app.requestSingleInstanceLock()) {
       // of blocking startup on it.
       await waitForServerReady();
     } catch (err) {
-      console.error("[startup] sync backend not ready yet:", err);
+      logError("app", `[startup] sync backend not ready yet: ${err instanceof Error ? err.message : String(err)}`);
     }
 
     registerIpcHandlers({

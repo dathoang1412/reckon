@@ -83,7 +83,7 @@ export default function WordChat({
                 maxWidth: "85%",
                 padding: "6px 10px",
                 borderRadius: 10,
-                background: m.role === "user" ? COLOR_PRIMARY : styleTokens.borderColorLight,
+                background: m.role === "user" ? COLOR_PRIMARY : "var(--bubble-bg)",
                 color: m.role === "user" ? "#fff" : "inherit",
                 fontSize: 13,
                 textAlign: "left",

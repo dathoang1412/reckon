@@ -32,6 +32,11 @@ interface SettingsSchema {
   // ("ôn hết của ngày đó", review everything currently due) instead of
   // stopping after a fixed count. See services/review.ts's listDueEntries.
   reviewLimit: number | null;
+  // See renderer/src/theme.ts's getThemeConfig and index.html's CSS vars —
+  // this is the one source of truth every window (main + popup) reads on
+  // boot and gets pushed a live update for for whenever Settings changes it
+  // (see ipc/handlers.ts's "theme:changed" broadcast).
+  darkMode: boolean;
 }
 
 // Lazy like getPrisma()/getDeviceId() in this file's siblings — Store reads
@@ -50,6 +55,7 @@ function getStore(): Store<SettingsSchema> {
         autoSave: true,
         translateDirection: "auto",
         reviewLimit: 20,
+        darkMode: false,
       },
     });
   }
@@ -102,4 +108,12 @@ export function getReviewLimit(): number | null {
 
 export function setReviewLimit(value: number | null): void {
   getStore().set("reviewLimit", value);
+}
+
+export function getDarkMode(): boolean {
+  return getStore().get("darkMode");
+}
+
+export function setDarkMode(value: boolean): void {
+  getStore().set("darkMode", value);
 }

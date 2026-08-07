@@ -20,6 +20,7 @@
     "@prisma/client": "^5.22.0",
     "@reckon/shared": "workspace:*",
     "antd": "^6.5.3",
+    "chalk": "^4.1.2",
     "electron-store": "^8.2.0",
     "electron-updater": "^6.8.9",
     "react": "^18.3.1",

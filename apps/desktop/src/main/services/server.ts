@@ -1,6 +1,8 @@
 import { app } from "electron";
 import { type ChildProcess, spawn } from "node:child_process";
 import path from "node:path";
+import readline from "node:readline";
+import { logError, logInfo, logWarn } from "./log";
 
 // Arbitrary port in the IANA private/dynamic range (49152-65535) — far from
 // anything else on the machine is likely to be listening on.
@@ -39,6 +41,63 @@ export async function waitForServerReady(): Promise<void> {
   serverConfirmedReady = true;
 }
 
+// Nest's default Logger tags every line with its level in caps (e.g.
+// "...   ERROR [ExceptionsHandler] ..."), regardless of which stream it
+// writes to — used as the primary signal so a try/catch logged at "error"
+// still shows red in the Logs page even though Nest itself wrote it to
+// stdout. Falls back to which stream the line came from only when no tag
+// is found, since *something* not logged through Nest's own Logger could
+// still land on stderr (e.g. an uncaught native crash).
+const LEVEL_TAG = /\b(ERROR|WARN)\b/;
+
+function detectLevel(line: string, fromStderr: boolean): "info" | "warn" | "error" {
+  const tag = line.match(LEVEL_TAG)?.[1];
+  if (tag === "ERROR") return "error";
+  if (tag === "WARN") return "warn";
+  return fromStderr ? "error" : "info";
+}
+
+// Line-buffers a child process stream into the shared log service (see
+// services/log.ts) instead of just `stdio: "inherit"` — inherit only ever
+// reached a terminal window happened to be attached to (dev mode), leaving
+// a packaged build's sync backend with nowhere for its logs to go at all.
+//
+// An uncaught exception's stack trace arrives as many separate lines (one
+// per frame, each indented) — emitted one-by-one, the Logs page (see
+// LogViewer.tsx) would show a single error fanned out into dozens of rows
+// that each look like their own unrelated event. Buffer indented
+// continuation lines onto whatever entry is currently being built and only
+// flush (emit) once a genuinely new, non-indented line starts.
+function pipeToLog(stream: NodeJS.ReadableStream | null, fromStderr: boolean): void {
+  if (!stream) return;
+  const rl = readline.createInterface({ input: stream });
+  let pending: string[] = [];
+
+  function flush(): void {
+    if (pending.length === 0) return;
+    const block = pending.join("\n");
+    pending = [];
+    const level = detectLevel(block, fromStderr);
+    if (level === "error") logError("server", block);
+    else if (level === "warn") logWarn("server", block);
+    else logInfo("server", block);
+  }
+
+  rl.on("line", (line) => {
+    if (!line.trim()) {
+      flush();
+      return;
+    }
+    if (/^\s/.test(line) && pending.length > 0) {
+      pending.push(line);
+      return;
+    }
+    flush();
+    pending.push(line);
+  });
+  rl.on("close", flush);
+}
+
 function serverEntryPath(): string {
   // Packaged builds ship a self-contained copy of @reckon/server (built +
   // its production node_modules, see electron-builder.yml) under
@@ -73,13 +132,16 @@ export function startServer(): void {
   serverProcess = spawn(command, [entry], {
     cwd,
     env: { ...serverEnv, PORT: String(SERVER_PORT) },
-    stdio: "inherit",
+    stdio: ["ignore", "pipe", "pipe"],
   });
+
+  pipeToLog(serverProcess.stdout, false);
+  pipeToLog(serverProcess.stderr, true);
 
   serverConfirmedReady = false;
 
   serverProcess.on("exit", (code) => {
-    console.error(`[server] sync backend exited unexpectedly (code ${code})`);
+    logError("server", `sync backend exited unexpectedly (code ${code})`);
     serverProcess = null;
     serverConfirmedReady = false;
   });

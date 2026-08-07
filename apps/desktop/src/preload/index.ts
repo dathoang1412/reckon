@@ -112,6 +112,19 @@ export interface ChatMessage {
   content: string;
 }
 
+export type LogLevel = "info" | "warn" | "error";
+// "app" is the Electron main process itself; "server" is the spawned
+// NestJS sync backend (see main/services/server.ts) — see LogViewer.tsx.
+export type LogSource = "app" | "server";
+
+export interface LogEntry {
+  id: number;
+  timestamp: string;
+  source: LogSource;
+  level: LogLevel;
+  message: string;
+}
+
 // "auto" guesses from the text (Vietnamese diacritics -> vi->en, else
 // en->vi); the other two force a direction for when that guess would be
 // wrong (a diacritic-less Vietnamese word, an ambiguous name, etc.). See
@@ -193,6 +206,8 @@ const api = {
       ipcRenderer.invoke("settings:setTranslateDirection", value) as Promise<void>,
     getReviewLimit: () => ipcRenderer.invoke("settings:getReviewLimit") as Promise<number | null>,
     setReviewLimit: (value: number | null) => ipcRenderer.invoke("settings:setReviewLimit", value) as Promise<void>,
+    getDarkMode: () => ipcRenderer.invoke("settings:getDarkMode") as Promise<boolean>,
+    setDarkMode: (value: boolean) => ipcRenderer.invoke("settings:setDarkMode", value) as Promise<void>,
   },
   ai: {
     generateExamples: (id: string) => ipcRenderer.invoke("ai:generateExamples", id) as Promise<VocabEntryRow>,
@@ -244,6 +259,14 @@ const api = {
   app: {
     getVersion: () => ipcRenderer.invoke("app:getVersion") as Promise<string>,
   },
+  log: {
+    // Backfill — call once on mount, before subscribing to onEntry, so
+    // nothing logged before the Logs panel opened is missed.
+    getHistory: () => ipcRenderer.invoke("log:history") as Promise<LogEntry[]>,
+    onEntry: (callback: (entry: LogEntry) => void) => {
+      ipcRenderer.on("log:entry", (_event, entry: LogEntry) => callback(entry));
+    },
+  },
   updater: {
     checkNow: () => ipcRenderer.invoke("updater:checkNow") as Promise<void>,
     quitAndInstall: () => ipcRenderer.invoke("updater:quitAndInstall") as Promise<void>,
@@ -265,6 +288,12 @@ const api = {
   },
   onUpdateStatus: (callback: (status: UpdateStatus) => void) => {
     ipcRenderer.on("updater:status", (_event, status: UpdateStatus) => callback(status));
+  },
+  // Broadcast to every open window the instant Settings flips dark mode
+  // (see ipc/handlers.ts's settings:setDarkMode) — lets main.tsx re-apply
+  // the theme live instead of needing that window reopened.
+  onThemeChanged: (callback: (dark: boolean) => void) => {
+    ipcRenderer.on("theme:changed", (_event, dark: boolean) => callback(dark));
   },
 };
 

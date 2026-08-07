@@ -1,5 +1,6 @@
 import { BrowserWindow, globalShortcut, screen } from "electron";
 import { getPrisma } from "../db/client";
+import { logError } from "../services/log";
 import { parseTargetMeanings, previewVocab, saveVocab } from "../services/vocab";
 import { getDeviceId } from "../utils/deviceId";
 import { getAutoSave } from "../utils/settings";
@@ -41,7 +42,7 @@ async function onHotkeyTriggered(getMainWindow: () => BrowserWindow | null): Pro
     // the tray) instead of only refreshing on next manual reload.
     getMainWindow()?.webContents.send("vocab:created", entry);
   } catch (err) {
-    console.error("[hotkey] lookup failed:", err);
+    logError("app", `[hotkey] lookup failed: ${err instanceof Error ? err.message : String(err)}`);
   }
 }
 
@@ -69,7 +70,8 @@ function createManager(trigger: () => void): HotkeyManager {
     if (ok) {
       currentHotkey = accelerator;
     } else {
-      console.error(
+      logError(
+        "app",
         `[hotkey] Failed to register ${accelerator} — another running app has probably already claimed it at the OS level.`,
       );
       if (previous) globalShortcut.register(previous, trigger);

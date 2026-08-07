@@ -124,13 +124,13 @@ function Keycap({ children }: { children: ReactNode }) {
         height: 32,
         padding: "0 10px",
         borderRadius: 6,
-        border: "1px solid #d9d9d9",
-        borderBottom: "2px solid #bfbfbf",
-        background: "#fafafa",
+        border: "1px solid var(--keycap-border)",
+        borderBottom: "2px solid var(--keycap-border-bottom)",
+        background: "var(--keycap-bg)",
         fontFamily: "ui-monospace, monospace",
         fontSize: 13,
         fontWeight: 600,
-        color: "#333",
+        color: "var(--keycap-text)",
       }}
     >
       {children}
@@ -242,11 +242,15 @@ export default function Settings() {
   const [autoSave, setAutoSaveState] = useState<boolean | null>(null);
   const [savingAutoSave, setSavingAutoSave] = useState(false);
 
+  const [darkMode, setDarkModeState] = useState<boolean | null>(null);
+  const [savingDarkMode, setSavingDarkMode] = useState(false);
+
   useEffect(() => {
     window.api.settings.getHotkey().then(setSavedHotkey);
     window.api.settings.getSearchHotkey().then(setSavedSearchHotkey);
     window.api.settings.getGroqApiKey().then(setGroqKey);
     window.api.settings.getAutoSave().then(setAutoSaveState);
+    window.api.settings.getDarkMode().then(setDarkModeState);
     window.api.app.getVersion().then(setAppVersion);
     window.api.onUpdateStatus(setUpdateStatus);
   }, []);
@@ -260,6 +264,22 @@ export default function Settings() {
       toast.error(`Lưu thất bại: ${errorMessage(err)}`);
     } finally {
       setSavingAutoSave(false);
+    }
+  }
+
+  // The IPC handler itself broadcasts "theme:changed" to every open window
+  // (see ipc/handlers.ts), including this one — main.tsx's own listener is
+  // what actually flips the theme, this just keeps the Switch's state
+  // (and its loading spinner) in sync with that round-trip.
+  async function handleToggleDarkMode(value: boolean) {
+    setSavingDarkMode(true);
+    try {
+      await window.api.settings.setDarkMode(value);
+      setDarkModeState(value);
+    } catch (err) {
+      toast.error(`Lưu thất bại: ${errorMessage(err)}`);
+    } finally {
+      setSavingDarkMode(false);
     }
   }
 
@@ -290,6 +310,14 @@ export default function Settings() {
   return (
     <PageShell>
       <Typography.Title level={4} style={{ marginTop: 0 }}>
+        Giao diện
+      </Typography.Title>
+      <Space align="center">
+        <Switch checked={darkMode ?? false} loading={savingDarkMode} onChange={handleToggleDarkMode} />
+        <Typography.Text>Nền tối</Typography.Text>
+      </Space>
+
+      <Typography.Title level={4} style={{ marginTop: 32 }}>
         Tra từ đang chọn
       </Typography.Title>
       <HotkeySection

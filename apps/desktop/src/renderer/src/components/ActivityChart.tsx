@@ -1,7 +1,7 @@
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { Typography } from "antd";
 import type { VocabEntryRow } from "../../../preload/index";
-import { COLOR_PRIMARY, styleTokens } from "../theme";
+import { COLOR_PRIMARY, FONT_FAMILY, styleTokens } from "../theme";
 
 const DAYS_SHOWN = 14;
 
@@ -64,15 +64,16 @@ function ChartTooltip({ active, payload }: { active?: boolean; payload?: { paylo
   return (
     <div
       style={{
-        background: "#fff",
+        background: "var(--chart-tooltip-bg)",
         border: `1px solid ${styleTokens.borderColorLight}`,
         borderRadius: 6,
         padding: "6px 10px",
-        boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
+        boxShadow: "0 2px 8px var(--chart-tooltip-shadow)",
         fontSize: 12,
+        fontFamily: FONT_FAMILY,
       }}
     >
-      <div style={{ color: "#666" }}>{bucket.label}</div>
+      <div style={{ color: "var(--chart-tick)" }}>{bucket.label}</div>
       <div style={{ fontWeight: 600 }}>{bucket.count} từ</div>
     </div>
   );
@@ -107,7 +108,9 @@ export default function ActivityChart({ entries }: { entries: VocabEntryRow[] })
             <Typography.Text type="secondary" style={{ fontSize: styleTokens.secondaryFontSize }}>
               {stat.label}
             </Typography.Text>
-            <div style={{ fontSize: 24, fontWeight: 600, lineHeight: 1.4 }}>{stat.value}</div>
+            <div style={{ fontSize: 24, fontWeight: 600, lineHeight: 1.4, fontFamily: FONT_FAMILY }}>
+              {stat.value}
+            </div>
           </div>
         ))}
       </div>
@@ -120,18 +123,18 @@ export default function ActivityChart({ entries }: { entries: VocabEntryRow[] })
           <CartesianGrid vertical={false} stroke={styleTokens.borderColorLight} />
           <XAxis
             dataKey="label"
-            tick={{ fontSize: 11, fill: "#999" }}
+            tick={{ fontSize: 11, fill: "var(--chart-tick)" }}
             axisLine={{ stroke: styleTokens.borderColorLight }}
             tickLine={false}
           />
           <YAxis
             allowDecimals={false}
-            tick={{ fontSize: 11, fill: "#999" }}
+            tick={{ fontSize: 11, fill: "var(--chart-tick)" }}
             axisLine={false}
             tickLine={false}
             width={28}
           />
-          <Tooltip content={<ChartTooltip />} cursor={{ fill: "rgba(0,0,0,0.04)" }} />
+          <Tooltip content={<ChartTooltip />} cursor={{ fill: "var(--chart-cursor)" }} />
           <Bar dataKey="count" fill={COLOR_PRIMARY} radius={[4, 4, 0, 0]} maxBarSize={28} />
         </BarChart>
       </ResponsiveContainer>

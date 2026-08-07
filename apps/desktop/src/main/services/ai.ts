@@ -10,7 +10,14 @@ function loadEntry(prisma: PrismaClient, vocabId: string): Promise<VocabEntry> {
 // ---- Feature 1: example sentences ----
 
 async function examplesContent(sourceText: string, meanings: string[]): Promise<AiExample[]> {
-  const { examples } = await chatJSON<{ examples: AiExample[] }>({
+  // response_format: json_object only guarantees syntactically valid JSON,
+  // not that the model actually included the "examples" key (or that each
+  // item has both fields) — same class of issue relatedWordsContent below
+  // already guards against. Without this, a response missing/nulling the
+  // key crashed examplesContent with a TypeError that propagated out of the
+  // ai:previewExamples/ai:generateExamples IPC call as an uncaught render
+  // exception in Popup.tsx, taking the whole popup down with it.
+  const raw = await chatJSON<{ examples?: (Partial<AiExample> | null)[] | null }>({
     system:
       `Bạn là trợ lý học từ vựng. Với một từ/cụm từ, tạo chính xác 3 câu ví dụ tự nhiên, ` +
       `đa dạng ngữ cảnh, 8-18 từ, có dùng từ đó. Nếu từ đó là tiếng Anh, câu ví dụ viết bằng ` +
@@ -19,7 +26,10 @@ async function examplesContent(sourceText: string, meanings: string[]): Promise<
       `{"examples":[{"sentence":string,"translation":string}]}.`,
     user: `Từ/cụm từ: "${sourceText}" — nghĩa: ${meanings.join(", ")}`,
   });
-  return examples.slice(0, 3);
+  return (raw.examples ?? [])
+    .filter((ex): ex is AiExample => !!ex?.sentence)
+    .map((ex) => ({ sentence: ex.sentence, translation: ex.translation ?? "" }))
+    .slice(0, 3);
 }
 
 // Not tied to a saved vocabId — used by the popup's AI tabs before the

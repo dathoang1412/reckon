@@ -8,6 +8,7 @@ import {
   SoundOutlined,
   ThunderboltOutlined,
   TranslationOutlined,
+  UnorderedListOutlined,
 } from "@ant-design/icons";
 import { Button, Input, type InputRef, Select, Space, Spin, Tag, Tooltip, Typography } from "antd";
 import toast from "react-hot-toast";
@@ -21,6 +22,7 @@ import type {
   VocabSetRow,
 } from "../../../preload/index";
 import DictionaryPanel from "../components/DictionaryPanel";
+import ErrorBoundary from "../components/ErrorBoundary";
 import TranslateDirectionToggle from "../components/TranslateDirectionToggle";
 import WordChat from "../components/WordChat";
 import { speak } from "../lib/speak";
@@ -92,7 +94,7 @@ function fromPreview(data: TranslationResultData): DisplayEntry {
 // measures the same, and switching tabs never jumps the window's height.
 const MAX_CONTENT_HEIGHT = 288;
 
-type TabKey = "dict" | "examples" | "nuance" | "related" | "chat";
+type TabKey = "dict" | "examples" | "nuance" | "related" | "chat" | "browse";
 type AiFeature = "examples" | "nuance" | "related";
 
 const TAB_DEFS: { key: TabKey; icon: ReactNode; label: string }[] = [
@@ -101,6 +103,10 @@ const TAB_DEFS: { key: TabKey; icon: ReactNode; label: string }[] = [
   { key: "nuance", icon: <DiffOutlined />, label: "Sắc thái & ngữ cảnh" },
   { key: "related", icon: <ApartmentOutlined />, label: "Từ liên quan" },
   { key: "chat", icon: <MessageOutlined />, label: "Hỏi AI" },
+  // Browsing the saved list, not looking a specific word up — "dict" (the
+  // default tab) stays the entry point for a fresh lookup/search; this is
+  // for navigating to a word you already have without leaving the popup.
+  { key: "browse", icon: <UnorderedListOutlined />, label: "Danh sách từ đã lưu" },
 ];
 
 // Compact icon-only tab bar (matching a dictionary-extension-style header)
@@ -275,6 +281,13 @@ export default function Popup() {
   // stuck hidden after the second press.
   const [searchOpenSeq, setSearchOpenSeq] = useState(0);
 
+  // Loaded lazily the first time the "browse" tab is opened (null = not
+  // fetched yet), not up front on mount — most popup sessions never touch
+  // it, and fetching a potentially long list on every single lookup would
+  // be wasted work.
+  const [browseEntries, setBrowseEntries] = useState<VocabEntryRow[] | null>(null);
+  const [browseFilter, setBrowseFilter] = useState("");
+
   const contentRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<InputRef>(null);
 
@@ -377,6 +390,19 @@ export default function Popup() {
     await runPreview(suggestion);
   }
 
+  // Jumping to a word from the browse list works exactly like a fresh
+  // lookup landing on "dict" (see onTranslationResult above), just sourced
+  // from the local list instead of a new translate/dictionary round-trip —
+  // dictionary/spellingSuggestion don't apply to an already-saved entry, so
+  // they're cleared rather than left showing stale data from whatever was
+  // open before.
+  function handleBrowseSelect(row: VocabEntryRow) {
+    setDictionary(null);
+    setSpellingSuggestion(null);
+    setEntry(fromVocabEntryRow(row));
+    setActiveTab("dict");
+  }
+
   async function handleSave() {
     if (!entry || entry.id) return;
     setSaving(true);
@@ -463,7 +489,17 @@ export default function Popup() {
     handleGenerate(activeTab);
   }, [activeTab, entry, aiStatus]);
 
+  useEffect(() => {
+    if (activeTab !== "browse" || browseEntries !== null) return;
+    window.api.vocab.list().then(setBrowseEntries);
+  }, [activeTab, browseEntries]);
+
   const isEnglishPair = !!entry && (entry.sourceLang === "en" || entry.targetLang === "en");
+
+  const browseQuery = browseFilter.trim().toLowerCase();
+  const filteredBrowseEntries = browseEntries?.filter(
+    (row) => !browseQuery || row.sourceText.toLowerCase().includes(browseQuery) || row.targetText.toLowerCase().includes(browseQuery),
+  );
 
   return (
     <div
@@ -506,6 +542,15 @@ export default function Popup() {
               content height differs. Locking this to one constant number
               means every tab measures (and resizes the window to) the exact
               same height, so switching tabs never moves the window edge. */}
+          {/* Keyed by activeTab and scoped to just the tab body (not the
+              whole Popup) — a render error here (e.g. a malformed AI
+              response) used to unmount all of Popup, including the
+              useEffect above that registers this window's IPC listeners,
+              leaving the popup permanently unresponsive until an app
+              restart. Catching it at this level keeps those listeners
+              alive and self-heals the moment the tab remounts (switch away
+              and back, or the next successful generate). */}
+          <ErrorBoundary key={activeTab}>
           <div style={{ padding: 16, overflowY: "auto", height: MAX_CONTENT_HEIGHT }}>
             {activeTab === "dict" && (
               <TranslationTab
@@ -622,7 +667,47 @@ export default function Popup() {
                 height="100%"
               />
             )}
+
+            {activeTab === "browse" && (
+              <div style={{ display: "flex", flexDirection: "column", height: "100%" }}>
+                <Input.Search
+                  size="small"
+                  placeholder="Lọc trong danh sách đã lưu…"
+                  value={browseFilter}
+                  onChange={(e) => setBrowseFilter(e.target.value)}
+                  allowClear
+                  style={{ marginBottom: 8, flexShrink: 0 }}
+                />
+                {browseEntries === null ? (
+                  <Spin size="small" />
+                ) : (filteredBrowseEntries?.length ?? 0) === 0 ? (
+                  <Typography.Text type="secondary">
+                    {browseEntries.length === 0 ? "Chưa lưu từ nào." : "Không tìm thấy từ phù hợp."}
+                  </Typography.Text>
+                ) : (
+                  <Space direction="vertical" size={2} style={{ width: "100%" }}>
+                    {(filteredBrowseEntries ?? []).map((row) => (
+                      <div
+                        key={row.id}
+                        className="entry-row"
+                        style={{ cursor: "pointer", padding: "4px 6px", borderRadius: 6 }}
+                        onClick={() => handleBrowseSelect(row)}
+                      >
+                        <Typography.Text strong>{row.sourceText}</Typography.Text>
+                        <Typography.Text
+                          type="secondary"
+                          style={{ marginLeft: 6, fontSize: styleTokens.secondaryFontSize }}
+                        >
+                          {row.targetText}
+                        </Typography.Text>
+                      </div>
+                    ))}
+                  </Space>
+                )}
+              </div>
+            )}
           </div>
+          </ErrorBoundary>
 
           {!entry.id && (
             <div

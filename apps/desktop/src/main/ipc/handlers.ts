@@ -1,4 +1,4 @@
-import { app, type BrowserWindow, ipcMain } from "electron";
+import { app, BrowserWindow, ipcMain } from "electron";
 import type { UpdateProfileRequest } from "@reckon/shared";
 import { getPrisma } from "../db/client";
 import { getDeviceId } from "../utils/deviceId";
@@ -19,15 +19,18 @@ import { getProfile, login, loginWithGoogle, signup, updateProfile } from "../se
 import { clearSession, getSession } from "../utils/authSession";
 import { lookupEnglishWord } from "../services/dictionary";
 import { chatJSON } from "../services/groq";
+import { getLogHistory } from "../services/log";
 import { listDueEntries, rateReview } from "../services/review";
 import {
   getAutoSave,
+  getDarkMode,
   getGroqApiKey,
   getHotkey,
   getReviewLimit,
   getSearchHotkey,
   getTranslateDirection,
   setAutoSave,
+  setDarkMode,
   setGroqApiKey,
   setHotkey,
   setReviewLimit,
@@ -329,7 +332,25 @@ export function registerIpcHandlers({
     setReviewLimit(value);
   });
 
+  ipcMain.handle("settings:getDarkMode", () => getDarkMode());
+
+  // Pushed to every open window (main + popup, if it happens to be open at
+  // the same time), not just the caller's own — same broadcast shape as
+  // log.ts's addLog — so switching it in Settings doesn't need either
+  // window reopened to take effect.
+  ipcMain.handle("settings:setDarkMode", (_event, value: boolean) => {
+    setDarkMode(value);
+    for (const win of BrowserWindow.getAllWindows()) {
+      if (!win.isDestroyed()) win.webContents.send("theme:changed", value);
+    }
+  });
+
   ipcMain.handle("app:getVersion", () => app.getVersion());
+
+  // Backfill for Settings' Logs panel (see LogViewer.tsx) — live entries
+  // alone would miss anything logged before that panel mounted, which is
+  // most of it (the sync backend boots well before any window is open).
+  ipcMain.handle("log:history", () => getLogHistory());
 
   ipcMain.handle("updater:checkNow", () => {
     checkForUpdates();

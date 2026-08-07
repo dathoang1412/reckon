@@ -23,6 +23,41 @@
         box-sizing: border-box;
       }
 
+      /* Light is the default so a plain element (no data-theme set yet, or
+         JS disabled) never flashes unstyled — main.tsx stamps
+         data-theme="dark" onto <html> once it knows the saved preference
+         (see theme.ts), and this block overrides every var below it. */
+      :root {
+        --bg: #ffffff;
+        --text: #1f1f1f;
+        --border: #f0f0f0;
+        --hover-bg: #f5f6fa;
+        --bubble-bg: #f0f0f0;
+        --keycap-bg: #fafafa;
+        --keycap-border: #d9d9d9;
+        --keycap-border-bottom: #bfbfbf;
+        --keycap-text: #333333;
+        --chart-tooltip-bg: #ffffff;
+        --chart-tooltip-shadow: rgba(0, 0, 0, 0.08);
+        --chart-tick: #999999;
+        --chart-cursor: rgba(0, 0, 0, 0.04);
+      }
+      :root[data-theme="dark"] {
+        --bg: #16181d;
+        --text: #e6e6e6;
+        --border: #33363d;
+        --hover-bg: #22252b;
+        --bubble-bg: #262a31;
+        --keycap-bg: #22252b;
+        --keycap-border: #3a3d44;
+        --keycap-border-bottom: #46494f;
+        --keycap-text: #d9d9d9;
+        --chart-tooltip-bg: #22252b;
+        --chart-tooltip-shadow: rgba(0, 0, 0, 0.4);
+        --chart-tick: #888888;
+        --chart-cursor: rgba(255, 255, 255, 0.06);
+      }
+
       html,
       body {
         margin: 0;
@@ -32,6 +67,27 @@
            content is even a pixel taller than its viewport shows a second,
            document-level scrollbar stacked next to the intentional one. */
         overflow: hidden;
+        background: var(--bg);
+        color: var(--text);
+        /* antd's own reset.css (never imported, see box-sizing note above)
+           is also what would normally put a sans-serif font on <body> —
+           without this, any plain element outside an antd Typography
+           component (e.g. ActivityChart.tsx's stat numbers) falls back to
+           the browser's true CSS default, serif, instead of matching the
+           rest of the app. Keep in sync with theme.ts's FONT_FAMILY. */
+        font-family:
+          -apple-system,
+          BlinkMacSystemFont,
+          "Segoe UI",
+          Roboto,
+          "Helvetica Neue",
+          Arial,
+          "Noto Sans",
+          sans-serif,
+          "Apple Color Emoji",
+          "Segoe UI Emoji",
+          "Segoe UI Symbol",
+          "Noto Color Emoji";
       }
 
       /* Popup content fades in on each lookup instead of popping in
@@ -53,7 +109,7 @@
         transition: background-color 120ms ease-out;
       }
       .entry-row:hover {
-        background-color: #f5f6fa;
+        background-color: var(--hover-bg);
       }
     </style>
   </head>

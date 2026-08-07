@@ -12,7 +12,7 @@ export default function Splash() {
         justifyContent: "center",
         gap: 16,
         fontFamily: "system-ui, sans-serif",
-        background: "#ffffff",
+        background: "var(--bg)",
       }}
     >
       <Typography.Title level={3} style={{ margin: 0 }}>

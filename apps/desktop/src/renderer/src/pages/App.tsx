@@ -15,6 +15,7 @@ import AiWordEnrichment from "../components/AiWordEnrichment";
 import AppHeader, { type AppView } from "../components/AppHeader";
 import BulkExtractModal from "../components/BulkExtractModal";
 import DictionaryPanel from "../components/DictionaryPanel";
+import LogViewer from "../components/LogViewer";
 import LoginModal from "../components/LoginModal";
 import SetsBar from "../components/SetsBar";
 import TranslateDirectionToggle from "../components/TranslateDirectionToggle";
@@ -342,6 +343,20 @@ export default function App() {
         {view === "settings" && (
           <div style={{ flex: 1, minHeight: 0, overflowY: "auto" }}>
             <Settings />
+          </div>
+        )}
+
+        {view === "logs" && (
+          <div style={{ flex: 1, minHeight: 0, overflowY: "auto" }}>
+            <div style={{ maxWidth: 960, width: "100%", margin: "0 auto", padding: "1.5rem" }}>
+              <Typography.Title level={4} style={{ marginTop: 0 }}>
+                Nhật ký hệ thống
+              </Typography.Title>
+              <Typography.Paragraph type="secondary" style={{ marginTop: 4 }}>
+                Log của ứng dụng (app) và backend đồng bộ (server) chạy nền — hữu ích khi báo lỗi.
+              </Typography.Paragraph>
+              <LogViewer height={520} />
+            </div>
           </div>
         )}
 

@@ -3,13 +3,14 @@ import { Avatar, Button, Segmented, Space, Typography } from "antd";
 import type { UserProfile } from "../../../preload/index";
 import { COLOR_PRIMARY, styleTokens } from "../theme";
 
-export type AppView = "list" | "review" | "profile" | "settings";
+export type AppView = "list" | "review" | "profile" | "settings" | "logs";
 
 const VIEW_OPTIONS: { label: string; value: AppView }[] = [
   { label: "Từ vựng", value: "list" },
   { label: "Ôn tập", value: "review" },
   { label: "Hồ sơ", value: "profile" },
   { label: "Cài đặt", value: "settings" },
+  { label: "Nhật ký", value: "logs" },
 ];
 
 // Persistent chrome shared by every view — previously Settings/Review fully
