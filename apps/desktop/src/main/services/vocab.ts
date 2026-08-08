@@ -144,3 +144,42 @@ export function updateVocabEntry(
     },
   });
 }
+
+// Prisma stores targetMeanings/tags/aiExamples/aiRelatedWords as JSON string
+// columns, and createdAt as a Date; the renderer works with the parsed
+// shapes and an ISO string instead (see preload's VocabEntryRow) so it
+// doesn't need to deal with structured clone semantics for dates crossing
+// the IPC boundary. Every path that hands a VocabEntry to a renderer must
+// go through this — hotkey.ts's auto-save flow used to build its own
+// ad-hoc entry object instead, skipping this parsing, so the popup and
+// (via the vocab:created broadcast) the main window's saved list both
+// received aiExamples/aiRelatedWords/tags as raw JSON *strings* rather than
+// the parsed array/object shape the renderer assumes — e.g. `"[]".map(...)`
+// or a related-words tab reading `.synonyms` off a string.
+export function toVocabEntryRow<
+  T extends {
+    targetText: string;
+    targetMeanings: string | null;
+    tags: string | null;
+    createdAt: Date;
+    aiExamples: string | null;
+    aiRelatedWords: string | null;
+  },
+>(
+  entry: T,
+): Omit<T, "targetMeanings" | "tags" | "createdAt" | "aiExamples" | "aiRelatedWords"> & {
+  targetMeanings: string[];
+  tags: string[];
+  createdAt: string;
+  aiExamples: AiExample[];
+  aiRelatedWords: AiRelatedWords | null;
+} {
+  return {
+    ...entry,
+    targetMeanings: parseTargetMeanings(entry),
+    tags: parseTags(entry),
+    createdAt: entry.createdAt.toISOString(),
+    aiExamples: parseAiExamples(entry),
+    aiRelatedWords: parseAiRelatedWords(entry),
+  };
+}

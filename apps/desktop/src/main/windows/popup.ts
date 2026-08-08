@@ -1,5 +1,6 @@
 import { app, BrowserWindow, ipcMain, screen } from "electron";
 import path from "node:path";
+import type { GrammarCheckResult } from "../services/aiTypes";
 import type { DictionaryInfo } from "../services/dictionary";
 import type { TranslationResult } from "../services/translate";
 
@@ -167,4 +168,11 @@ export function showPreviewPopup(preview: VocabPreviewPayload, point: ScreenPoin
 // more intentional than wherever the mouse happened to be.
 export function showSearchPopup(point: ScreenPoint): void {
   sendToPopup("popup:openSearch", {}, point, true);
+}
+
+// Ctrl+Shift+G result (see app/hotkey.ts's grammar hotkey) — anchored at
+// the captured cursor point, same as showPopup/showPreviewPopup, since
+// there's a real selection here to anchor to (unlike showSearchPopup).
+export function showGrammarPopup(result: GrammarCheckResult, point: ScreenPoint): void {
+  sendToPopup("grammar:result", result, point, false);
 }

@@ -15,6 +15,7 @@ import AiWordEnrichment from "../components/AiWordEnrichment";
 import AppHeader, { type AppView } from "../components/AppHeader";
 import BulkExtractModal from "../components/BulkExtractModal";
 import DictionaryPanel from "../components/DictionaryPanel";
+import ErrorBoundary from "../components/ErrorBoundary";
 import LogViewer from "../components/LogViewer";
 import LoginModal from "../components/LoginModal";
 import SetsBar from "../components/SetsBar";
@@ -35,11 +36,22 @@ export default function App() {
   const [sets, setSets] = useState<VocabSetRow[]>([]);
   const [activeSet, setActiveSet] = useState<string | null>(null);
   const [detailEntry, setDetailEntry] = useState<VocabEntryRow | null>(null);
+  // Bumped every time a detail modal is opened (including reopening the
+  // same word) — keys the ErrorBoundary below so a crash from one entry's
+  // malformed AI data (see ai.ts's relatedWordsContent) doesn't leave the
+  // fallback stuck showing forever; id alone wouldn't remount on a
+  // close-then-reopen of the very same word.
+  const [detailOpenSeq, setDetailOpenSeq] = useState(0);
   const [searchQuery, setSearchQuery] = useState("");
   const [text, setText] = useState("");
   const [looking, setLooking] = useState(false);
   const [saving, setSaving] = useState(false);
   const [preview, setPreview] = useState<VocabPreview | null>(null);
+  // Bumped on every runSearch call — keys the ErrorBoundary around the
+  // preview card's AI section (see previewSeq usage below) so re-searching
+  // the same word after a crash remounts and self-heals instead of leaving
+  // the fallback stuck.
+  const [previewSeq, setPreviewSeq] = useState(0);
   // AI enrichment generated on the not-yet-saved preview (see
   // AiWordEnrichment below) — kept separate from `preview` itself since
   // VocabPreview/TranslationResultData has no AI fields (those only exist
@@ -127,6 +139,7 @@ export default function App() {
   async function runSearch(query: string) {
     if (!query.trim()) return;
     setLooking(true);
+    setPreviewSeq((n) => n + 1);
     setPreview(null);
     setPreviewAiExamples([]);
     setPreviewAiNuance(null);
@@ -476,23 +489,32 @@ export default function App() {
                       </Button>
                     </Space>
                     {preview.dictionary && <DictionaryPanel dictionary={preview.dictionary} />}
-                    <AiWordEnrichment
-                      aiExamples={previewAiExamples}
-                      aiNuance={previewAiNuance}
-                      aiRelatedWords={previewAiRelatedWords}
-                      sourceLang={preview.result.sourceLang}
-                      relatedWordsDisabledReason={
-                        preview.result.sourceLang === "en" || preview.result.targetLang === "en"
-                          ? null
-                          : "Chỉ hỗ trợ cho từ tiếng Anh"
-                      }
-                      examplesState={previewExamplesState}
-                      nuanceState={previewNuanceState}
-                      relatedState={previewRelatedState}
-                      onGenerateExamples={handleGeneratePreviewExamples}
-                      onGenerateNuance={handleGeneratePreviewNuance}
-                      onGenerateRelated={handleGeneratePreviewRelated}
-                    />
+                    {/* Scoped and keyed by previewSeq — a render error here
+                        (e.g. malformed AI data) used to unmount the entire
+                        App tree via main.tsx's single top-level
+                        ErrorBoundary, bricking the whole window until a
+                        restart. Catching it here keeps the rest of the app
+                        (header, list, sidebar) usable and self-heals on the
+                        next search. */}
+                    <ErrorBoundary key={previewSeq}>
+                      <AiWordEnrichment
+                        aiExamples={previewAiExamples}
+                        aiNuance={previewAiNuance}
+                        aiRelatedWords={previewAiRelatedWords}
+                        sourceLang={preview.result.sourceLang}
+                        relatedWordsDisabledReason={
+                          preview.result.sourceLang === "en" || preview.result.targetLang === "en"
+                            ? null
+                            : "Chỉ hỗ trợ cho từ tiếng Anh"
+                        }
+                        examplesState={previewExamplesState}
+                        nuanceState={previewNuanceState}
+                        relatedState={previewRelatedState}
+                        onGenerateExamples={handleGeneratePreviewExamples}
+                        onGenerateNuance={handleGeneratePreviewNuance}
+                        onGenerateRelated={handleGeneratePreviewRelated}
+                      />
+                    </ErrorBoundary>
                   </Card>
                 )}
 
@@ -536,7 +558,10 @@ export default function App() {
                             size={0}
                             className="entry-row"
                             style={{ cursor: "pointer", width: "100%", padding: "4px 8px", borderRadius: 6 }}
-                            onClick={() => setDetailEntry(entry)}
+                            onClick={() => {
+                              setDetailEntry(entry);
+                              setDetailOpenSeq((n) => n + 1);
+                            }}
                           >
                             <span>
                               <Tag color="blue">{entry.sourceLang}</Tag>
@@ -614,7 +639,14 @@ export default function App() {
         )}
       </div>
 
-      <VocabDetailModal entry={detailEntry} onClose={() => setDetailEntry(null)} onUpdate={handleUpdateEntry} />
+      {/* Keyed by detailOpenSeq (not just entry.id) so a crash from one
+          word's malformed AI data self-heals on the very next open,
+          including reopening the same word — see main.tsx's single
+          top-level ErrorBoundary comment above for why this used to brick
+          the whole window instead of just this modal. */}
+      <ErrorBoundary key={detailOpenSeq}>
+        <VocabDetailModal entry={detailEntry} onClose={() => setDetailEntry(null)} onUpdate={handleUpdateEntry} />
+      </ErrorBoundary>
       <BulkExtractModal
         open={bulkExtractOpen}
         onClose={() => setBulkExtractOpen(false)}

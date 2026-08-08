@@ -5,6 +5,10 @@ export const DEFAULT_HOTKEY = "CommandOrControl+Shift+D";
 // one opens an empty popup for the user to type a word into, so it needs
 // its own binding rather than overloading the same accelerator.
 export const DEFAULT_SEARCH_HOTKEY = "CommandOrControl+Shift+F";
+// Checks the naturalness/grammar of whatever sentence is currently selected
+// (see app/hotkey.ts's grammar hotkey) — a third independent binding, same
+// reasoning as DEFAULT_SEARCH_HOTKEY above.
+export const DEFAULT_GRAMMAR_HOTKEY = "CommandOrControl+Shift+G";
 
 // "auto" lets translate.ts guess from the text itself (Vietnamese diacritics
 // present -> vi->en, else en->vi) — the other two force a direction, for
@@ -17,6 +21,7 @@ export type TranslateDirection = "auto" | "en-vi" | "vi-en";
 interface SettingsSchema {
   hotkey: string;
   searchHotkey: string;
+  grammarHotkey: string;
   // Plaintext on disk, same as authSession.ts's stored token — no
   // OS-keychain wrapper exists anywhere in this codebase yet. Each user
   // supplies their own key (see Settings.tsx); it's never bundled into the
@@ -51,6 +56,7 @@ function getStore(): Store<SettingsSchema> {
       defaults: {
         hotkey: DEFAULT_HOTKEY,
         searchHotkey: DEFAULT_SEARCH_HOTKEY,
+        grammarHotkey: DEFAULT_GRAMMAR_HOTKEY,
         groqApiKey: "",
         autoSave: true,
         translateDirection: "auto",
@@ -76,6 +82,14 @@ export function getSearchHotkey(): string {
 
 export function setSearchHotkey(accelerator: string): void {
   getStore().set("searchHotkey", accelerator);
+}
+
+export function getGrammarHotkey(): string {
+  return getStore().get("grammarHotkey");
+}
+
+export function setGrammarHotkey(accelerator: string): void {
+  getStore().set("grammarHotkey", accelerator);
 }
 
 export function getGroqApiKey(): string {

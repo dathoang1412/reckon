@@ -16,6 +16,7 @@ import type {
   AiExample,
   AiRelatedWords,
   DictionaryInfo,
+  GrammarCheckResult,
   TranslationResultData,
   VocabEntryPatch,
   VocabEntryRow,
@@ -25,6 +26,7 @@ import DictionaryPanel from "../components/DictionaryPanel";
 import ErrorBoundary from "../components/ErrorBoundary";
 import TranslateDirectionToggle from "../components/TranslateDirectionToggle";
 import WordChat from "../components/WordChat";
+import { safeForms } from "../lib/aiRelatedWords";
 import { speak } from "../lib/speak";
 import { COLOR_PRIMARY, styleTokens } from "../theme";
 
@@ -52,6 +54,10 @@ interface DisplayEntry {
   aiExamples: AiExample[];
   aiNuance: string | null;
   aiRelatedWords: AiRelatedWords | null;
+  // null for a not-yet-saved preview (see id above) — there's nowhere to
+  // persist a note/definition until the word has a row of its own.
+  note: string | null;
+  definition: string | null;
 }
 
 function fromVocabEntryRow(row: VocabEntryRow): DisplayEntry {
@@ -65,6 +71,8 @@ function fromVocabEntryRow(row: VocabEntryRow): DisplayEntry {
     aiExamples: row.aiExamples,
     aiNuance: row.aiNuance,
     aiRelatedWords: row.aiRelatedWords,
+    note: row.note,
+    definition: row.definition,
   };
 }
 
@@ -79,6 +87,8 @@ function fromPreview(data: TranslationResultData): DisplayEntry {
     aiExamples: [],
     aiNuance: null,
     aiRelatedWords: null,
+    note: null,
+    definition: null,
   };
 }
 
@@ -146,11 +156,23 @@ function TranslationTab({
   dictionary,
   spellingSuggestion,
   onUseSuggestion,
+  note,
+  definition,
+  onNoteChange,
+  onDefinitionChange,
+  savingNote,
+  onSaveNote,
 }: {
   entry: DisplayEntry;
   dictionary: DictionaryInfo | null;
   spellingSuggestion: string | null;
   onUseSuggestion: (suggestion: string) => void;
+  note: string;
+  definition: string;
+  onNoteChange: (value: string) => void;
+  onDefinitionChange: (value: string) => void;
+  savingNote: boolean;
+  onSaveNote: () => void;
 }) {
   return (
     <>
@@ -197,6 +219,39 @@ function TranslationTab({
       )}
 
       {dictionary && <DictionaryPanel dictionary={dictionary} />}
+
+      {/* Mirrors VocabDetailModal's Ghi chú/Định nghĩa riêng section — only
+          usable once the word has a saved row (entry.id) to persist onto;
+          a not-yet-saved preview has nowhere for these to live until then. */}
+      <div style={{ marginTop: 16, borderTop: `1px solid ${styleTokens.borderColorLight}`, paddingTop: 12 }}>
+        {entry.id ? (
+          <>
+            <Typography.Text strong>Ghi chú</Typography.Text>
+            <Input.TextArea
+              value={note}
+              onChange={(e) => onNoteChange(e.target.value)}
+              placeholder="Ghi chú cá nhân..."
+              autoSize={{ minRows: 2, maxRows: 4 }}
+              style={{ marginTop: 4 }}
+            />
+            <Typography.Text strong style={{ display: "block", marginTop: 12 }}>
+              Định nghĩa riêng
+            </Typography.Text>
+            <Input.TextArea
+              value={definition}
+              onChange={(e) => onDefinitionChange(e.target.value)}
+              placeholder="Định nghĩa của riêng bạn..."
+              autoSize={{ minRows: 2, maxRows: 4 }}
+              style={{ marginTop: 4 }}
+            />
+            <Button type="primary" size="small" loading={savingNote} onClick={onSaveNote} style={{ marginTop: 8 }}>
+              Lưu ghi chú
+            </Button>
+          </>
+        ) : (
+          <Typography.Text type="secondary">Lưu từ này để thêm ghi chú và định nghĩa riêng.</Typography.Text>
+        )}
+      </div>
     </>
   );
 }
@@ -266,6 +321,13 @@ export default function Popup() {
     related: { loading: false, error: null },
   });
 
+  // Ghi chú/Định nghĩa riêng on the "dict" tab, mirroring VocabDetailModal —
+  // kept as separate editable state (not read straight off entry.note) so
+  // typing doesn't require a round-trip through the DB on every keystroke.
+  const [note, setNote] = useState("");
+  const [definition, setDefinition] = useState("");
+  const [savingNote, setSavingNote] = useState(false);
+
   // Search mode: opened via the empty-popup hotkey (no pre-fetched result),
   // the user types a word themselves instead of it coming from a selection.
   const [searchMode, setSearchMode] = useState(false);
@@ -281,6 +343,11 @@ export default function Popup() {
   // stuck hidden after the second press.
   const [searchOpenSeq, setSearchOpenSeq] = useState(0);
 
+  // Ctrl+Shift+G result — a fourth, mutually exclusive view alongside
+  // searchMode/entry (see the render below), pushed by the grammar hotkey
+  // (see main/app/hotkey.ts) rather than fetched by this component itself.
+  const [grammarResult, setGrammarResult] = useState<GrammarCheckResult | null>(null);
+
   // Loaded lazily the first time the "browse" tab is opened (null = not
   // fetched yet), not up front on mount — most popup sessions never touch
   // it, and fetching a potentially long list on every single lookup would
@@ -294,6 +361,7 @@ export default function Popup() {
   useEffect(() => {
     window.api.vocabSet.list().then(setSets);
     window.api.onTranslationResult((data) => {
+      setGrammarResult(null);
       setSearchMode(false);
       setDictionary(data.dictionary);
       setEntry(fromVocabEntryRow(data.result));
@@ -301,6 +369,7 @@ export default function Popup() {
       setActiveTab("dict");
     });
     window.api.onTranslationPreview((data) => {
+      setGrammarResult(null);
       setSearchMode(false);
       setDictionary(data.dictionary);
       setEntry(fromPreview(data.result));
@@ -309,6 +378,7 @@ export default function Popup() {
       setSelectedSetId(UNASSIGNED);
     });
     window.api.onOpenSearchPopup(() => {
+      setGrammarResult(null);
       setEntry(null);
       setDictionary(null);
       setSpellingSuggestion(null);
@@ -318,6 +388,13 @@ export default function Popup() {
       setSearchMode(true);
       setSearchOpenSeq((n) => n + 1);
     });
+    window.api.onGrammarResult((result) => {
+      setEntry(null);
+      setDictionary(null);
+      setSpellingSuggestion(null);
+      setSearchMode(false);
+      setGrammarResult(result);
+    });
   }, []);
 
   // Autofocus the instant the input actually mounts (search mode just
@@ -326,6 +403,15 @@ export default function Popup() {
   useEffect(() => {
     if (searchMode && !entry) inputRef.current?.focus();
   }, [searchMode, entry, searchOpenSeq]);
+
+  // Keyed on entry.id (not the whole entry object), same reasoning as
+  // VocabDetailModal's identical effect — re-syncing on every entry update
+  // (e.g. an AI tab finishing a generate call) would clobber whatever the
+  // user is mid-typing into these fields.
+  useEffect(() => {
+    setNote(entry?.note ?? "");
+    setDefinition(entry?.definition ?? "");
+  }, [entry?.id]);
 
   // Escape dismisses the popup. The window already hides on blur, but a
   // keyboard-only escape hatch matters here specifically because it's a
@@ -359,7 +445,7 @@ export default function Popup() {
     const el = contentRef.current;
     if (!el) return;
     window.api.popup.resize({ width: el.scrollWidth, height: el.scrollHeight });
-  }, [entry, dictionary, spellingSuggestion, searchMode, searchOpenSeq, activeTab, aiStatus]);
+  }, [entry, dictionary, spellingSuggestion, searchMode, searchOpenSeq, activeTab, aiStatus, note, definition, grammarResult]);
 
   async function runPreview(text: string) {
     setSearching(true);
@@ -431,6 +517,23 @@ export default function Popup() {
       toast.error(`Lưu thất bại: ${errorMessage(err)}`);
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function handleSaveNote() {
+    if (!entry?.id) return;
+    setSavingNote(true);
+    try {
+      const updated = await window.api.vocab.update(entry.id, {
+        note: note.trim() || null,
+        definition: definition.trim() || null,
+      });
+      setEntry(fromVocabEntryRow(updated));
+      toast.success("Đã lưu ghi chú");
+    } catch (err) {
+      toast.error(`Lưu thất bại: ${errorMessage(err)}`);
+    } finally {
+      setSavingNote(false);
     }
   }
 
@@ -507,13 +610,58 @@ export default function Popup() {
       className="fade-in"
       style={{
         fontFamily: "system-ui, sans-serif",
-        width: entry ? 320 : 304,
+        width: entry || grammarResult ? 320 : 304,
         maxWidth: 336,
         display: "flex",
         flexDirection: "column",
       }}
     >
-      {searchMode && !entry && (
+      {grammarResult && (
+        <ErrorBoundary>
+          <div style={{ padding: 16 }}>
+            <Space align="center" style={{ width: "100%", justifyContent: "space-between" }}>
+              <Typography.Text strong>Kiểm tra câu</Typography.Text>
+              <Button type="text" size="small" onClick={() => setGrammarResult(null)}>
+                Đóng
+              </Button>
+            </Space>
+
+            <Typography.Text type="secondary" style={{ display: "block", marginTop: 8, fontSize: 12 }}>
+              Câu gốc
+            </Typography.Text>
+            <Typography.Paragraph style={{ margin: "2px 0 0" }}>{grammarResult.original}</Typography.Paragraph>
+
+            {grammarResult.isNatural ? (
+              <Tag color="green" style={{ marginTop: 4 }}>
+                Câu đã tự nhiên và đúng ngữ pháp
+              </Tag>
+            ) : (
+              <>
+                <Typography.Text type="secondary" style={{ display: "block", marginTop: 10, fontSize: 12 }}>
+                  Gợi ý tự nhiên hơn
+                </Typography.Text>
+                <Typography.Paragraph strong style={{ margin: "2px 0 0" }}>
+                  {grammarResult.corrected}
+                </Typography.Paragraph>
+                {grammarResult.explanation && (
+                  <Typography.Paragraph type="secondary" style={{ margin: "6px 0 0", fontSize: 12 }}>
+                    {grammarResult.explanation}
+                  </Typography.Paragraph>
+                )}
+                <Button
+                  size="small"
+                  style={{ marginTop: 8 }}
+                  onClick={() => navigator.clipboard.writeText(grammarResult.corrected)}
+                >
+                  Sao chép câu gợi ý
+                </Button>
+              </>
+            )}
+          </div>
+        </ErrorBoundary>
+      )}
+
+      {searchMode && !entry && !grammarResult && (
         <div style={{ padding: 16 }}>
           <Space.Compact style={{ width: "100%" }}>
             <Input
@@ -558,6 +706,12 @@ export default function Popup() {
                 dictionary={dictionary}
                 spellingSuggestion={spellingSuggestion}
                 onUseSuggestion={handleUseSpellingSuggestion}
+                note={note}
+                definition={definition}
+                onNoteChange={setNote}
+                onDefinitionChange={setDefinition}
+                savingNote={savingNote}
+                onSaveNote={handleSaveNote}
               />
             )}
 
@@ -638,15 +792,15 @@ export default function Popup() {
                         </div>
                       </div>
                     )}
-                    {entry.aiRelatedWords.forms.length > 0 && (
+                    {safeForms(entry.aiRelatedWords.forms).length > 0 && (
                       <div>
                         <Typography.Text type="secondary" style={{ fontSize: 12 }}>
                           Dạng từ khác
                         </Typography.Text>
                         <div>
-                          {entry.aiRelatedWords.forms.map((f, i) => (
+                          {safeForms(entry.aiRelatedWords.forms).map((f, i) => (
                             <Tag key={i} color="blue">
-                              {f.word} <Typography.Text type="secondary">({f.pos})</Typography.Text>
+                              {f.word} {f.pos && <Typography.Text type="secondary">({f.pos})</Typography.Text>}
                             </Tag>
                           ))}
                         </div>
@@ -739,7 +893,7 @@ export default function Popup() {
         </>
       )}
 
-      {!searchMode && !entry && (
+      {!searchMode && !entry && !grammarResult && (
         <div style={{ padding: 16 }}>
           <Typography.Text type="secondary">Waiting for lookup…</Typography.Text>
         </div>

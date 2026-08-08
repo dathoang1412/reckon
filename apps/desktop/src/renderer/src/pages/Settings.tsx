@@ -231,6 +231,7 @@ function HotkeySection({
 export default function Settings() {
   const [savedHotkey, setSavedHotkey] = useState<string | null>(null);
   const [savedSearchHotkey, setSavedSearchHotkey] = useState<string | null>(null);
+  const [savedGrammarHotkey, setSavedGrammarHotkey] = useState<string | null>(null);
 
   const [groqKey, setGroqKey] = useState("");
   const [savingKey, setSavingKey] = useState(false);
@@ -248,6 +249,7 @@ export default function Settings() {
   useEffect(() => {
     window.api.settings.getHotkey().then(setSavedHotkey);
     window.api.settings.getSearchHotkey().then(setSavedSearchHotkey);
+    window.api.settings.getGrammarHotkey().then(setSavedGrammarHotkey);
     window.api.settings.getGroqApiKey().then(setGroqKey);
     window.api.settings.getAutoSave().then(setAutoSaveState);
     window.api.settings.getDarkMode().then(setDarkModeState);
@@ -343,6 +345,16 @@ export default function Settings() {
         savedHotkey={savedSearchHotkey}
         save={(accelerator) => window.api.settings.setSearchHotkey(accelerator)}
         onSaved={setSavedSearchHotkey}
+      />
+
+      <Typography.Title level={4} style={{ marginTop: 32 }}>
+        Kiểm tra ngữ pháp/câu tự nhiên
+      </Typography.Title>
+      <HotkeySection
+        description="Bôi đen một câu rồi bấm tổ hợp phím này để AI kiểm tra ngữ pháp và độ tự nhiên, gợi ý câu tốt hơn."
+        savedHotkey={savedGrammarHotkey}
+        save={(accelerator) => window.api.settings.setGrammarHotkey(accelerator)}
+        onSaved={setSavedGrammarHotkey}
       />
 
       <Typography.Title level={4} style={{ marginTop: 32 }}>

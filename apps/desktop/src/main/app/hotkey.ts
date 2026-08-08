@@ -1,11 +1,12 @@
 import { BrowserWindow, globalShortcut, screen } from "electron";
 import { getPrisma } from "../db/client";
+import { checkGrammar } from "../services/ai";
 import { logError } from "../services/log";
-import { parseTargetMeanings, previewVocab, saveVocab } from "../services/vocab";
+import { previewVocab, saveVocab, toVocabEntryRow } from "../services/vocab";
 import { getDeviceId } from "../utils/deviceId";
 import { getAutoSave } from "../utils/settings";
 import { readSelectedText } from "../utils/selection";
-import { showPopup, showPreviewPopup, showSearchPopup } from "../windows/popup";
+import { showGrammarPopup, showPopup, showPreviewPopup, showSearchPopup } from "../windows/popup";
 
 export interface HotkeyManager {
   register(accelerator: string): boolean;
@@ -36,7 +37,7 @@ async function onHotkeyTriggered(getMainWindow: () => BrowserWindow | null): Pro
     }
 
     const saved = await saveVocab(getPrisma(), getDeviceId(), result);
-    const entry = { ...saved, targetMeanings: parseTargetMeanings(saved), createdAt: saved.createdAt.toISOString() };
+    const entry = toVocabEntryRow(saved);
     showPopup(entry, cursorPosition, dictionary);
     // Keep the main window's list live if it's open (or just hidden in
     // the tray) instead of only refreshing on next manual reload.
@@ -51,6 +52,23 @@ async function onHotkeyTriggered(getMainWindow: () => BrowserWindow | null): Pro
 // the user to type a word into themselves.
 function onSearchHotkeyTriggered(): void {
   showSearchPopup(screen.getCursorScreenPoint());
+}
+
+// Ctrl+Shift+G by default — reuses the same selection-reading mechanism as
+// the lookup hotkey above, just fed to checkGrammar (a Groq call) instead
+// of translate/dictionary, and shown via a distinct popup channel
+// (grammar:result) so Popup.tsx can tell it apart from a word lookup.
+async function onGrammarHotkeyTriggered(): Promise<void> {
+  const cursorPosition = screen.getCursorScreenPoint();
+
+  const text = await readSelectedText();
+  if (!text) return;
+  try {
+    const result = await checkGrammar(text);
+    showGrammarPopup(result, cursorPosition);
+  } catch (err) {
+    logError("app", `[hotkey] grammar check failed: ${err instanceof Error ? err.message : String(err)}`);
+  }
 }
 
 // Wraps globalShortcut registration so callers don't need to track "what's
@@ -88,4 +106,8 @@ export function createHotkeyManager(getMainWindow: () => BrowserWindow | null): 
 
 export function createSearchHotkeyManager(): HotkeyManager {
   return createManager(onSearchHotkeyTriggered);
+}
+
+export function createGrammarHotkeyManager(): HotkeyManager {
+  return createManager(onGrammarHotkeyTriggered);
 }

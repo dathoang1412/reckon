@@ -112,6 +112,17 @@ export interface ChatMessage {
   content: string;
 }
 
+// Result of the Ctrl+Shift+G grammar/naturalness check — see
+// main/services/aiTypes.ts's GrammarCheckResult (kept as a separate
+// declaration here, same as every other AI result type in this file,
+// since the preload boundary doesn't import main-process types directly).
+export interface GrammarCheckResult {
+  original: string;
+  isNatural: boolean;
+  corrected: string;
+  explanation: string;
+}
+
 export type LogLevel = "info" | "warn" | "error";
 // "app" is the Electron main process itself; "server" is the spawned
 // NestJS sync backend (see main/services/server.ts) — see LogViewer.tsx.
@@ -195,6 +206,9 @@ const api = {
     getSearchHotkey: () => ipcRenderer.invoke("settings:getSearchHotkey") as Promise<string>,
     setSearchHotkey: (accelerator: string) =>
       ipcRenderer.invoke("settings:setSearchHotkey", accelerator) as Promise<boolean>,
+    getGrammarHotkey: () => ipcRenderer.invoke("settings:getGrammarHotkey") as Promise<string>,
+    setGrammarHotkey: (accelerator: string) =>
+      ipcRenderer.invoke("settings:setGrammarHotkey", accelerator) as Promise<boolean>,
     getGroqApiKey: () => ipcRenderer.invoke("settings:getGroqApiKey") as Promise<string>,
     setGroqApiKey: (key: string) => ipcRenderer.invoke("settings:setGroqApiKey", key) as Promise<void>,
     hasGroqApiKey: () => ipcRenderer.invoke("settings:hasGroqApiKey") as Promise<boolean>,
@@ -251,6 +265,9 @@ const api = {
         meanings,
         history,
       ) as Promise<string>,
+    // Ctrl+Shift+G on selected text (see main/app/hotkey.ts) — also
+    // callable directly on arbitrary text, not just via the global hotkey.
+    checkGrammar: (sentence: string) => ipcRenderer.invoke("ai:checkGrammar", sentence) as Promise<GrammarCheckResult>,
   },
   popup: {
     resize: (size: { width: number; height: number }) => ipcRenderer.send("popup:resize", size),
@@ -282,6 +299,13 @@ const api = {
   },
   onOpenSearchPopup: (callback: () => void) => {
     ipcRenderer.on("popup:openSearch", () => callback());
+  },
+  // Grammar hotkey (Ctrl+Shift+G by default) finished checking the
+  // selected sentence — pushed the same way onTranslationResult/Preview
+  // are, since it's the popup window (not the main window) that initiates
+  // via a global hotkey rather than a renderer-side call.
+  onGrammarResult: (callback: (result: GrammarCheckResult) => void) => {
+    ipcRenderer.on("grammar:result", (_event, result: GrammarCheckResult) => callback(result));
   },
   onVocabCreated: (callback: (entry: VocabEntryRow) => void) => {
     ipcRenderer.on("vocab:created", (_event, entry: VocabEntryRow) => callback(entry));

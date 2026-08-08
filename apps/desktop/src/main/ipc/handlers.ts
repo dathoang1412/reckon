@@ -4,6 +4,7 @@ import { getPrisma } from "../db/client";
 import { getDeviceId } from "../utils/deviceId";
 import {
   chatAboutWord,
+  checkGrammar,
   extractVocabCandidates,
   explainNuance,
   generateExamples,
@@ -24,6 +25,7 @@ import { listDueEntries, rateReview } from "../services/review";
 import {
   getAutoSave,
   getDarkMode,
+  getGrammarHotkey,
   getGroqApiKey,
   getHotkey,
   getReviewLimit,
@@ -31,6 +33,7 @@ import {
   getTranslateDirection,
   setAutoSave,
   setDarkMode,
+  setGrammarHotkey,
   setGroqApiKey,
   setHotkey,
   setReviewLimit,
@@ -44,13 +47,10 @@ import type { TranslationResult } from "../services/translate";
 import {
   deleteVocabEntry,
   listVocabEntries,
-  parseAiExamples,
-  parseAiRelatedWords,
-  parseTags,
-  parseTargetMeanings,
   previewVocab,
   saveVocab,
   setVocabEntrySet,
+  toVocabEntryRow,
   updateVocabEntry,
   type VocabEntryPatch,
 } from "../services/vocab";
@@ -63,6 +63,8 @@ interface IpcHandlerDeps {
   registerHotkey: (accelerator: string) => boolean;
   // Same, for the second (empty search popup) hotkey.
   registerSearchHotkey: (accelerator: string) => boolean;
+  // Same, for the third (grammar/naturalness check) hotkey.
+  registerGrammarHotkey: (accelerator: string) => boolean;
   // Lets a save made from the search popup (a separate window/renderer)
   // push the new entry into the main window's list, the same way the
   // selection-lookup hotkey already does in app/hotkey.ts.
@@ -75,42 +77,10 @@ interface IpcHandlerDeps {
   quitAndInstallUpdate: () => void;
 }
 
-// Prisma stores targetMeanings/tags/aiExamples/aiRelatedWords as JSON string
-// columns, and createdAt as a Date; the renderer works with the parsed
-// shapes and an ISO string (see preload's VocabEntryRow) so it doesn't need
-// to deal with structured clone semantics for dates crossing the IPC
-// boundary.
-function toVocabEntryRow<
-  T extends {
-    targetText: string;
-    targetMeanings: string | null;
-    tags: string | null;
-    createdAt: Date;
-    aiExamples: string | null;
-    aiRelatedWords: string | null;
-  },
->(
-  entry: T,
-): Omit<T, "targetMeanings" | "tags" | "createdAt" | "aiExamples" | "aiRelatedWords"> & {
-  targetMeanings: string[];
-  tags: string[];
-  createdAt: string;
-  aiExamples: ReturnType<typeof parseAiExamples>;
-  aiRelatedWords: ReturnType<typeof parseAiRelatedWords>;
-} {
-  return {
-    ...entry,
-    targetMeanings: parseTargetMeanings(entry),
-    tags: parseTags(entry),
-    createdAt: entry.createdAt.toISOString(),
-    aiExamples: parseAiExamples(entry),
-    aiRelatedWords: parseAiRelatedWords(entry),
-  };
-}
-
 export function registerIpcHandlers({
   registerHotkey,
   registerSearchHotkey,
+  registerGrammarHotkey,
   getMainWindow,
   checkForUpdates,
   quitAndInstallUpdate,
@@ -231,6 +201,14 @@ export function registerIpcHandlers({
     return ok;
   });
 
+  ipcMain.handle("settings:getGrammarHotkey", () => getGrammarHotkey());
+
+  ipcMain.handle("settings:setGrammarHotkey", (_event, accelerator: string) => {
+    const ok = registerGrammarHotkey(accelerator);
+    if (ok) setGrammarHotkey(accelerator);
+    return ok;
+  });
+
   ipcMain.handle("settings:getGroqApiKey", () => getGroqApiKey());
 
   ipcMain.handle("settings:setGroqApiKey", (_event, key: string) => {
@@ -313,6 +291,13 @@ export function registerIpcHandlers({
       return chatAboutWord(sourceText, sourceLang, targetText, targetLang, meanings, history);
     },
   );
+
+  // Ctrl+Shift+G on selected text (see app/hotkey.ts) — also invocable
+  // directly from a renderer (not just the global hotkey path) since it
+  // takes raw text rather than anything OS-selection-specific.
+  ipcMain.handle("ai:checkGrammar", async (_event, sentence: string) => {
+    return checkGrammar(sentence);
+  });
 
   ipcMain.handle("settings:getAutoSave", () => getAutoSave());
 

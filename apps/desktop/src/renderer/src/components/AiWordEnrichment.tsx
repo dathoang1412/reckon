@@ -2,6 +2,7 @@ import { ApartmentOutlined, DiffOutlined, FileTextOutlined, SoundOutlined } from
 import { Button, Space, Tag, Typography } from "antd";
 import type { AiExample, AiRelatedWords } from "../../../preload/index";
 import AiSection from "./AiSection";
+import { safeForms } from "../lib/aiRelatedWords";
 import { speak } from "../lib/speak";
 import { styleTokens } from "../theme";
 
@@ -128,15 +129,15 @@ export default function AiWordEnrichment({
                 </div>
               </div>
             )}
-            {aiRelatedWords.forms.length > 0 && (
+            {safeForms(aiRelatedWords.forms).length > 0 && (
               <div>
                 <Typography.Text type="secondary" style={{ fontSize: styleTokens.secondaryFontSize }}>
                   Dạng từ khác
                 </Typography.Text>
                 <div>
-                  {aiRelatedWords.forms.map((f, i) => (
+                  {safeForms(aiRelatedWords.forms).map((f, i) => (
                     <Tag key={i} color="blue">
-                      {f.word} <Typography.Text type="secondary">({f.pos})</Typography.Text>
+                      {f.word} {f.pos && <Typography.Text type="secondary">({f.pos})</Typography.Text>}
                     </Tag>
                   ))}
                 </div>

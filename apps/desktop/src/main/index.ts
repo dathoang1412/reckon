@@ -1,12 +1,12 @@
 import { app, BrowserWindow, globalShortcut, type Tray } from "electron";
-import { createHotkeyManager, createSearchHotkeyManager } from "./app/hotkey";
+import { createGrammarHotkeyManager, createHotkeyManager, createSearchHotkeyManager } from "./app/hotkey";
 import { createUpdater } from "./app/updater";
 import { getPrisma } from "./db/client";
 import { runMigrations } from "./db/migrate";
 import { registerIpcHandlers } from "./ipc/handlers";
 import { logError } from "./services/log";
 import { startServer, stopServer, waitForServerReady } from "./services/server";
-import { getHotkey, getSearchHotkey } from "./utils/settings";
+import { getGrammarHotkey, getHotkey, getSearchHotkey } from "./utils/settings";
 import { createMainWindow } from "./windows/mainWindow";
 import { closeSplashWindow, createSplashWindow } from "./windows/splash";
 import { createTray } from "./windows/tray";
@@ -24,6 +24,7 @@ let isQuitting = false;
 
 const hotkeyManager = createHotkeyManager(() => mainWindow);
 const searchHotkeyManager = createSearchHotkeyManager();
+const grammarHotkeyManager = createGrammarHotkeyManager();
 const updater = createUpdater(() => mainWindow);
 
 function openMainWindow(): void {
@@ -72,6 +73,7 @@ if (!app.requestSingleInstanceLock()) {
     registerIpcHandlers({
       registerHotkey: (accelerator) => hotkeyManager.register(accelerator),
       registerSearchHotkey: (accelerator) => searchHotkeyManager.register(accelerator),
+      registerGrammarHotkey: (accelerator) => grammarHotkeyManager.register(accelerator),
       getMainWindow: () => mainWindow,
       checkForUpdates: () => updater.checkNow(),
       quitAndInstallUpdate: () => updater.quitAndInstall(),
@@ -88,6 +90,7 @@ if (!app.requestSingleInstanceLock()) {
 
     hotkeyManager.register(getHotkey());
     searchHotkeyManager.register(getSearchHotkey());
+    grammarHotkeyManager.register(getGrammarHotkey());
     // Fire-and-forget — a slow/offline check shouldn't delay anything else
     // startup does, and any result (available/not/error) just gets pushed
     // to the main window whenever it's ready to show it.

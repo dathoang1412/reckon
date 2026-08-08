@@ -1,5 +1,5 @@
 import type { PrismaClient, VocabEntry } from "../../../generated/client";
-import type { AiExample, AiRelatedWords } from "./aiTypes";
+import type { AiExample, AiRelatedWords, GrammarCheckResult } from "./aiTypes";
 import { chat, chatJSON, type ChatMessage } from "./groq";
 import { parseTags, parseTargetMeanings, updateVocabEntry } from "./vocab";
 
@@ -70,6 +70,26 @@ export async function explainNuance(prisma: PrismaClient, deviceId: string, voca
 
 // ---- Feature 3: related words ----
 
+// Same class of defect as the missing-key case below, one level deeper: a
+// present "forms" array can still contain a null/malformed item (e.g.
+// `[{"pos":"noun","word":"bind"}, null]`) — the renderer used to do
+// `f.word`/`f.pos` on every item unconditionally, so one bad item crashed
+// the whole related-words view with a "Cannot read properties of null"
+// error. Filtering item-by-item here (not just `?? []` on the array itself)
+// closes that gap.
+function sanitizeStringList(list: unknown, max: number): string[] {
+  if (!Array.isArray(list)) return [];
+  return list.filter((item): item is string => typeof item === "string" && item.trim().length > 0).slice(0, max);
+}
+
+function sanitizeForms(list: unknown): { pos: string; word: string }[] {
+  if (!Array.isArray(list)) return [];
+  return list
+    .filter((item): item is { pos: unknown; word: unknown } => !!item && typeof item === "object")
+    .filter((item) => typeof item.word === "string" && item.word.trim().length > 0)
+    .map((item) => ({ pos: typeof item.pos === "string" ? item.pos : "", word: item.word as string }));
+}
+
 async function relatedWordsContent(englishWord: string): Promise<AiRelatedWords> {
   // response_format: json_object only guarantees syntactically valid JSON —
   // not that the model actually included every field it was asked for. A
@@ -85,9 +105,9 @@ async function relatedWordsContent(englishWord: string): Promise<AiRelatedWords>
     user: `Từ: "${englishWord}"`,
   });
   return {
-    synonyms: raw.synonyms ?? [],
-    antonyms: raw.antonyms ?? [],
-    forms: raw.forms ?? [],
+    synonyms: sanitizeStringList(raw.synonyms, 5),
+    antonyms: sanitizeStringList(raw.antonyms, 5),
+    forms: sanitizeForms(raw.forms),
   };
 }
 
@@ -255,4 +275,36 @@ export async function chatAboutWord(
     `Trả lời các câu hỏi của họ về từ này — cách dùng, sắc thái, ví dụ thêm, so sánh với từ khác, ` +
     `nguồn gốc, v.v. Trả lời ngắn gọn, tự nhiên, bằng tiếng Việt trừ khi họ hỏi bằng ngôn ngữ khác.`;
   return chat({ system, messages: history, maxTokens: 500 });
+}
+
+// ---- Feature 9: grammar/naturalness check (Ctrl+Shift+G on selected text) ----
+//
+// Never persisted — same reasoning as chatAboutWord above, this operates on
+// whatever sentence the user currently has selected, not a saved vocab
+// entry, so there's no vocabId and nothing to cache.
+
+export async function checkGrammar(sentence: string): Promise<GrammarCheckResult> {
+  const trimmed = sentence.trim();
+  // response_format: json_object only guarantees syntactically valid JSON,
+  // not that every requested field is actually present or the right type —
+  // same class of gap relatedWordsContent above guards against. A response
+  // missing "corrected"/"isNatural" used to leave the renderer showing
+  // "undefined" or crashing on a falsy check, so every field is defaulted
+  // here rather than trusted as-is.
+  const raw = await chatJSON<Partial<GrammarCheckResult>>({
+    system:
+      `Bạn là biên tập viên ngôn ngữ. Người dùng đưa một câu (tiếng Anh hoặc tiếng Việt). Đánh giá câu đó ` +
+      `có tự nhiên và đúng ngữ pháp không. Nếu đã ổn, trả lời isNatural:true và corrected giữ nguyên câu gốc. ` +
+      `Nếu chưa ổn, trả lời isNatural:false, đưa ra một câu viết lại tự nhiên hơn/đúng ngữ pháp hơn ở "corrected" ` +
+      `(cùng ngôn ngữ với câu gốc), và giải thích ngắn gọn (1-2 câu, tiếng Việt) lý do ở "explanation". ` +
+      `Chỉ trả về JSON: {"isNatural":boolean,"corrected":string,"explanation":string}.`,
+    user: trimmed,
+    maxTokens: 400,
+  });
+  return {
+    original: trimmed,
+    isNatural: raw.isNatural ?? true,
+    corrected: typeof raw.corrected === "string" && raw.corrected.trim() ? raw.corrected.trim() : trimmed,
+    explanation: typeof raw.explanation === "string" ? raw.explanation : "",
+  };
 }
