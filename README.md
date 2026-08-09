@@ -14,7 +14,9 @@ machine you install it on when you're online.
 
 ## Demo
 
-[![Watch the demo](https://img.youtube.com/vi/ecgWZwLxcyA/maxresdefault.jpg)](https://youtu.be/ecgWZwLxcyA)
+<a href="https://youtu.be/ecgWZwLxcyA" target="_blank" rel="noopener noreferrer">
+  <img src="https://img.youtube.com/vi/ecgWZwLxcyA/maxresdefault.jpg" alt="Watch the demo">
+</a>
 
 ## Why this exists
 
