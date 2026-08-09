@@ -1,8 +1,9 @@
-import { BrowserWindow, globalShortcut, screen } from "electron";
+import { globalShortcut, screen } from "electron";
 import { getPrisma } from "../db/client";
 import { checkGrammar } from "../services/ai/ai";
 import { logError } from "../services/system/log";
 import { previewVocab, saveVocab, toVocabEntryRow } from "../services/vocab/vocab";
+import { broadcast } from "../utils/broadcast";
 import { getDeviceId } from "../utils/deviceId";
 import { getAutoSave } from "../utils/settings";
 import { readSelectedText } from "../utils/selection";
@@ -16,7 +17,7 @@ export interface HotkeyManager {
 // app — this lookup/save is entirely local (SQLite via services/vocab/vocab.ts),
 // no account needed. Only Sync and the profile section in Settings ever
 // touch the shared server.
-async function onHotkeyTriggered(getMainWindow: () => BrowserWindow | null): Promise<void> {
+async function onHotkeyTriggered(): Promise<void> {
   // Captured before the async selection/translate/DB round-trip so the
   // popup lands where the user's selection was, not wherever the cursor
   // has drifted to by the time the lookup finishes.
@@ -39,9 +40,10 @@ async function onHotkeyTriggered(getMainWindow: () => BrowserWindow | null): Pro
     const saved = await saveVocab(getPrisma(), getDeviceId(), result);
     const entry = toVocabEntryRow(saved);
     showPopup(entry, cursorPosition, dictionary);
-    // Keep the main window's list live if it's open (or just hidden in
-    // the tray) instead of only refreshing on next manual reload.
-    getMainWindow()?.webContents.send("vocab:created", entry);
+    // Keep every open window's list live (main window if it's open — or
+    // just hidden in the tray — and the popup's own browse tab) instead of
+    // only refreshing on next manual reload/reopen.
+    broadcast("vocab:created", entry);
   } catch (err) {
     logError("app", `[hotkey] lookup failed: ${err instanceof Error ? err.message : String(err)}`);
   }
@@ -100,8 +102,8 @@ function createManager(trigger: () => void): HotkeyManager {
   return { register };
 }
 
-export function createHotkeyManager(getMainWindow: () => BrowserWindow | null): HotkeyManager {
-  return createManager(() => onHotkeyTriggered(getMainWindow));
+export function createHotkeyManager(): HotkeyManager {
+  return createManager(onHotkeyTriggered);
 }
 
 export function createSearchHotkeyManager(): HotkeyManager {

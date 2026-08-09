@@ -1,8 +1,8 @@
 import { useEffect, useState } from "react";
-import { CloseOutlined, SoundOutlined, ThunderboltOutlined } from "@ant-design/icons";
-import { Button, Input, Modal, Select, Space, Spin, Tag, Tooltip, Typography } from "antd";
+import { CloseOutlined, DeleteOutlined, PictureOutlined, SoundOutlined, ThunderboltOutlined } from "@ant-design/icons";
+import { Button, Image, Input, Modal, Select, Space, Spin, Tag, Tooltip, Typography } from "antd";
 import toast from "react-hot-toast";
-import type { DictionaryInfo, TagSuggestion, VocabEntryRow } from "../../../preload/index";
+import type { DictionaryInfo, ImageCandidate, TagSuggestion, VocabEntryRow } from "../../../preload/index";
 import AiWordEnrichment from "./AiWordEnrichment";
 import DefinitionChooser, { firstDictionaryDefinition } from "./DefinitionChooser";
 import DictionaryPanel from "./DictionaryPanel";
@@ -31,6 +31,16 @@ export default function VocabDetailModal({
   const [definition, setDefinition] = useState("");
   const [tags, setTags] = useState<string[]>([]);
   const [savingEdit, setSavingEdit] = useState(false);
+
+  // Illustration for the word — either pasted in by hand (imageUrl typed
+  // directly, credit stays null) or picked from imageCandidates (a
+  // Wikipedia search result, credit set alongside it) — same
+  // draft-until-"Lưu" pattern as note/definition above.
+  const [imageUrl, setImageUrl] = useState("");
+  const [imageCredit, setImageCredit] = useState<string | null>(null);
+  const [imageCreditUrl, setImageCreditUrl] = useState<string | null>(null);
+  const [imageSearching, setImageSearching] = useState(false);
+  const [imageCandidates, setImageCandidates] = useState<ImageCandidate[] | null>(null);
 
   const [suggesting, setSuggesting] = useState(false);
   const [suggestedTags, setSuggestedTags] = useState<TagSuggestion | null>(null);
@@ -74,6 +84,10 @@ export default function VocabDetailModal({
     setNote(entry?.note ?? "");
     setDefinition(entry?.definition ?? "");
     setTags(entry?.tags ?? []);
+    setImageUrl(entry?.imageUrl ?? "");
+    setImageCredit(entry?.imageCredit ?? null);
+    setImageCreditUrl(entry?.imageCreditUrl ?? null);
+    setImageCandidates(null);
     setSuggestedTags(null);
     setExamplesError(null);
     setNuanceError(null);
@@ -81,6 +95,42 @@ export default function VocabDetailModal({
     setAiDefinition(null);
     setAiDefinitionError(null);
   }, [entry?.id]);
+
+  async function handleSearchImages() {
+    if (!entry) return;
+    const englishWord =
+      entry.sourceLang === "en" ? entry.sourceText : entry.targetLang === "en" ? entry.targetText : null;
+    setImageSearching(true);
+    try {
+      setImageCandidates(await window.api.images.search(englishWord ?? entry.sourceText));
+    } catch (err) {
+      toast.error(`Tìm ảnh thất bại: ${errorMessage(err)}`);
+    } finally {
+      setImageSearching(false);
+    }
+  }
+
+  function handlePickImage(candidate: ImageCandidate) {
+    setImageUrl(candidate.url);
+    setImageCredit(candidate.title);
+    setImageCreditUrl(candidate.pageUrl);
+    setImageCandidates(null);
+  }
+
+  // Typing a URL by hand means it's no longer the Wikipedia photo the
+  // credit fields describe (if any were set from a previous pick) — clear
+  // them so a manually-pasted image never carries stale credit.
+  function handleImageUrlChange(value: string) {
+    setImageUrl(value);
+    setImageCredit(null);
+    setImageCreditUrl(null);
+  }
+
+  function handleClearImage() {
+    setImageUrl("");
+    setImageCredit(null);
+    setImageCreditUrl(null);
+  }
 
   async function handleGenerateAiDefinition() {
     if (!entry) return;
@@ -99,9 +149,13 @@ export default function VocabDetailModal({
     if (!entry) return;
     setSavingEdit(true);
     try {
+      const trimmedImageUrl = imageUrl.trim() || null;
       const updated = await window.api.vocab.update(entry.id, {
         note: note.trim() || null,
         definition: definition.trim() || null,
+        imageUrl: trimmedImageUrl,
+        imageCredit: trimmedImageUrl ? imageCredit : null,
+        imageCreditUrl: trimmedImageUrl ? imageCreditUrl : null,
         tags,
       });
       onUpdate(updated);
@@ -283,6 +337,95 @@ export default function VocabDetailModal({
                 autoSize={{ minRows: 2, maxRows: 4 }}
                 style={{ marginTop: 4 }}
               />
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  marginTop: 12,
+                }}
+              >
+                <Typography.Text strong>Ảnh minh họa</Typography.Text>
+                <Button
+                  type="link"
+                  size="small"
+                  icon={<ThunderboltOutlined />}
+                  loading={imageSearching}
+                  onClick={handleSearchImages}
+                >
+                  Tìm ảnh bằng AI
+                </Button>
+              </div>
+              {imageUrl && (
+                <div style={{ marginTop: 4 }}>
+                  <div style={{ display: "flex", alignItems: "flex-start", gap: 8 }}>
+                    <Image
+                      src={imageUrl}
+                      alt=""
+                      width={80}
+                      height={80}
+                      style={{ objectFit: "cover", borderRadius: 6 }}
+                    />
+                    <Button type="text" size="small" danger icon={<DeleteOutlined />} onClick={handleClearImage}>
+                      Xóa ảnh
+                    </Button>
+                  </div>
+                  {/* Credits the source article wherever the photo is shown,
+                      not just at selection time — see imageCredit's comment
+                      in preload/types.ts. Absent for a manually-pasted URL. */}
+                  {imageCredit && (
+                    <Typography.Text type="secondary" style={{ display: "block", fontSize: 11, marginTop: 4 }}>
+                      Ảnh từ bài{" "}
+                      <Typography.Link href={imageCreditUrl ?? undefined} target="_blank">
+                        {imageCredit}
+                      </Typography.Link>{" "}
+                      trên Wikipedia
+                    </Typography.Text>
+                  )}
+                </div>
+              )}
+              <Input
+                value={imageUrl}
+                onChange={(e) => handleImageUrlChange(e.target.value)}
+                placeholder="Dán URL ảnh, hoặc bấm Tìm ảnh bằng AI ở trên..."
+                prefix={<PictureOutlined style={{ color: styleTokens.borderColorLight }} />}
+                style={{ marginTop: 4 }}
+              />
+              {imageCandidates && (
+                <div style={{ marginTop: 8 }}>
+                  {imageCandidates.length === 0 ? (
+                    <Typography.Text type="secondary" style={{ fontSize: 12 }}>
+                      Không tìm thấy ảnh phù hợp.
+                    </Typography.Text>
+                  ) : (
+                    <>
+                      <Space size={6} wrap>
+                        {imageCandidates.map((c) => (
+                          <img
+                            key={c.id}
+                            src={c.thumbUrl}
+                            alt={c.title}
+                            title={`Ảnh từ bài: ${c.title} (Wikipedia)`}
+                            onClick={() => handlePickImage(c)}
+                            style={{
+                              width: 56,
+                              height: 56,
+                              objectFit: "cover",
+                              borderRadius: 6,
+                              cursor: "pointer",
+                              border: `1px solid ${styleTokens.borderColorLight}`,
+                            }}
+                          />
+                        ))}
+                      </Space>
+                      <Typography.Text type="secondary" style={{ display: "block", fontSize: 11, marginTop: 4 }}>
+                        Ảnh từ Wikipedia — bấm để chọn.
+                      </Typography.Text>
+                    </>
+                  )}
+                </div>
+              )}
+
               <div
                 style={{
                   display: "flex",

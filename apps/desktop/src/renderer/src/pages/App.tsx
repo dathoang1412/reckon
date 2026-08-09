@@ -1,11 +1,12 @@
 import { useEffect, useState } from "react";
-import { DeleteOutlined, ImportOutlined, SoundOutlined } from "@ant-design/icons";
-import { Button, Card, DatePicker, Empty, Input, List, Select, Space, Tag, Typography } from "antd";
+import { DeleteOutlined, ImportOutlined, PictureOutlined, SoundOutlined, ThunderboltOutlined } from "@ant-design/icons";
+import { Button, Card, DatePicker, Empty, Image, Input, List, Select, Space, Tag, Typography } from "antd";
 import dayjs, { type Dayjs } from "dayjs";
 import toast from "react-hot-toast";
 import type {
   AiExample,
   AiRelatedWords,
+  ImageCandidate,
   UserProfile,
   VocabEntryPatch,
   VocabEntryRow,
@@ -80,6 +81,13 @@ export default function App() {
     loading: false,
     error: null as string | null,
   });
+  // Ảnh minh họa on the not-yet-saved preview, same carry-over-on-save
+  // reasoning as previewDefinition above.
+  const [previewImageUrl, setPreviewImageUrl] = useState("");
+  const [previewImageCredit, setPreviewImageCredit] = useState<string | null>(null);
+  const [previewImageCreditUrl, setPreviewImageCreditUrl] = useState<string | null>(null);
+  const [previewImageSearching, setPreviewImageSearching] = useState(false);
+  const [previewImageCandidates, setPreviewImageCandidates] = useState<ImageCandidate[] | null>(null);
   const hasGroqKey = useHasGroqKey();
   const [syncing, setSyncing] = useState(false);
   const [view, setView] = useState<AppView>("list");
@@ -120,9 +128,23 @@ export default function App() {
     refreshSets();
   }, []);
 
+  // Keeps this window's list (and the detail modal, if it's open on the
+  // affected word) live across every vocab CRUD, whether it originated here
+  // or from the popup window — see ipc/handlers.ts's broadcast calls.
+  // Redundant but harmless when the change originated in this same window
+  // (the caller's own .then already applied it); this just re-applies the
+  // same data.
   useEffect(() => {
     window.api.onVocabCreated((entry) => {
       setEntries((prev) => (prev.some((e) => e.id === entry.id) ? prev : [entry, ...prev]));
+    });
+    window.api.onVocabUpdated((entry) => {
+      setEntries((prev) => prev.map((e) => (e.id === entry.id ? entry : e)));
+      setDetailEntry((prev) => (prev?.id === entry.id ? entry : prev));
+    });
+    window.api.onVocabDeleted((entry) => {
+      setEntries((prev) => prev.filter((e) => e.id !== entry.id));
+      setDetailEntry((prev) => (prev?.id === entry.id ? null : prev));
     });
   }, []);
 
@@ -168,6 +190,10 @@ export default function App() {
     setPreviewDefinition("");
     setPreviewAiDefinition(null);
     setPreviewAiDefinitionState({ loading: false, error: null });
+    setPreviewImageUrl("");
+    setPreviewImageCredit(null);
+    setPreviewImageCreditUrl(null);
+    setPreviewImageCandidates(null);
     try {
       const result = await window.api.vocab.preview(query.trim());
       setPreview(result);
@@ -203,6 +229,42 @@ export default function App() {
   async function handleUseSpellingSuggestion(suggestion: string) {
     setText(suggestion);
     await runSearch(suggestion);
+  }
+
+  async function handleSearchPreviewImages() {
+    if (!preview) return;
+    const { sourceText, sourceLang, targetText, targetLang } = preview.result;
+    const englishWord = sourceLang === "en" ? sourceText : targetLang === "en" ? targetText : null;
+    setPreviewImageSearching(true);
+    try {
+      setPreviewImageCandidates(await window.api.images.search(englishWord ?? sourceText));
+    } catch (err) {
+      toast.error(`Tìm ảnh thất bại: ${err instanceof Error ? err.message : String(err)}`);
+    } finally {
+      setPreviewImageSearching(false);
+    }
+  }
+
+  function handlePickPreviewImage(candidate: ImageCandidate) {
+    setPreviewImageUrl(candidate.url);
+    setPreviewImageCredit(candidate.title);
+    setPreviewImageCreditUrl(candidate.pageUrl);
+    setPreviewImageCandidates(null);
+  }
+
+  // Typing a URL by hand means it's no longer the Wikipedia photo the
+  // credit fields describe (if any were set from a previous pick) — clear
+  // them so a manually-pasted image never carries stale credit.
+  function handlePreviewImageUrlChange(value: string) {
+    setPreviewImageUrl(value);
+    setPreviewImageCredit(null);
+    setPreviewImageCreditUrl(null);
+  }
+
+  function handleClearPreviewImage() {
+    setPreviewImageUrl("");
+    setPreviewImageCredit(null);
+    setPreviewImageCreditUrl(null);
   }
 
   async function handleGeneratePreviewAiDefinition() {
@@ -276,6 +338,11 @@ export default function App() {
       if (previewAiNuance) patch.aiNuance = previewAiNuance;
       if (previewAiRelatedWords) patch.aiRelatedWords = previewAiRelatedWords;
       if (previewDefinition.trim()) patch.definition = previewDefinition.trim();
+      if (previewImageUrl.trim()) {
+        patch.imageUrl = previewImageUrl.trim();
+        patch.imageCredit = previewImageCredit;
+        patch.imageCreditUrl = previewImageCreditUrl;
+      }
       if (Object.keys(patch).length > 0) await window.api.vocab.update(saved.id, patch);
       setText("");
       setPreview(null);
@@ -570,6 +637,102 @@ export default function App() {
                         onSelect={setPreviewDefinition}
                       />
                     </ErrorBoundary>
+
+                    {/* Available on the not-yet-saved preview, same as
+                        DefinitionChooser above — the picked image rides
+                        along in handleSavePreview()'s patch. */}
+                    <div
+                      style={{
+                        marginTop: 16,
+                        borderTop: `1px solid ${styleTokens.borderColorLight}`,
+                        paddingTop: 12,
+                      }}
+                    >
+                      <Space align="center" style={{ width: "100%", justifyContent: "space-between" }}>
+                        <Typography.Text strong>Ảnh minh họa</Typography.Text>
+                        <Button
+                          type="link"
+                          size="small"
+                          icon={<ThunderboltOutlined />}
+                          loading={previewImageSearching}
+                          onClick={handleSearchPreviewImages}
+                        >
+                          Tìm ảnh bằng AI
+                        </Button>
+                      </Space>
+                      {previewImageUrl && (
+                        <div style={{ marginTop: 4 }}>
+                          <div style={{ display: "flex", alignItems: "flex-start", gap: 8 }}>
+                            <Image
+                              src={previewImageUrl}
+                              alt=""
+                              width={80}
+                              height={80}
+                              style={{ objectFit: "cover", borderRadius: 6 }}
+                            />
+                            <Button
+                              type="text"
+                              size="small"
+                              danger
+                              icon={<DeleteOutlined />}
+                              onClick={handleClearPreviewImage}
+                            >
+                              Xóa ảnh
+                            </Button>
+                          </div>
+                          {previewImageCredit && (
+                            <Typography.Text type="secondary" style={{ display: "block", fontSize: 11, marginTop: 4 }}>
+                              Ảnh từ bài{" "}
+                              <Typography.Link href={previewImageCreditUrl ?? undefined} target="_blank">
+                                {previewImageCredit}
+                              </Typography.Link>{" "}
+                              trên Wikipedia
+                            </Typography.Text>
+                          )}
+                        </div>
+                      )}
+                      <Input
+                        value={previewImageUrl}
+                        onChange={(e) => handlePreviewImageUrlChange(e.target.value)}
+                        placeholder="Dán URL ảnh, hoặc bấm Tìm ảnh bằng AI ở trên..."
+                        prefix={<PictureOutlined style={{ color: styleTokens.borderColorLight }} />}
+                        style={{ marginTop: 4 }}
+                      />
+                      {previewImageCandidates && (
+                        <div style={{ marginTop: 8 }}>
+                          {previewImageCandidates.length === 0 ? (
+                            <Typography.Text type="secondary" style={{ fontSize: 12 }}>
+                              Không tìm thấy ảnh phù hợp.
+                            </Typography.Text>
+                          ) : (
+                            <>
+                              <Space size={6} wrap>
+                                {previewImageCandidates.map((c) => (
+                                  <img
+                                    key={c.id}
+                                    src={c.thumbUrl}
+                                    alt={c.title}
+                                    title={`Ảnh từ bài: ${c.title} (Wikipedia)`}
+                                    onClick={() => handlePickPreviewImage(c)}
+                                    style={{
+                                      width: 56,
+                                      height: 56,
+                                      objectFit: "cover",
+                                      borderRadius: 6,
+                                      cursor: "pointer",
+                                      border: `1px solid ${styleTokens.borderColorLight}`,
+                                    }}
+                                  />
+                                ))}
+                              </Space>
+                              <Typography.Text type="secondary" style={{ display: "block", fontSize: 11, marginTop: 4 }}>
+                                Ảnh từ Wikipedia — bấm để chọn.
+                              </Typography.Text>
+                            </>
+                          )}
+                        </div>
+                      )}
+                    </div>
                     {/* Scoped and keyed by previewSeq — a render error here
                         (e.g. malformed AI data) used to unmount the entire
                         App tree via main.tsx's single top-level

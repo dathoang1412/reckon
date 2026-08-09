@@ -22,7 +22,7 @@ let mainWindow: BrowserWindow | null = null;
 let trayRef: Tray | null = null;
 let isQuitting = false;
 
-const hotkeyManager = createHotkeyManager(() => mainWindow);
+const hotkeyManager = createHotkeyManager();
 const searchHotkeyManager = createSearchHotkeyManager();
 const grammarHotkeyManager = createGrammarHotkeyManager();
 const updater = createUpdater(() => mainWindow);
@@ -74,7 +74,6 @@ if (!app.requestSingleInstanceLock()) {
       registerHotkey: (accelerator) => hotkeyManager.register(accelerator),
       registerSearchHotkey: (accelerator) => searchHotkeyManager.register(accelerator),
       registerGrammarHotkey: (accelerator) => grammarHotkeyManager.register(accelerator),
-      getMainWindow: () => mainWindow,
       checkForUpdates: () => updater.checkNow(),
       quitAndInstallUpdate: () => updater.quitAndInstall(),
     });

@@ -25,6 +25,15 @@ model VocabEntry {
   definition String?
   note       String?
   tags       String?
+  // Illustration for the word — either pasted in by hand (imageUrl only,
+  // imageCredit/imageCreditUrl stay null) or picked from a Wikipedia image
+  // search (see main/services/vocab/image.ts), which sets imageCredit to
+  // the source article's title and imageCreditUrl to its URL so the credit
+  // can be re-displayed wherever imageUrl is shown, not just at
+  // selection-time in the picker.
+  imageUrl        String?
+  imageCredit     String?
+  imageCreditUrl  String?
   // AI-generated (Groq) enrichment — all optional/nullable, populated
   // on-demand from VocabDetailModal rather than at save time, so a row
   // with none of these is just a word nobody has asked for AI help with

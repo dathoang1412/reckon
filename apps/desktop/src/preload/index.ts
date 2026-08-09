@@ -1,6 +1,7 @@
 import { contextBridge } from "electron";
 import { ai } from "./services/ai";
 import { auth } from "./services/auth";
+import { images } from "./services/images";
 import { review } from "./services/review";
 import { settings } from "./services/settings";
 import { app, log, popup, sync, tts, updater } from "./services/system";
@@ -13,6 +14,7 @@ const api = {
   vocab,
   vocabSet,
   dictionary,
+  images,
   tts,
   sync,
   auth,

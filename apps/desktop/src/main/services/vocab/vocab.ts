@@ -119,6 +119,14 @@ export interface VocabEntryPatch {
   note?: string | null;
   tags?: string[];
   definition?: string | null;
+  imageUrl?: string | null;
+  // Only set together with imageUrl when it came from the Wikipedia picker
+  // (see image.ts) — a manually-pasted imageUrl leaves these null, since
+  // there's no source article to credit. Always pass both together (never
+  // just imageUrl alone) so a manual edit correctly clears any credit left
+  // over from a previous Wikipedia pick.
+  imageCredit?: string | null;
+  imageCreditUrl?: string | null;
   aiExamples?: AiExample[];
   aiNuance?: string | null;
   aiRelatedWords?: AiRelatedWords | null;
@@ -136,6 +144,9 @@ export function updateVocabEntry(
       note: patch.note,
       tags: patch.tags ? JSON.stringify(patch.tags) : undefined,
       definition: patch.definition,
+      imageUrl: patch.imageUrl,
+      imageCredit: patch.imageCredit,
+      imageCreditUrl: patch.imageCreditUrl,
       aiExamples: patch.aiExamples ? JSON.stringify(patch.aiExamples) : undefined,
       aiNuance: patch.aiNuance,
       aiRelatedWords: patch.aiRelatedWords !== undefined ? JSON.stringify(patch.aiRelatedWords) : undefined,

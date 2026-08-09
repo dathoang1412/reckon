@@ -27,6 +27,14 @@ export interface VocabEntryRow {
   note: string | null;
   tags: string[];
   definition: string | null;
+  // Illustration URL — either pasted in by hand or picked from a Wikipedia
+  // image search (see window.api.images.search below). imageCredit/
+  // imageCreditUrl (the source article's title/URL) are only set for the
+  // Wikipedia case, and must be re-displayed wherever imageUrl is shown, not
+  // just at selection time (see VocabDetailModal's "Ảnh minh họa" section).
+  imageUrl: string | null;
+  imageCredit: string | null;
+  imageCreditUrl: string | null;
   // AI-generated (Groq) enrichment — null/empty until the user asks for it
   // from VocabDetailModal, see window.api.ai.* below.
   aiExamples: AiExample[];
@@ -38,9 +46,22 @@ export interface VocabEntryPatch {
   note?: string | null;
   tags?: string[];
   definition?: string | null;
+  imageUrl?: string | null;
+  imageCredit?: string | null;
+  imageCreditUrl?: string | null;
   aiExamples?: AiExample[];
   aiNuance?: string | null;
   aiRelatedWords?: AiRelatedWords | null;
+}
+
+export interface ImageCandidate {
+  id: string;
+  url: string;
+  thumbUrl: string;
+  // Wikipedia article title/URL the image came from — shown as the credit
+  // and used as alt text (see VocabDetailModal's image picker).
+  title: string;
+  pageUrl: string;
 }
 
 export interface DueEntryRow extends VocabEntryRow {

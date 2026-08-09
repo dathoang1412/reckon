@@ -1,6 +1,7 @@
-import { app, BrowserWindow, ipcMain } from "electron";
+import { app, ipcMain } from "electron";
 import type { UpdateProfileRequest } from "@reckon/shared";
 import { getPrisma } from "../db/client";
+import { broadcast } from "../utils/broadcast";
 import { getDeviceId } from "../utils/deviceId";
 import {
   chatAboutWord,
@@ -20,6 +21,7 @@ import {
 import { getProfile, login, loginWithGoogle, signup, updateProfile } from "../services/auth/auth";
 import { clearSession, getSession } from "../utils/authSession";
 import { lookupEnglishWord } from "../services/vocab/dictionary";
+import { searchImages } from "../services/vocab/image";
 import { chatJSON } from "../services/ai/groq";
 import { getLogHistory } from "../services/system/log";
 import { listDueEntries, rateReview } from "../services/review/review";
@@ -66,14 +68,9 @@ interface IpcHandlerDeps {
   registerSearchHotkey: (accelerator: string) => boolean;
   // Same, for the third (grammar/naturalness check) hotkey.
   registerGrammarHotkey: (accelerator: string) => boolean;
-  // Lets a save made from the search popup (a separate window/renderer)
-  // push the new entry into the main window's list, the same way the
-  // selection-lookup hotkey already does in app/hotkey.ts.
-  getMainWindow: () => BrowserWindow | null;
   // Both delegate to the updater instance created in index.ts (see
   // app/updater.ts) — kept there, not here, since that's also where its
-  // event listeners (and the getMainWindow closure they broadcast through)
-  // live.
+  // event listeners live.
   checkForUpdates: () => void;
   quitAndInstallUpdate: () => void;
 }
@@ -82,7 +79,6 @@ export function registerIpcHandlers({
   registerHotkey,
   registerSearchHotkey,
   registerGrammarHotkey,
-  getMainWindow,
   checkForUpdates,
   quitAndInstallUpdate,
 }: IpcHandlerDeps): void {
@@ -100,24 +96,32 @@ export function registerIpcHandlers({
 
   ipcMain.handle("vocab:save", async (_event, result: TranslationResult) => {
     const entry = toVocabEntryRow(await saveVocab(prisma, deviceId, result));
-    // Only meaningfully different from the caller's own state when the save
-    // came from the search popup (a separate window) — the main window's
-    // own save flow (App.tsx) already refreshes its list itself, and
-    // onVocabCreated there dedupes by id, so this is a harmless no-op then.
-    getMainWindow()?.webContents.send("vocab:created", entry);
+    // Broadcast to every open window (not just the main one) so the popup's
+    // browse tab (see Popup.tsx) and any other open window's list stay live
+    // instead of only refreshing once that window is reopened — this
+    // included receiving its own broadcast back when the save originated
+    // from that same window, which is a harmless no-op dedupe (see
+    // onVocabCreated in both App.tsx and Popup.tsx).
+    broadcast("vocab:created", entry);
     return entry;
   });
 
   ipcMain.handle("vocab:delete", async (_event, id: string) => {
-    return toVocabEntryRow(await deleteVocabEntry(prisma, deviceId, id));
+    const entry = toVocabEntryRow(await deleteVocabEntry(prisma, deviceId, id));
+    broadcast("vocab:deleted", entry);
+    return entry;
   });
 
   ipcMain.handle("vocab:setSet", async (_event, id: string, setId: string | null) => {
-    return toVocabEntryRow(await setVocabEntrySet(prisma, deviceId, id, setId));
+    const entry = toVocabEntryRow(await setVocabEntrySet(prisma, deviceId, id, setId));
+    broadcast("vocab:updated", entry);
+    return entry;
   });
 
   ipcMain.handle("vocab:update", async (_event, id: string, patch: VocabEntryPatch) => {
-    return toVocabEntryRow(await updateVocabEntry(prisma, deviceId, id, patch));
+    const entry = toVocabEntryRow(await updateVocabEntry(prisma, deviceId, id, patch));
+    broadcast("vocab:updated", entry);
+    return entry;
   });
 
   ipcMain.handle("vocabSet:list", async () => {
@@ -240,6 +244,15 @@ export function registerIpcHandlers({
     });
   });
 
+  // Illustration search for a vocab word (see image.ts) — preview-only,
+  // nothing here touches Prisma; the picked result is written into
+  // VocabEntry.imageUrl via the existing vocab:update patch, same as
+  // ai:previewDefinition feeds into the `definition` column. No API key —
+  // Wikipedia's search API is open, so there's nothing to configure/gate.
+  ipcMain.handle("images:search", async (_event, query: string) => {
+    return searchImages(query);
+  });
+
   ipcMain.handle("ai:generateExamples", async (_event, id: string) => {
     return toVocabEntryRow(await generateExamples(prisma, deviceId, id));
   });
@@ -350,14 +363,11 @@ export function registerIpcHandlers({
   ipcMain.handle("settings:getDarkMode", () => getDarkMode());
 
   // Pushed to every open window (main + popup, if it happens to be open at
-  // the same time), not just the caller's own — same broadcast shape as
-  // log.ts's addLog — so switching it in Settings doesn't need either
-  // window reopened to take effect.
+  // the same time), not just the caller's own — so switching it in Settings
+  // doesn't need either window reopened to take effect.
   ipcMain.handle("settings:setDarkMode", (_event, value: boolean) => {
     setDarkMode(value);
-    for (const win of BrowserWindow.getAllWindows()) {
-      if (!win.isDestroyed()) win.webContents.send("theme:changed", value);
-    }
+    broadcast("theme:changed", value);
   });
 
   ipcMain.handle("app:getVersion", () => app.getVersion());

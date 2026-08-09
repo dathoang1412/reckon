@@ -1,5 +1,11 @@
 import { ipcRenderer } from "electron";
-import type { GrammarCheckResult, TranslationResultPayload, UpdateStatus, VocabEntryRow, VocabPreview } from "./types";
+import type {
+  GrammarCheckResult,
+  TranslationResultPayload,
+  UpdateStatus,
+  VocabEntryRow,
+  VocabPreview,
+} from "./types";
 
 export const events = {
   onTranslationResult: (callback: (payload: TranslationResultPayload) => void) => {
@@ -21,8 +27,18 @@ export const events = {
   onGrammarResult: (callback: (result: GrammarCheckResult) => void) => {
     ipcRenderer.on("grammar:result", (_event, result: GrammarCheckResult) => callback(result));
   },
+  // Broadcast to every open window on any vocab CRUD (see ipc/handlers.ts) —
+  // lets the popup's browse tab and any other window's list stay live
+  // instead of only picking up changes once that window is reopened (see
+  // Popup.tsx/App.tsx's listeners for these three).
   onVocabCreated: (callback: (entry: VocabEntryRow) => void) => {
     ipcRenderer.on("vocab:created", (_event, entry: VocabEntryRow) => callback(entry));
+  },
+  onVocabUpdated: (callback: (entry: VocabEntryRow) => void) => {
+    ipcRenderer.on("vocab:updated", (_event, entry: VocabEntryRow) => callback(entry));
+  },
+  onVocabDeleted: (callback: (entry: VocabEntryRow) => void) => {
+    ipcRenderer.on("vocab:deleted", (_event, entry: VocabEntryRow) => callback(entry));
   },
   onUpdateStatus: (callback: (status: UpdateStatus) => void) => {
     ipcRenderer.on("updater:status", (_event, status: UpdateStatus) => callback(status));

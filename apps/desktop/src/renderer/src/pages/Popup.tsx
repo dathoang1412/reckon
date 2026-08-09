@@ -1,9 +1,11 @@
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import {
   ApartmentOutlined,
+  DeleteOutlined,
   DiffOutlined,
   FileTextOutlined,
   MessageOutlined,
+  PictureOutlined,
   RedoOutlined,
   SoundOutlined,
   ThunderboltOutlined,
@@ -17,6 +19,7 @@ import type {
   AiRelatedWords,
   DictionaryInfo,
   GrammarCheckResult,
+  ImageCandidate,
   TranslationResultData,
   VocabEntryPatch,
   VocabEntryRow,
@@ -57,9 +60,12 @@ interface DisplayEntry {
   aiNuance: string | null;
   aiRelatedWords: AiRelatedWords | null;
   // null for a not-yet-saved preview (see id above) — there's nowhere to
-  // persist a note/definition until the word has a row of its own.
+  // persist a note/definition/image until the word has a row of its own.
   note: string | null;
   definition: string | null;
+  imageUrl: string | null;
+  imageCredit: string | null;
+  imageCreditUrl: string | null;
 }
 
 function fromVocabEntryRow(row: VocabEntryRow): DisplayEntry {
@@ -75,6 +81,9 @@ function fromVocabEntryRow(row: VocabEntryRow): DisplayEntry {
     aiRelatedWords: row.aiRelatedWords,
     note: row.note,
     definition: row.definition,
+    imageUrl: row.imageUrl,
+    imageCredit: row.imageCredit,
+    imageCreditUrl: row.imageCreditUrl,
   };
 }
 
@@ -91,6 +100,9 @@ function fromPreview(data: TranslationResultData): DisplayEntry {
     aiRelatedWords: null,
     note: null,
     definition: null,
+    imageUrl: null,
+    imageCredit: null,
+    imageCreditUrl: null,
   };
 }
 
@@ -167,6 +179,15 @@ function TranslationTab({
   aiDefinition,
   aiDefinitionState,
   onGenerateAiDefinition,
+  imageUrl,
+  imageCredit,
+  imageCreditUrl,
+  imageSearching,
+  imageCandidates,
+  onImageUrlChange,
+  onSearchImages,
+  onPickImage,
+  onClearImage,
 }: {
   entry: DisplayEntry;
   dictionary: DictionaryInfo | null;
@@ -181,6 +202,15 @@ function TranslationTab({
   aiDefinition: string | null;
   aiDefinitionState: { loading: boolean; error: string | null };
   onGenerateAiDefinition: () => void;
+  imageUrl: string;
+  imageCredit: string | null;
+  imageCreditUrl: string | null;
+  imageSearching: boolean;
+  imageCandidates: ImageCandidate[] | null;
+  onImageUrlChange: (value: string) => void;
+  onSearchImages: () => void;
+  onPickImage: (candidate: ImageCandidate) => void;
+  onClearImage: () => void;
 }) {
   return (
     <>
@@ -238,9 +268,93 @@ function TranslationTab({
         onSelect={onDefinitionChange}
       />
 
-      {/* Mirrors VocabDetailModal's Ghi chú/Định nghĩa riêng section — only
-          usable once the word has a saved row (entry.id) to persist onto;
-          a not-yet-saved preview has nowhere for these to live until then. */}
+      {/* Available regardless of entry.id, same as DefinitionChooser above —
+          for a not-yet-saved preview, the picked image rides along in the
+          patch handleSave() applies right after saving (mirrors how
+          `definition` already gets carried over there). */}
+      <div style={{ marginTop: 16, borderTop: `1px solid ${styleTokens.borderColorLight}`, paddingTop: 12 }}>
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+          }}
+        >
+          <Typography.Text strong>Ảnh minh họa</Typography.Text>
+          <Button type="link" size="small" icon={<ThunderboltOutlined />} loading={imageSearching} onClick={onSearchImages}>
+            Tìm ảnh bằng AI
+          </Button>
+        </div>
+        {imageUrl && (
+          <div style={{ marginTop: 4 }}>
+            <div style={{ display: "flex", alignItems: "flex-start", gap: 8 }}>
+              <img src={imageUrl} alt="" style={{ width: 64, height: 64, objectFit: "cover", borderRadius: 6 }} />
+              <Button type="text" size="small" danger icon={<DeleteOutlined />} onClick={onClearImage}>
+                Xóa ảnh
+              </Button>
+            </div>
+            {/* Credits the source article wherever the photo is shown, not
+                just at selection time — see imageCredit's comment in
+                preload/types.ts. Absent for a manually-pasted URL. */}
+            {imageCredit && (
+              <Typography.Text type="secondary" style={{ display: "block", fontSize: 11, marginTop: 4 }}>
+                Ảnh từ bài{" "}
+                <Typography.Link href={imageCreditUrl ?? undefined} target="_blank">
+                  {imageCredit}
+                </Typography.Link>{" "}
+                trên Wikipedia
+              </Typography.Text>
+            )}
+          </div>
+        )}
+        <Input
+          value={imageUrl}
+          onChange={(e) => onImageUrlChange(e.target.value)}
+          placeholder="Dán URL ảnh, hoặc bấm Tìm ảnh bằng AI ở trên..."
+          prefix={<PictureOutlined style={{ color: styleTokens.borderColorLight }} />}
+          style={{ marginTop: 4 }}
+        />
+        {imageCandidates && (
+          <div style={{ marginTop: 8 }}>
+            {imageCandidates.length === 0 ? (
+              <Typography.Text type="secondary" style={{ fontSize: 12 }}>
+                Không tìm thấy ảnh phù hợp.
+              </Typography.Text>
+            ) : (
+              <>
+                <Space size={6} wrap>
+                  {imageCandidates.map((c) => (
+                    <img
+                      key={c.id}
+                      src={c.thumbUrl}
+                      alt={c.title}
+                      title={`Ảnh từ bài: ${c.title} (Wikipedia)`}
+                      onClick={() => onPickImage(c)}
+                      style={{
+                        width: 48,
+                        height: 48,
+                        objectFit: "cover",
+                        borderRadius: 6,
+                        cursor: "pointer",
+                        border: `1px solid ${styleTokens.borderColorLight}`,
+                      }}
+                    />
+                  ))}
+                </Space>
+                <Typography.Text type="secondary" style={{ display: "block", fontSize: 11, marginTop: 4 }}>
+                  Ảnh từ Wikipedia — bấm để chọn.
+                </Typography.Text>
+              </>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* Ghi chú/Định nghĩa riêng (free-text, distinct from DefinitionChooser's
+          pick-one-of-two above) stay locked behind entry.id — unlike
+          definition-via-picking/image above, there's no pre-save carry-over
+          path for free-typed text here (see handleSave()'s patch), since
+          typing a personal note only makes sense once the word is kept. */}
       <div style={{ marginTop: 16, borderTop: `1px solid ${styleTokens.borderColorLight}`, paddingTop: 12 }}>
         {entry.id ? (
           <>
@@ -267,7 +381,7 @@ function TranslationTab({
             </Button>
           </>
         ) : (
-          <Typography.Text type="secondary">Lưu từ này để thêm ghi chú và định nghĩa riêng.</Typography.Text>
+          <Typography.Text type="secondary">Lưu từ này để thêm ghi chú.</Typography.Text>
         )}
       </div>
     </>
@@ -356,6 +470,14 @@ export default function Popup() {
   const [definition, setDefinition] = useState("");
   const [savingNote, setSavingNote] = useState(false);
 
+  // Ảnh minh họa, same draft-until-"Lưu ghi chú" pattern as note/definition
+  // above — mirrors VocabDetailModal's image section.
+  const [imageUrl, setImageUrl] = useState("");
+  const [imageCredit, setImageCredit] = useState<string | null>(null);
+  const [imageCreditUrl, setImageCreditUrl] = useState<string | null>(null);
+  const [imageSearching, setImageSearching] = useState(false);
+  const [imageCandidates, setImageCandidates] = useState<ImageCandidate[] | null>(null);
+
   // Search mode: opened via the empty-popup hotkey (no pre-fetched result),
   // the user types a word themselves instead of it coming from a selection.
   const [searchMode, setSearchMode] = useState(false);
@@ -423,6 +545,24 @@ export default function Popup() {
       setSearchMode(false);
       setGrammarResult(result);
     });
+    // Keeps the browse tab's list (and whatever word is currently open,
+    // if it's the one that changed) live across every vocab CRUD — whether
+    // it originated in this popup or the main window (see
+    // ipc/handlers.ts's broadcast calls). Previously the browse list was
+    // only ever fetched once per popup session (see the browseEntries
+    // effect below), so edits made elsewhere while the popup sat open/hidden
+    // (it's a reused, not recreated, window — see windows/popup.ts) never
+    // showed up without a full app restart.
+    window.api.onVocabCreated((created) => {
+      setBrowseEntries((prev) => (prev === null || prev.some((e) => e.id === created.id) ? prev : [created, ...prev]));
+    });
+    window.api.onVocabUpdated((updated) => {
+      setBrowseEntries((prev) => (prev === null ? prev : prev.map((e) => (e.id === updated.id ? updated : e))));
+      setEntry((prev) => (prev?.id === updated.id ? fromVocabEntryRow(updated) : prev));
+    });
+    window.api.onVocabDeleted((deleted) => {
+      setBrowseEntries((prev) => (prev === null ? prev : prev.filter((e) => e.id !== deleted.id)));
+    });
   }, []);
 
   // Autofocus the instant the input actually mounts (search mode just
@@ -439,6 +579,10 @@ export default function Popup() {
   useEffect(() => {
     setNote(entry?.note ?? "");
     setDefinition(entry?.definition ?? "");
+    setImageUrl(entry?.imageUrl ?? "");
+    setImageCredit(entry?.imageCredit ?? null);
+    setImageCreditUrl(entry?.imageCreditUrl ?? null);
+    setImageCandidates(null);
   }, [entry?.id]);
 
   // Identifies "this looked-up word" stably across entry-object updates
@@ -515,6 +659,8 @@ export default function Popup() {
     aiDefinition,
     aiDefinitionState,
     grammarResult,
+    imageUrl,
+    imageCandidates,
   ]);
 
   async function runPreview(text: string) {
@@ -574,14 +720,20 @@ export default function Popup() {
         finalRow = await window.api.vocab.setSet(finalRow.id, selectedSetId);
       }
       // Carry over whatever AI content the tabs already generated (and any
-      // definition already picked via DefinitionChooser) while this was
-      // still just a preview — otherwise saving would silently throw away
-      // Groq calls the user already paid the latency for.
+      // definition/image already picked via DefinitionChooser/the image
+      // search above) while this was still just a preview — otherwise
+      // saving would silently throw away Groq calls (and a chosen photo)
+      // the user already paid the latency for.
       const patch: VocabEntryPatch = {};
       if (entry.aiExamples.length > 0) patch.aiExamples = entry.aiExamples;
       if (entry.aiNuance) patch.aiNuance = entry.aiNuance;
       if (entry.aiRelatedWords) patch.aiRelatedWords = entry.aiRelatedWords;
       if (definition.trim()) patch.definition = definition.trim();
+      if (imageUrl.trim()) {
+        patch.imageUrl = imageUrl.trim();
+        patch.imageCredit = imageCredit;
+        patch.imageCreditUrl = imageCreditUrl;
+      }
       if (Object.keys(patch).length > 0) finalRow = await window.api.vocab.update(finalRow.id, patch);
       setEntry(fromVocabEntryRow(finalRow));
       toast.success("Đã lưu");
@@ -596,9 +748,13 @@ export default function Popup() {
     if (!entry?.id) return;
     setSavingNote(true);
     try {
+      const trimmedImageUrl = imageUrl.trim() || null;
       const updated = await window.api.vocab.update(entry.id, {
         note: note.trim() || null,
         definition: definition.trim() || null,
+        imageUrl: trimmedImageUrl,
+        imageCredit: trimmedImageUrl ? imageCredit : null,
+        imageCreditUrl: trimmedImageUrl ? imageCreditUrl : null,
       });
       setEntry(fromVocabEntryRow(updated));
       toast.success("Đã lưu ghi chú");
@@ -607,6 +763,42 @@ export default function Popup() {
     } finally {
       setSavingNote(false);
     }
+  }
+
+  async function handleSearchImages() {
+    if (!entry) return;
+    const englishWord =
+      entry.sourceLang === "en" ? entry.sourceText : entry.targetLang === "en" ? entry.targetText : null;
+    setImageSearching(true);
+    try {
+      setImageCandidates(await window.api.images.search(englishWord ?? entry.sourceText));
+    } catch (err) {
+      toast.error(`Tìm ảnh thất bại: ${errorMessage(err)}`);
+    } finally {
+      setImageSearching(false);
+    }
+  }
+
+  function handlePickImage(candidate: ImageCandidate) {
+    setImageUrl(candidate.url);
+    setImageCredit(candidate.title);
+    setImageCreditUrl(candidate.pageUrl);
+    setImageCandidates(null);
+  }
+
+  // Typing a URL by hand means it's no longer the Wikipedia photo the
+  // credit fields describe (if any were set from a previous pick) — clear
+  // them so a manually-pasted image never carries stale credit.
+  function handleImageUrlChange(value: string) {
+    setImageUrl(value);
+    setImageCredit(null);
+    setImageCreditUrl(null);
+  }
+
+  function handleClearImage() {
+    setImageUrl("");
+    setImageCredit(null);
+    setImageCreditUrl(null);
   }
 
   async function handleGenerate(feature: AiFeature) {
@@ -790,6 +982,15 @@ export default function Popup() {
                 onGenerateAiDefinition={() =>
                   entry && generateAiDefinition(entry.sourceText, entry.targetMeanings)
                 }
+                imageUrl={imageUrl}
+                imageCredit={imageCredit}
+                imageCreditUrl={imageCreditUrl}
+                imageSearching={imageSearching}
+                imageCandidates={imageCandidates}
+                onImageUrlChange={handleImageUrlChange}
+                onSearchImages={handleSearchImages}
+                onPickImage={handlePickImage}
+                onClearImage={handleClearImage}
               />
             )}
 
