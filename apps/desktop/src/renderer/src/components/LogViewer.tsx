@@ -28,7 +28,7 @@ function formatTime(iso: string): string {
 }
 
 // A tail -f-style console for the app's own process and the spawned sync
-// backend (see main/services/log.ts) — in a packaged build neither has any
+// backend (see main/services/system/log.ts) — in a packaged build neither has any
 // other visible output, since there's no attached terminal. Colored by
 // level/source rather than literal chalk ANSI codes: chalk's escape
 // sequences are meant for a real terminal, not HTML, so the same

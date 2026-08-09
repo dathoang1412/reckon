@@ -27,11 +27,20 @@ keystroke, and turns every lookup into something you actually retain.
 - **Real dictionary data, not just translation** — definitions, part of
   speech, example sentences, IPA, and native audio pronunciation, pulled
   live alongside the translation.
+- **Two definitions, your pick** — right after a lookup, Reckon generates an
+  AI definition (Groq) alongside the free-dictionary one; pick whichever
+  reads better, and it grounds every other AI generation (examples, related
+  words, when to use) in that specific sense of the word.
+- **"Khi nào dùng" (when to use)** — an AI explanation of the situations,
+  formality level, and collocations a word actually fits, not just a bare
+  translation.
 - **Text-to-speech** on every word, everywhere it appears.
 - **Search before you commit** — look a word up, see everything about it,
   *then* decide whether it's worth saving.
 - **Vocabulary sets** — organize saved words into named decks, like a
   lightweight Anki.
+- **Date filters** — narrow the saved-word list to a day or range, and
+  review a specific day's words on demand instead of only what's due.
 - **Spaced repetition review** — a due-card queue that adapts to what you
   actually remember.
 - **Cross-device sync** — your local SQLite database quietly syncs to a
@@ -42,14 +51,21 @@ keystroke, and turns every lookup into something you actually retain.
 
 ## How it's built
 
-```
-┌─────────────────────────┐        ┌──────────────────────────┐
-│  Reckon (Electron app)  │        │   @reckon/server (NestJS) │
-│                          │  sync  │                           │
-│  local SQLite (Prisma)  │◄──────►│   shared Postgres         │
-│  spawned as a child      │  http  │   (schema-agnostic:       │
-│  process on startup      │        │    one JSON blob table)  │
-└─────────────────────────┘        └──────────────────────────┘
+```mermaid
+flowchart LR
+    subgraph Desktop["Reckon desktop (Electron)"]
+        UI["React + antd renderer"]
+        Main["Main process\n(Prisma / SQLite)"]
+        UI <--> Main
+    end
+    Main -- "spawns as a child process on startup" --> Server
+    subgraph Server["@reckon/server (NestJS)"]
+        API["HTTP API"]
+    end
+    API <--> PG[("Shared Postgres\n(schema-agnostic:\none JSON-blob table)")]
+    Main <-- "sync push/pull (HTTP)" --> API
+    Shared["@reckon/shared\n(zod schemas)"] -.->|imported by both sides| Main
+    Shared -.->|imported by both sides| Server
 ```
 
 - **Desktop app** — Electron + React + antd. Local data lives in SQLite via
@@ -63,6 +79,29 @@ keystroke, and turns every lookup into something you actually retain.
 - **Dictionary enrichment** — the free, keyless
   [Free Dictionary API](https://dictionaryapi.dev/) for definitions/IPA/audio,
   plus Google Translate / MyMemory for the translation itself.
+
+## How it works
+
+A lookup starts from either a global hotkey (text selected anywhere in the
+OS) or a manual search, and ends up as a spaced-repetition card:
+
+```mermaid
+flowchart TD
+    A["Hotkey / manual search"] --> B["Translate\n(Google Translate / MyMemory)"]
+    B --> C["Dictionary lookup\n(Free Dictionary API, English side only)"]
+    C --> D["AI definition\n(Groq, auto-generated)"]
+    D --> E{"Pick a definition:\ndictionary or AI"}
+    E --> F["Optional AI enrichment\ngrounded in the picked definition:\nexamples · khi nào dùng · related words"]
+    F --> G["Save\n(local SQLite via Prisma)"]
+    G --> H["SRS scheduling\n(ReviewState: due date, ease, interval)"]
+    H --> I["Review queue\nby due date, by set, or by a specific day"]
+    G --> J["Sync push/pull\n(to the shared Postgres backend)"]
+```
+
+Every step past "Translate" is best-effort and independent — a dictionary
+miss, a skipped AI step, or being offline for sync never blocks saving or
+reviewing a word; each just leaves that one piece of enrichment empty until
+it's available.
 
 ## Project layout
 

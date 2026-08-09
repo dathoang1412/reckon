@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { DeleteOutlined, ImportOutlined, SoundOutlined } from "@ant-design/icons";
-import { Button, Card, Empty, Input, List, Select, Space, Tag, Typography } from "antd";
+import { Button, Card, DatePicker, Empty, Input, List, Select, Space, Tag, Typography } from "antd";
+import dayjs, { type Dayjs } from "dayjs";
 import toast from "react-hot-toast";
 import type {
   AiExample,
@@ -14,6 +15,7 @@ import type {
 import AiWordEnrichment from "../components/AiWordEnrichment";
 import AppHeader, { type AppView } from "../components/AppHeader";
 import BulkExtractModal from "../components/BulkExtractModal";
+import DefinitionChooser, { firstDictionaryDefinition } from "../components/DefinitionChooser";
 import DictionaryPanel from "../components/DictionaryPanel";
 import ErrorBoundary from "../components/ErrorBoundary";
 import LogViewer from "../components/LogViewer";
@@ -23,6 +25,7 @@ import TranslateDirectionToggle from "../components/TranslateDirectionToggle";
 import VocabDetailModal from "../components/VocabDetailModal";
 import { dayKey, dayLabel, timeLabel } from "../lib/date";
 import { speak } from "../lib/speak";
+import { useHasGroqKey } from "../lib/useHasGroqKey";
 import { styleTokens } from "../theme";
 import Profile from "./Profile";
 import Review from "./Review";
@@ -43,6 +46,10 @@ export default function App() {
   // close-then-reopen of the very same word.
   const [detailOpenSeq, setDetailOpenSeq] = useState(0);
   const [searchQuery, setSearchQuery] = useState("");
+  // Filters the saved list down to entries saved within this day range —
+  // null means no filter (show everything), same "null = no cap" convention
+  // used elsewhere in this file (see previewDefinition/limit comments).
+  const [dateRange, setDateRange] = useState<[Dayjs, Dayjs] | null>(null);
   const [text, setText] = useState("");
   const [looking, setLooking] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -63,6 +70,17 @@ export default function App() {
   const [previewExamplesState, setPreviewExamplesState] = useState({ loading: false, error: null as string | null });
   const [previewNuanceState, setPreviewNuanceState] = useState({ loading: false, error: null as string | null });
   const [previewRelatedState, setPreviewRelatedState] = useState({ loading: false, error: null as string | null });
+  // The definition the user picked (dictionary vs AI, see DefinitionChooser)
+  // for the not-yet-saved preview — App.tsx has no note/definition editor
+  // pre-save otherwise, so this is a standalone piece of state instead of
+  // reusing a textarea's value like Popup.tsx/VocabDetailModal do.
+  const [previewDefinition, setPreviewDefinition] = useState("");
+  const [previewAiDefinition, setPreviewAiDefinition] = useState<string | null>(null);
+  const [previewAiDefinitionState, setPreviewAiDefinitionState] = useState({
+    loading: false,
+    error: null as string | null,
+  });
+  const hasGroqKey = useHasGroqKey();
   const [syncing, setSyncing] = useState(false);
   const [view, setView] = useState<AppView>("list");
   const [bulkExtractOpen, setBulkExtractOpen] = useState(false);
@@ -147,8 +165,28 @@ export default function App() {
     setPreviewExamplesState({ loading: false, error: null });
     setPreviewNuanceState({ loading: false, error: null });
     setPreviewRelatedState({ loading: false, error: null });
+    setPreviewDefinition("");
+    setPreviewAiDefinition(null);
+    setPreviewAiDefinitionState({ loading: false, error: null });
     try {
-      setPreview(await window.api.vocab.preview(query.trim()));
+      const result = await window.api.vocab.preview(query.trim());
+      setPreview(result);
+      // Auto-fires right after the lookup lands, same moment the dictionary
+      // definition arrives — silently skipped without a Groq key, same
+      // convention as the disabled "Tạo với AI" buttons elsewhere.
+      if (hasGroqKey) {
+        setPreviewAiDefinitionState({ loading: true, error: null });
+        try {
+          const aiDefinition = await window.api.ai.previewDefinition(
+            result.result.sourceText,
+            result.result.targetMeanings,
+          );
+          setPreviewAiDefinition(aiDefinition);
+          setPreviewAiDefinitionState({ loading: false, error: null });
+        } catch (err) {
+          setPreviewAiDefinitionState({ loading: false, error: err instanceof Error ? err.message : String(err) });
+        }
+      }
     } catch (err) {
       toast.error(`Tra từ thất bại: ${err instanceof Error ? err.message : String(err)}`);
     } finally {
@@ -167,11 +205,26 @@ export default function App() {
     await runSearch(suggestion);
   }
 
+  async function handleGeneratePreviewAiDefinition() {
+    if (!preview) return;
+    setPreviewAiDefinitionState({ loading: true, error: null });
+    try {
+      setPreviewAiDefinition(
+        await window.api.ai.previewDefinition(preview.result.sourceText, preview.result.targetMeanings),
+      );
+      setPreviewAiDefinitionState({ loading: false, error: null });
+    } catch (err) {
+      setPreviewAiDefinitionState({ loading: false, error: err instanceof Error ? err.message : String(err) });
+    }
+  }
+
   async function handleGeneratePreviewExamples() {
     if (!preview) return;
     setPreviewExamplesState({ loading: true, error: null });
     try {
-      setPreviewAiExamples(await window.api.ai.previewExamples(preview.result.sourceText, preview.result.targetMeanings));
+      setPreviewAiExamples(
+        await window.api.ai.previewExamples(preview.result.sourceText, preview.result.targetMeanings, previewDefinition),
+      );
       setPreviewExamplesState({ loading: false, error: null });
     } catch (err) {
       setPreviewExamplesState({ loading: false, error: err instanceof Error ? err.message : String(err) });
@@ -182,7 +235,9 @@ export default function App() {
     if (!preview) return;
     setPreviewNuanceState({ loading: true, error: null });
     try {
-      setPreviewAiNuance(await window.api.ai.previewNuance(preview.result.sourceText, preview.result.targetMeanings));
+      setPreviewAiNuance(
+        await window.api.ai.previewNuance(preview.result.sourceText, preview.result.targetMeanings, previewDefinition),
+      );
       setPreviewNuanceState({ loading: false, error: null });
     } catch (err) {
       setPreviewNuanceState({ loading: false, error: err instanceof Error ? err.message : String(err) });
@@ -199,6 +254,7 @@ export default function App() {
           preview.result.sourceLang,
           preview.result.targetText,
           preview.result.targetLang,
+          previewDefinition,
         ),
       );
       setPreviewRelatedState({ loading: false, error: null });
@@ -219,6 +275,7 @@ export default function App() {
       if (previewAiExamples.length > 0) patch.aiExamples = previewAiExamples;
       if (previewAiNuance) patch.aiNuance = previewAiNuance;
       if (previewAiRelatedWords) patch.aiRelatedWords = previewAiRelatedWords;
+      if (previewDefinition.trim()) patch.definition = previewDefinition.trim();
       if (Object.keys(patch).length > 0) await window.api.vocab.update(saved.id, patch);
       setText("");
       setPreview(null);
@@ -289,16 +346,22 @@ export default function App() {
   if (authed === null) return null;
 
   const bySet = activeSet === null ? entries : entries.filter((e) => e.setId === activeSet);
+  const byDate = dateRange
+    ? bySet.filter((e) => {
+        const created = dayjs(e.createdAt);
+        return !created.isBefore(dateRange[0], "day") && !created.isAfter(dateRange[1], "day");
+      })
+    : bySet;
   const query = searchQuery.trim().toLowerCase();
   const visibleEntries = query
-    ? bySet.filter(
+    ? byDate.filter(
         (e) =>
           e.sourceText.toLowerCase().includes(query) ||
           e.targetText.toLowerCase().includes(query) ||
           (e.note ?? "").toLowerCase().includes(query) ||
           e.tags.some((tag) => tag.toLowerCase().includes(query)),
       )
-    : bySet;
+    : byDate;
   const setOptions = [
     { value: UNASSIGNED, label: "Chưa phân loại" },
     ...sets.map((s) => ({ value: s.id, label: s.name })),
@@ -430,6 +493,13 @@ export default function App() {
                 placeholder="Tìm trong từ đã lưu..."
                 style={{ marginTop: 16 }}
               />
+              <DatePicker.RangePicker
+                value={dateRange}
+                onChange={(range) => setDateRange(range && range[0] && range[1] ? [range[0], range[1]] : null)}
+                allowClear
+                style={{ marginTop: 8, width: "100%" }}
+                placeholder={["Từ ngày", "Đến ngày"]}
+              />
 
               {/* Everything below shares one scroll region — the preview
                   card can grow arbitrarily tall (long dictionary entries),
@@ -489,6 +559,17 @@ export default function App() {
                       </Button>
                     </Space>
                     {preview.dictionary && <DictionaryPanel dictionary={preview.dictionary} />}
+                    <ErrorBoundary key={`def-${previewSeq}`}>
+                      <DefinitionChooser
+                        dictionaryDefinition={firstDictionaryDefinition(preview.dictionary)}
+                        aiDefinition={previewAiDefinition}
+                        aiLoading={previewAiDefinitionState.loading}
+                        aiError={previewAiDefinitionState.error}
+                        onGenerateAi={handleGeneratePreviewAiDefinition}
+                        selectedText={previewDefinition}
+                        onSelect={setPreviewDefinition}
+                      />
+                    </ErrorBoundary>
                     {/* Scoped and keyed by previewSeq — a render error here
                         (e.g. malformed AI data) used to unmount the entire
                         App tree via main.tsx's single top-level

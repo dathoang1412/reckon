@@ -1,9 +1,9 @@
 import { randomUUID } from "node:crypto";
-import type { PrismaClient, VocabEntry } from "../../../generated/client";
-import type { AiExample, AiRelatedWords } from "./aiTypes";
+import type { PrismaClient, VocabEntry } from "../../../../generated/client";
+import type { AiExample, AiRelatedWords } from "../ai/aiTypes";
 import { lookupEnglishWord, type DictionaryInfo } from "./dictionary";
 import { translate, type TranslationResult } from "./translate";
-import { getTranslateDirection } from "../utils/settings";
+import { getTranslateDirection } from "../../utils/settings";
 
 export function listVocabEntries(prisma: PrismaClient): Promise<VocabEntry[]> {
   return prisma.vocabEntry.findMany({

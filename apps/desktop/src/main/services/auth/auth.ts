@@ -1,7 +1,7 @@
 import { authResponseSchema, userProfileSchema, type AuthResponse, type UpdateProfileRequest, type UserProfile } from "@reckon/shared";
-import { getSession, setSession } from "../utils/authSession";
+import { getSession, setSession } from "../../utils/authSession";
 import { getGoogleIdToken } from "./googleAuth";
-import { SERVER_PORT, waitForServerReady } from "./server";
+import { SERVER_PORT, waitForServerReady } from "../system/server";
 
 const SERVER_URL = `http://localhost:${SERVER_PORT}`;
 

@@ -5,7 +5,7 @@ import react from "@vitejs/plugin-react";
 // The main process build targets CommonJS (see tsconfig.node.json's
 // "module": "NodeNext"), where `import.meta.env` isn't valid syntax — so
 // build-time secrets (Google OAuth client id/secret, see
-// main/services/googleAuth.ts) get baked in as plain `process.env.*`
+// main/services/auth/googleAuth.ts) get baked in as plain `process.env.*`
 // string literals via `define` instead of electron-vite's usual
 // import.meta.env.MAIN_VITE_* mechanism, which only really works cleanly
 // for the renderer/ESM side.

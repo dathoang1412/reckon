@@ -9,19 +9,20 @@ import {
   explainNuance,
   generateExamples,
   generateQuizQuestion,
+  previewDefinition,
   previewExamples,
   previewNuance,
   previewRelatedWords,
   suggestRelatedWords,
   suggestTags,
   type ChatMessage,
-} from "../services/ai";
-import { getProfile, login, loginWithGoogle, signup, updateProfile } from "../services/auth";
+} from "../services/ai/ai";
+import { getProfile, login, loginWithGoogle, signup, updateProfile } from "../services/auth/auth";
 import { clearSession, getSession } from "../utils/authSession";
-import { lookupEnglishWord } from "../services/dictionary";
-import { chatJSON } from "../services/groq";
-import { getLogHistory } from "../services/log";
-import { listDueEntries, rateReview } from "../services/review";
+import { lookupEnglishWord } from "../services/vocab/dictionary";
+import { chatJSON } from "../services/ai/groq";
+import { getLogHistory } from "../services/system/log";
+import { listDueEntries, rateReview } from "../services/review/review";
 import {
   getAutoSave,
   getDarkMode,
@@ -41,9 +42,9 @@ import {
   setTranslateDirection,
   type TranslateDirection,
 } from "../utils/settings";
-import { runSync } from "../services/sync";
-import { synthesizeSpeech } from "../services/tts";
-import type { TranslationResult } from "../services/translate";
+import { runSync } from "../services/system/sync";
+import { synthesizeSpeech } from "../services/system/tts";
+import type { TranslationResult } from "../services/vocab/translate";
 import {
   deleteVocabEntry,
   listVocabEntries,
@@ -53,8 +54,8 @@ import {
   toVocabEntryRow,
   updateVocabEntry,
   type VocabEntryPatch,
-} from "../services/vocab";
-import { createVocabSet, deleteVocabSet, listVocabSets, renameVocabSet } from "../services/vocabSet";
+} from "../services/vocab/vocab";
+import { createVocabSet, deleteVocabSet, listVocabSets, renameVocabSet } from "../services/vocab/vocabSet";
 
 interface IpcHandlerDeps {
   // Actually (re-)registers the OS-level global shortcut — kept in the
@@ -148,10 +149,17 @@ export function registerIpcHandlers({
     return runSync(prisma, deviceId);
   });
 
-  ipcMain.handle("review:due", async (_event, limit?: number | null, setId?: string | null) => {
-    const entries = await listDueEntries(prisma, limit, setId);
-    return entries.map(toVocabEntryRow);
-  });
+  // from/to (ISO date strings): when set, review by a specific saved date
+  // instead of by what's due — see Review.tsx's date filter and
+  // listDueEntries's dateRange param for the bypass-the-due-gate behavior.
+  ipcMain.handle(
+    "review:due",
+    async (_event, limit?: number | null, setId?: string | null, from?: string, to?: string) => {
+      const dateRange = from || to ? { from: from ? new Date(from) : undefined, to: to ? new Date(to) : undefined } : undefined;
+      const entries = await listDueEntries(prisma, limit, setId, dateRange);
+      return entries.map(toVocabEntryRow);
+    },
+  );
 
   ipcMain.handle("review:rate", async (_event, vocabId: string, remembered: boolean) => {
     await rateReview(prisma, vocabId, remembered);
@@ -259,21 +267,43 @@ export function registerIpcHandlers({
   // Preview variants: same Groq prompts as the persisted ai:* handlers
   // above, but operate on raw text instead of a saved vocabId and don't
   // touch the database — used by the popup's AI tabs so they work before
-  // the word has been saved (see Popup.tsx).
-  ipcMain.handle("ai:previewExamples", async (_event, sourceText: string, meanings: string[]) => {
-    return previewExamples(sourceText, meanings);
-  });
+  // the word has been saved (see Popup.tsx). `definition`, when passed, is
+  // whichever of the dictionary/AI definitions the user picked (see
+  // DefinitionChooser.tsx) — grounds generation in that specific sense.
+  ipcMain.handle(
+    "ai:previewExamples",
+    async (_event, sourceText: string, meanings: string[], definition?: string | null) => {
+      return previewExamples(sourceText, meanings, definition);
+    },
+  );
 
-  ipcMain.handle("ai:previewNuance", async (_event, sourceText: string, meanings: string[]) => {
-    return previewNuance(sourceText, meanings);
-  });
+  ipcMain.handle(
+    "ai:previewNuance",
+    async (_event, sourceText: string, meanings: string[], definition?: string | null) => {
+      return previewNuance(sourceText, meanings, definition);
+    },
+  );
 
   ipcMain.handle(
     "ai:previewRelatedWords",
-    async (_event, sourceText: string, sourceLang: string, targetText: string, targetLang: string) => {
-      return previewRelatedWords(sourceText, sourceLang, targetText, targetLang);
+    async (
+      _event,
+      sourceText: string,
+      sourceLang: string,
+      targetText: string,
+      targetLang: string,
+      definition?: string | null,
+    ) => {
+      return previewRelatedWords(sourceText, sourceLang, targetText, targetLang, definition);
     },
   );
+
+  // AI-generated definition offered alongside the free-dictionary one right
+  // after a lookup (see DefinitionChooser.tsx) — preview-only, same
+  // reasoning as the other preview* handlers above.
+  ipcMain.handle("ai:previewDefinition", async (_event, sourceText: string, meanings: string[]) => {
+    return previewDefinition(sourceText, meanings);
+  });
 
   // Never persisted (see ai.ts's chatAboutWord) — works the same whether
   // the word is saved or still just a preview, so no vocabId here either.

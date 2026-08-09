@@ -1,4 +1,4 @@
-import type { TranslateDirection } from "../utils/settings";
+import type { TranslateDirection } from "../../utils/settings";
 
 export interface TranslationResult {
   sourceText: string;

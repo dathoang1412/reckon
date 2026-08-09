@@ -1,15 +1,28 @@
-import type { PrismaClient, VocabEntry } from "../../../generated/client";
+import type { PrismaClient, VocabEntry } from "../../../../generated/client";
 import type { AiExample, AiRelatedWords, GrammarCheckResult } from "./aiTypes";
 import { chat, chatJSON, type ChatMessage } from "./groq";
-import { parseTags, parseTargetMeanings, updateVocabEntry } from "./vocab";
+import { parseTags, parseTargetMeanings, updateVocabEntry } from "../vocab/vocab";
 
 function loadEntry(prisma: PrismaClient, vocabId: string): Promise<VocabEntry> {
   return prisma.vocabEntry.findUniqueOrThrow({ where: { id: vocabId } });
 }
 
+// Appended to a generation prompt's `user` message whenever the caller has
+// a specific picked definition in hand (see DefinitionChooser.tsx) — grounds
+// examples/usage/related-words in that one sense instead of the word's bare
+// translation meanings, which matters most for polysemous words ("bank" the
+// financial institution vs. "bank" the riverbank).
+function definitionContext(definition: string | null | undefined): string {
+  return definition ? ` Định nghĩa cụ thể đang xét: "${definition}".` : "";
+}
+
 // ---- Feature 1: example sentences ----
 
-async function examplesContent(sourceText: string, meanings: string[]): Promise<AiExample[]> {
+async function examplesContent(
+  sourceText: string,
+  meanings: string[],
+  definition?: string | null,
+): Promise<AiExample[]> {
   // response_format: json_object only guarantees syntactically valid JSON,
   // not that the model actually included the "examples" key (or that each
   // item has both fields) — same class of issue relatedWordsContent below
@@ -24,7 +37,7 @@ async function examplesContent(sourceText: string, meanings: string[]): Promise<
       `tiếng Anh kèm bản dịch tiếng Việt ngắn gọn ở "translation". Nếu là tiếng Việt thì câu ví dụ ` +
       `viết bằng tiếng Việt kèm bản dịch tiếng Anh. Chỉ trả về JSON: ` +
       `{"examples":[{"sentence":string,"translation":string}]}.`,
-    user: `Từ/cụm từ: "${sourceText}" — nghĩa: ${meanings.join(", ")}`,
+    user: `Từ/cụm từ: "${sourceText}" — nghĩa: ${meanings.join(", ")}.${definitionContext(definition)}`,
   });
   return (raw.examples ?? [])
     .filter((ex): ex is AiExample => !!ex?.sentence)
@@ -34,37 +47,62 @@ async function examplesContent(sourceText: string, meanings: string[]): Promise<
 
 // Not tied to a saved vocabId — used by the popup's AI tabs before the
 // word has been saved (see Popup.tsx), so nothing here touches Prisma.
-export function previewExamples(sourceText: string, meanings: string[]): Promise<AiExample[]> {
-  return examplesContent(sourceText, meanings);
+export function previewExamples(sourceText: string, meanings: string[], definition?: string | null): Promise<AiExample[]> {
+  return examplesContent(sourceText, meanings, definition);
 }
 
 export async function generateExamples(prisma: PrismaClient, deviceId: string, vocabId: string): Promise<VocabEntry> {
   const entry = await loadEntry(prisma, vocabId);
-  const examples = await examplesContent(entry.sourceText, parseTargetMeanings(entry));
+  const examples = await examplesContent(entry.sourceText, parseTargetMeanings(entry), entry.definition);
   return updateVocabEntry(prisma, deviceId, vocabId, { aiExamples: examples });
 }
 
-// ---- Feature 2: nuance/context explanation ----
+// ---- Feature 1b: AI-generated definition ----
+//
+// Offered alongside the free-dictionary definition right after a lookup
+// (see DefinitionChooser.tsx) so the user can pick whichever reads better —
+// unlike examples/nuance/relatedWords there's no dedicated persisted column
+// for this; whichever one gets picked (dictionary's or this) is written
+// into the existing VocabEntry.definition field the same way the old
+// "Định nghĩa riêng" textbox already worked, so this stays preview-only.
 
-async function nuanceContent(sourceText: string, meanings: string[]): Promise<string> {
+async function definitionContentFor(sourceText: string, meanings: string[]): Promise<string> {
+  const { definition } = await chatJSON<{ definition: string }>({
+    system:
+      `Bạn là từ điển. Với một từ/cụm từ, viết một định nghĩa ngắn gọn, rõ ràng bằng tiếng Việt ` +
+      `(1-2 câu). Nếu từ có nhiều nghĩa, ưu tiên nghĩa phổ biến nhất khớp với các nghĩa dịch cho ` +
+      `trước. Chỉ trả về JSON: {"definition": string}.`,
+    user: `Từ/cụm từ: "${sourceText}" — nghĩa dịch: ${meanings.join(", ")}`,
+  });
+  return definition;
+}
+
+export function previewDefinition(sourceText: string, meanings: string[]): Promise<string> {
+  return definitionContentFor(sourceText, meanings);
+}
+
+// ---- Feature 2: usage explanation (khi nào dùng) ----
+
+async function usageContent(sourceText: string, meanings: string[], definition?: string | null): Promise<string> {
   const { explanation } = await chatJSON<{ explanation: string }>({
     system:
       `Bạn là gia sư ngôn ngữ. Với một từ, cụm động từ hoặc thành ngữ, giải thích ngắn gọn ` +
-      `(3-5 câu, tiếng Việt): sắc thái nghĩa, mức độ trang trọng/thân mật, các từ dễ nhầm lẫn ` +
-      `(nếu có), và ngữ cảnh sử dụng phù hợp. Nếu là thành ngữ/cụm động từ, giải thích nghĩa bóng. ` +
+      `(3-5 câu, tiếng Việt) NÊN DÙNG TỪ NÀY KHI NÀO: những tình huống/ngữ cảnh phù hợp, mức độ ` +
+      `trang trọng/thân mật, các cụm từ/collocation hay đi kèm, và (nếu có) từ dễ nhầm lẫn nên ` +
+      `tránh dùng thay thế. Nếu là thành ngữ/cụm động từ, nêu rõ tình huống dùng nghĩa bóng. ` +
       `Chỉ trả về JSON: {"explanation": string}.`,
-    user: `Từ/cụm từ: "${sourceText}" — nghĩa: ${meanings.join(", ")}`,
+    user: `Từ/cụm từ: "${sourceText}" — nghĩa: ${meanings.join(", ")}.${definitionContext(definition)}`,
   });
   return explanation;
 }
 
-export function previewNuance(sourceText: string, meanings: string[]): Promise<string> {
-  return nuanceContent(sourceText, meanings);
+export function previewNuance(sourceText: string, meanings: string[], definition?: string | null): Promise<string> {
+  return usageContent(sourceText, meanings, definition);
 }
 
 export async function explainNuance(prisma: PrismaClient, deviceId: string, vocabId: string): Promise<VocabEntry> {
   const entry = await loadEntry(prisma, vocabId);
-  const explanation = await nuanceContent(entry.sourceText, parseTargetMeanings(entry));
+  const explanation = await usageContent(entry.sourceText, parseTargetMeanings(entry), entry.definition);
   return updateVocabEntry(prisma, deviceId, vocabId, { aiNuance: explanation });
 }
 
@@ -90,7 +128,7 @@ function sanitizeForms(list: unknown): { pos: string; word: string }[] {
     .map((item) => ({ pos: typeof item.pos === "string" ? item.pos : "", word: item.word as string }));
 }
 
-async function relatedWordsContent(englishWord: string): Promise<AiRelatedWords> {
+async function relatedWordsContent(englishWord: string, definition?: string | null): Promise<AiRelatedWords> {
   // response_format: json_object only guarantees syntactically valid JSON —
   // not that the model actually included every field it was asked for. A
   // word with no obvious antonym (e.g. "binding") can come back missing
@@ -101,8 +139,9 @@ async function relatedWordsContent(englishWord: string): Promise<AiRelatedWords>
     system:
       `Bạn là từ điển đồng nghĩa tiếng Anh. Với một từ, liệt kê tối đa 5 từ đồng nghĩa, ` +
       `tối đa 5 từ trái nghĩa, và các dạng từ loại liên quan (danh từ/động từ/tính từ/trạng từ). ` +
+      `Nếu từ có nhiều nghĩa, chỉ xét đúng nghĩa được cho (nếu có). ` +
       `Chỉ trả về JSON: {"synonyms":string[],"antonyms":string[],"forms":[{"pos":string,"word":string}]}.`,
-    user: `Từ: "${englishWord}"`,
+    user: `Từ: "${englishWord}"${definitionContext(definition)}`,
   });
   return {
     synonyms: sanitizeStringList(raw.synonyms, 5),
@@ -125,8 +164,9 @@ export function previewRelatedWords(
   sourceLang: string,
   targetText: string,
   targetLang: string,
+  definition?: string | null,
 ): Promise<AiRelatedWords> {
-  return relatedWordsContent(deriveEnglishWord(sourceText, sourceLang, targetText, targetLang));
+  return relatedWordsContent(deriveEnglishWord(sourceText, sourceLang, targetText, targetLang), definition);
 }
 
 export async function suggestRelatedWords(
@@ -136,7 +176,7 @@ export async function suggestRelatedWords(
 ): Promise<VocabEntry> {
   const entry = await loadEntry(prisma, vocabId);
   const englishWord = deriveEnglishWord(entry.sourceText, entry.sourceLang, entry.targetText, entry.targetLang);
-  const related = await relatedWordsContent(englishWord);
+  const related = await relatedWordsContent(englishWord, entry.definition);
   return updateVocabEntry(prisma, deviceId, vocabId, { aiRelatedWords: related });
 }
 

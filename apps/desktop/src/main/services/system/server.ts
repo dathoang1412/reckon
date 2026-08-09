@@ -58,7 +58,7 @@ function detectLevel(line: string, fromStderr: boolean): "info" | "warn" | "erro
 }
 
 // Line-buffers a child process stream into the shared log service (see
-// services/log.ts) instead of just `stdio: "inherit"` — inherit only ever
+// services/system/log.ts) instead of just `stdio: "inherit"` — inherit only ever
 // reached a terminal window happened to be attached to (dev mode), leaving
 // a packaged build's sync backend with nowhere for its logs to go at all.
 //

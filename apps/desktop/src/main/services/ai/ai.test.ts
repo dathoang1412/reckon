@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-vi.mock("../utils/settings", () => ({
+vi.mock("../../utils/settings", () => ({
   getGroqApiKey: () => "fake-key",
 }));
 

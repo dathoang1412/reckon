@@ -35,7 +35,7 @@ interface SettingsSchema {
   translateDirection: TranslateDirection;
   // How many due cards Review.tsx pulls per session — null means no cap
   // ("ôn hết của ngày đó", review everything currently due) instead of
-  // stopping after a fixed count. See services/review.ts's listDueEntries.
+  // stopping after a fixed count. See services/review/review.ts's listDueEntries.
   reviewLimit: number | null;
   // See renderer/src/theme.ts's getThemeConfig and index.html's CSS vars —
   // this is the one source of truth every window (main + popup) reads on

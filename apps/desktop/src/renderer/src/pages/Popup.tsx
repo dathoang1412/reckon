@@ -22,12 +22,14 @@ import type {
   VocabEntryRow,
   VocabSetRow,
 } from "../../../preload/index";
+import DefinitionChooser, { firstDictionaryDefinition } from "../components/DefinitionChooser";
 import DictionaryPanel from "../components/DictionaryPanel";
 import ErrorBoundary from "../components/ErrorBoundary";
 import TranslateDirectionToggle from "../components/TranslateDirectionToggle";
 import WordChat from "../components/WordChat";
 import { safeForms } from "../lib/aiRelatedWords";
 import { speak } from "../lib/speak";
+import { useHasGroqKey } from "../lib/useHasGroqKey";
 import { COLOR_PRIMARY, styleTokens } from "../theme";
 
 // Mirrors App.tsx's UNASSIGNED sentinel — antd's Select needs a real string
@@ -110,7 +112,7 @@ type AiFeature = "examples" | "nuance" | "related";
 const TAB_DEFS: { key: TabKey; icon: ReactNode; label: string }[] = [
   { key: "dict", icon: <TranslationOutlined />, label: "Dịch & từ điển" },
   { key: "examples", icon: <FileTextOutlined />, label: "Ví dụ câu" },
-  { key: "nuance", icon: <DiffOutlined />, label: "Sắc thái & ngữ cảnh" },
+  { key: "nuance", icon: <DiffOutlined />, label: "Khi nào dùng" },
   { key: "related", icon: <ApartmentOutlined />, label: "Từ liên quan" },
   { key: "chat", icon: <MessageOutlined />, label: "Hỏi AI" },
   // Browsing the saved list, not looking a specific word up — "dict" (the
@@ -162,6 +164,9 @@ function TranslationTab({
   onDefinitionChange,
   savingNote,
   onSaveNote,
+  aiDefinition,
+  aiDefinitionState,
+  onGenerateAiDefinition,
 }: {
   entry: DisplayEntry;
   dictionary: DictionaryInfo | null;
@@ -173,6 +178,9 @@ function TranslationTab({
   onDefinitionChange: (value: string) => void;
   savingNote: boolean;
   onSaveNote: () => void;
+  aiDefinition: string | null;
+  aiDefinitionState: { loading: boolean; error: string | null };
+  onGenerateAiDefinition: () => void;
 }) {
   return (
     <>
@@ -219,6 +227,16 @@ function TranslationTab({
       )}
 
       {dictionary && <DictionaryPanel dictionary={dictionary} />}
+
+      <DefinitionChooser
+        dictionaryDefinition={firstDictionaryDefinition(dictionary)}
+        aiDefinition={aiDefinition}
+        aiLoading={aiDefinitionState.loading}
+        aiError={aiDefinitionState.error}
+        onGenerateAi={onGenerateAiDefinition}
+        selectedText={definition}
+        onSelect={onDefinitionChange}
+      />
 
       {/* Mirrors VocabDetailModal's Ghi chú/Định nghĩa riêng section — only
           usable once the word has a saved row (entry.id) to persist onto;
@@ -321,6 +339,16 @@ export default function Popup() {
     related: { loading: false, error: null },
   });
 
+  // AI-generated definition offered alongside the dictionary one (see
+  // DefinitionChooser) — auto-generated right after a lookup, not tied to
+  // aiStatus above since it's not one of the tab-gated AiFeature generations.
+  const [aiDefinition, setAiDefinition] = useState<string | null>(null);
+  const [aiDefinitionState, setAiDefinitionState] = useState<{ loading: boolean; error: string | null }>({
+    loading: false,
+    error: null,
+  });
+  const hasGroqKey = useHasGroqKey();
+
   // Ghi chú/Định nghĩa riêng on the "dict" tab, mirroring VocabDetailModal —
   // kept as separate editable state (not read straight off entry.note) so
   // typing doesn't require a round-trip through the DB on every keystroke.
@@ -413,6 +441,35 @@ export default function Popup() {
     setDefinition(entry?.definition ?? "");
   }, [entry?.id]);
 
+  // Identifies "this looked-up word" stably across entry-object updates
+  // that don't actually change the word (e.g. an AI tab finishing a
+  // generate call replaces the entry object but keeps id/sourceText/
+  // targetText the same) — entry?.id alone can't do this for not-yet-saved
+  // previews, since every preview has id null regardless of which word it is.
+  const entryKey = entry ? `${entry.id ?? ""}|${entry.sourceText}|${entry.targetText}` : null;
+
+  async function generateAiDefinition(sourceText: string, meanings: string[]) {
+    setAiDefinitionState({ loading: true, error: null });
+    try {
+      const result = await window.api.ai.previewDefinition(sourceText, meanings);
+      setAiDefinition(result);
+      setAiDefinitionState({ loading: false, error: null });
+    } catch (err) {
+      setAiDefinitionState({ loading: false, error: errorMessage(err) });
+    }
+  }
+
+  // Auto-fires right after a fresh lookup lands (see DefinitionChooser) so
+  // the AI definition is available the moment the dictionary one is —
+  // silently skipped without a Groq key, same convention as the disabled
+  // "Tạo với AI" buttons elsewhere (see AiSection.tsx).
+  useEffect(() => {
+    setAiDefinition(null);
+    setAiDefinitionState({ loading: false, error: null });
+    if (!entry || hasGroqKey !== true) return;
+    generateAiDefinition(entry.sourceText, entry.targetMeanings);
+  }, [entryKey, hasGroqKey]);
+
   // Escape dismisses the popup. The window already hides on blur, but a
   // keyboard-only escape hatch matters here specifically because it's a
   // keyboard-triggered popup in the first place.
@@ -445,7 +502,20 @@ export default function Popup() {
     const el = contentRef.current;
     if (!el) return;
     window.api.popup.resize({ width: el.scrollWidth, height: el.scrollHeight });
-  }, [entry, dictionary, spellingSuggestion, searchMode, searchOpenSeq, activeTab, aiStatus, note, definition, grammarResult]);
+  }, [
+    entry,
+    dictionary,
+    spellingSuggestion,
+    searchMode,
+    searchOpenSeq,
+    activeTab,
+    aiStatus,
+    note,
+    definition,
+    aiDefinition,
+    aiDefinitionState,
+    grammarResult,
+  ]);
 
   async function runPreview(text: string) {
     setSearching(true);
@@ -503,13 +573,15 @@ export default function Popup() {
       if (selectedSetId !== UNASSIGNED) {
         finalRow = await window.api.vocab.setSet(finalRow.id, selectedSetId);
       }
-      // Carry over whatever AI content the tabs already generated while
-      // this was still just a preview — otherwise saving would silently
-      // throw away Groq calls the user already paid the latency for.
+      // Carry over whatever AI content the tabs already generated (and any
+      // definition already picked via DefinitionChooser) while this was
+      // still just a preview — otherwise saving would silently throw away
+      // Groq calls the user already paid the latency for.
       const patch: VocabEntryPatch = {};
       if (entry.aiExamples.length > 0) patch.aiExamples = entry.aiExamples;
       if (entry.aiNuance) patch.aiNuance = entry.aiNuance;
       if (entry.aiRelatedWords) patch.aiRelatedWords = entry.aiRelatedWords;
+      if (definition.trim()) patch.definition = definition.trim();
       if (Object.keys(patch).length > 0) finalRow = await window.api.vocab.update(finalRow.id, patch);
       setEntry(fromVocabEntryRow(finalRow));
       toast.success("Đã lưu");
@@ -550,10 +622,10 @@ export default function Popup() {
             : window.api.ai.suggestRelatedWords(id));
         setEntry(fromVocabEntryRow(updated));
       } else if (feature === "examples") {
-        const aiExamples = await window.api.ai.previewExamples(entry.sourceText, entry.targetMeanings);
+        const aiExamples = await window.api.ai.previewExamples(entry.sourceText, entry.targetMeanings, definition);
         setEntry((prev) => prev && { ...prev, aiExamples });
       } else if (feature === "nuance") {
-        const aiNuance = await window.api.ai.previewNuance(entry.sourceText, entry.targetMeanings);
+        const aiNuance = await window.api.ai.previewNuance(entry.sourceText, entry.targetMeanings, definition);
         setEntry((prev) => prev && { ...prev, aiNuance });
       } else {
         const aiRelatedWords = await window.api.ai.previewRelatedWords(
@@ -561,6 +633,7 @@ export default function Popup() {
           entry.sourceLang,
           entry.targetText,
           entry.targetLang,
+          definition,
         );
         setEntry((prev) => prev && { ...prev, aiRelatedWords });
       }
@@ -712,6 +785,11 @@ export default function Popup() {
                 onDefinitionChange={setDefinition}
                 savingNote={savingNote}
                 onSaveNote={handleSaveNote}
+                aiDefinition={aiDefinition}
+                aiDefinitionState={aiDefinitionState}
+                onGenerateAiDefinition={() =>
+                  entry && generateAiDefinition(entry.sourceText, entry.targetMeanings)
+                }
               />
             )}
 

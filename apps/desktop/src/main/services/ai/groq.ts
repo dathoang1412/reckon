@@ -1,4 +1,4 @@
-import { getGroqApiKey } from "../utils/settings";
+import { getGroqApiKey } from "../../utils/settings";
 
 const GROQ_URL = "https://api.groq.com/openai/v1/chat/completions";
 // Good quality/speed balance for the short, structured completions every

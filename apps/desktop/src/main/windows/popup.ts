@@ -1,8 +1,8 @@
 import { app, BrowserWindow, ipcMain, screen } from "electron";
 import path from "node:path";
-import type { GrammarCheckResult } from "../services/aiTypes";
-import type { DictionaryInfo } from "../services/dictionary";
-import type { TranslationResult } from "../services/translate";
+import type { GrammarCheckResult } from "../services/ai/aiTypes";
+import type { DictionaryInfo } from "../services/vocab/dictionary";
+import type { TranslationResult } from "../services/vocab/translate";
 
 interface VocabPreviewPayload {
   result: TranslationResult;

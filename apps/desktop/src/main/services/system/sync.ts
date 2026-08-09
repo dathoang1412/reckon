@@ -5,10 +5,10 @@ import {
   type SyncChange,
   type SyncPullResponse,
 } from "@reckon/shared";
-import type { PrismaClient, VocabEntry, VocabSet } from "../../../generated/client";
-import { getSession } from "../utils/authSession";
+import type { PrismaClient, VocabEntry, VocabSet } from "../../../../generated/client";
+import { getSession } from "../../utils/authSession";
 import { SERVER_PORT, waitForServerReady } from "./server";
-import { parseAiExamples, parseAiRelatedWords, parseTags, parseTargetMeanings } from "./vocab";
+import { parseAiExamples, parseAiRelatedWords, parseTags, parseTargetMeanings } from "../vocab/vocab";
 
 const SERVER_URL = `http://localhost:${SERVER_PORT}`;
 

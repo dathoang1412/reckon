@@ -6,7 +6,7 @@ import { COLOR_PRIMARY } from "../theme";
 
 // Login is opt-in, not a gate the whole app sits behind — everything here
 // works entirely offline against the local SQLite database (see
-// main/services/vocab.ts and friends), so there's nothing to require an
+// main/services/vocab/vocab.ts and friends), so there's nothing to require an
 // account for. This modal only ever pops up when something that actually
 // needs the shared account (right now: Sync, and the profile section in
 // Settings) is used without one — see App.tsx/Settings.tsx.
@@ -44,7 +44,7 @@ export default function LoginModal({
     try {
       // Opens the system browser (not an in-app window — Google blocks
       // OAuth inside embedded webviews) and waits for that flow to finish;
-      // see main/services/googleAuth.ts.
+      // see main/services/auth/googleAuth.ts.
       await window.api.auth.loginWithGoogle();
       onSuccess();
     } catch (err) {

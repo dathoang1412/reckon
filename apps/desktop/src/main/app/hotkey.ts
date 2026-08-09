@@ -1,8 +1,8 @@
 import { BrowserWindow, globalShortcut, screen } from "electron";
 import { getPrisma } from "../db/client";
-import { checkGrammar } from "../services/ai";
-import { logError } from "../services/log";
-import { previewVocab, saveVocab, toVocabEntryRow } from "../services/vocab";
+import { checkGrammar } from "../services/ai/ai";
+import { logError } from "../services/system/log";
+import { previewVocab, saveVocab, toVocabEntryRow } from "../services/vocab/vocab";
 import { getDeviceId } from "../utils/deviceId";
 import { getAutoSave } from "../utils/settings";
 import { readSelectedText } from "../utils/selection";
@@ -13,7 +13,7 @@ export interface HotkeyManager {
 }
 
 // Login is opt-in (see components/LoginModal.tsx), not required to use the
-// app — this lookup/save is entirely local (SQLite via services/vocab.ts),
+// app — this lookup/save is entirely local (SQLite via services/vocab/vocab.ts),
 // no account needed. Only Sync and the profile section in Settings ever
 // touch the shared server.
 async function onHotkeyTriggered(getMainWindow: () => BrowserWindow | null): Promise<void> {

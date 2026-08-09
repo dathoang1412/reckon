@@ -83,7 +83,7 @@ export default function AiWordEnrichment({
 
       <AiSection
         icon={<DiffOutlined />}
-        title="Sắc thái & ngữ cảnh"
+        title="Khi nào dùng"
         hasContent={!!aiNuance}
         loading={nuanceState.loading}
         error={nuanceState.error}

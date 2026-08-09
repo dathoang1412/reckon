@@ -4,6 +4,7 @@ import { Button, Input, Modal, Select, Space, Spin, Tag, Tooltip, Typography } f
 import toast from "react-hot-toast";
 import type { DictionaryInfo, TagSuggestion, VocabEntryRow } from "../../../preload/index";
 import AiWordEnrichment from "./AiWordEnrichment";
+import DefinitionChooser, { firstDictionaryDefinition } from "./DefinitionChooser";
 import DictionaryPanel from "./DictionaryPanel";
 import WordChat from "./WordChat";
 import { dayLabel, timeLabel } from "../lib/date";
@@ -42,6 +43,13 @@ export default function VocabDetailModal({
   const [relatedLoading, setRelatedLoading] = useState(false);
   const [relatedError, setRelatedError] = useState<string | null>(null);
 
+  // AI-generated definition offered alongside the dictionary one (see
+  // DefinitionChooser) — manual-trigger here (unlike Popup.tsx's dict tab),
+  // matching how every other AI section in this modal already works.
+  const [aiDefinition, setAiDefinition] = useState<string | null>(null);
+  const [aiDefinitionLoading, setAiDefinitionLoading] = useState(false);
+  const [aiDefinitionError, setAiDefinitionError] = useState<string | null>(null);
+
   // Fetched on demand rather than stored on the entry — the dictionary
   // data can always be re-fetched fresh, so there's no need to widen the
   // synced schema just to cache it.
@@ -70,7 +78,22 @@ export default function VocabDetailModal({
     setExamplesError(null);
     setNuanceError(null);
     setRelatedError(null);
+    setAiDefinition(null);
+    setAiDefinitionError(null);
   }, [entry?.id]);
+
+  async function handleGenerateAiDefinition() {
+    if (!entry) return;
+    setAiDefinitionLoading(true);
+    setAiDefinitionError(null);
+    try {
+      setAiDefinition(await window.api.ai.previewDefinition(entry.sourceText, entry.targetMeanings));
+    } catch (err) {
+      setAiDefinitionError(errorMessage(err));
+    } finally {
+      setAiDefinitionLoading(false);
+    }
+  }
 
   async function handleSaveEdit() {
     if (!entry) return;
@@ -224,6 +247,16 @@ export default function VocabDetailModal({
 
             {loading && <Spin style={{ display: "block", margin: "16px 0" }} />}
             {dictionary && <DictionaryPanel dictionary={dictionary} />}
+
+            <DefinitionChooser
+              dictionaryDefinition={firstDictionaryDefinition(dictionary)}
+              aiDefinition={aiDefinition}
+              aiLoading={aiDefinitionLoading}
+              aiError={aiDefinitionError}
+              onGenerateAi={handleGenerateAiDefinition}
+              selectedText={definition}
+              onSelect={setDefinition}
+            />
 
             <div
               style={{

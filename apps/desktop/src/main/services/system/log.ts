@@ -3,7 +3,7 @@ import chalk from "chalk";
 
 export type LogLevel = "info" | "warn" | "error";
 // "app" is this Electron process itself (main-process console output);
-// "server" is the spawned NestJS sync backend (see services/server.ts),
+// "server" is the spawned NestJS sync backend (see services/system/server.ts),
 // which otherwise has nowhere to show its logs in a packaged build — no
 // terminal is attached once the app isn't launched from one.
 export type LogSource = "app" | "server";

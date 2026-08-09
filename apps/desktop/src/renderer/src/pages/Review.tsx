@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { CheckOutlined, CloseOutlined, SoundOutlined } from "@ant-design/icons";
-import { Button, Card, Empty, Progress, Segmented, Select, Skeleton, Space, Tag, Typography } from "antd";
+import { Button, Card, DatePicker, Empty, Progress, Segmented, Select, Skeleton, Space, Tag, Typography } from "antd";
+import type { Dayjs } from "dayjs";
 import type { DueEntryRow, QuizQuestion, VocabSetRow } from "../../../preload/index";
 import { speak } from "../lib/speak";
 
@@ -32,6 +33,11 @@ export default function Review() {
   // same reasoning as Popup.tsx's searchOpenSeq comment: don't fire the
   // due-queue fetch below with a wrong default before the real value lands.
   const [limit, setLimit] = useState<number | null | undefined>(undefined);
+  // A specific day to review instead of what's due — see review.ts's
+  // listDueEntries: setting this bypasses the due-gate entirely and shows
+  // every word saved that day, so picking e.g. "hôm qua" always has
+  // something to drill even if none of it is due for SRS review yet.
+  const [reviewDate, setReviewDate] = useState<Dayjs | null>(null);
 
   const [mode, setMode] = useState<ReviewMode>("flashcard");
 
@@ -50,11 +56,13 @@ export default function Review() {
   useEffect(() => {
     if (limit === undefined) return;
     setQueue(null);
-    window.api.review.due(limit, setId ?? undefined).then((due) => {
+    const from = reviewDate?.startOf("day").toISOString();
+    const to = reviewDate?.endOf("day").toISOString();
+    window.api.review.due(limit, setId ?? undefined, from, to).then((due) => {
       setQueue(due);
       setTotal(due.length);
     });
-  }, [setId, limit]);
+  }, [setId, limit, reviewDate]);
 
   function handleLimitChange(value: string) {
     const next = value === NO_LIMIT ? null : Number(value);
@@ -111,23 +119,36 @@ export default function Review() {
   }
 
   const filtersRow = (
-    <Space.Compact style={{ width: "100%", marginBottom: 16 }}>
-      <Select
-        value={setId ?? ALL_SETS}
-        onChange={(value) => setSetId(value === ALL_SETS ? null : value)}
-        style={{ width: "60%" }}
-        options={[{ value: ALL_SETS, label: "Tất cả bộ từ" }, ...sets.map((s) => ({ value: s.id, label: s.name }))]}
+    <>
+      <Space.Compact style={{ width: "100%", marginBottom: 8 }}>
+        <Select
+          value={setId ?? ALL_SETS}
+          onChange={(value) => setSetId(value === ALL_SETS ? null : value)}
+          style={{ width: "60%" }}
+          options={[{ value: ALL_SETS, label: "Tất cả bộ từ" }, ...sets.map((s) => ({ value: s.id, label: s.name }))]}
+        />
+        <Select
+          value={limit === null ? NO_LIMIT : String(limit ?? 20)}
+          onChange={handleLimitChange}
+          style={{ width: "40%" }}
+          options={[
+            ...LIMIT_OPTIONS.map((n) => ({ value: String(n), label: `${n} từ` })),
+            { value: NO_LIMIT, label: "Ôn hết hôm nay" },
+          ]}
+        />
+      </Space.Compact>
+      {/* Picking a day reviews everything saved that day regardless of SRS
+          due date (see listDueEntries's dateRange bypass) — an ad-hoc study
+          session rather than the normal due-queue, so the word-limit select
+          above is disabled while it's active. */}
+      <DatePicker
+        value={reviewDate}
+        onChange={setReviewDate}
+        allowClear
+        style={{ width: "100%", marginBottom: 16 }}
+        placeholder="Ôn theo ngày (thay vì đến hạn)"
       />
-      <Select
-        value={limit === null ? NO_LIMIT : String(limit ?? 20)}
-        onChange={handleLimitChange}
-        style={{ width: "40%" }}
-        options={[
-          ...LIMIT_OPTIONS.map((n) => ({ value: String(n), label: `${n} từ` })),
-          { value: NO_LIMIT, label: "Ôn hết hôm nay" },
-        ]}
-      />
-    </Space.Compact>
+    </>
   );
 
   const modeSelector = (
