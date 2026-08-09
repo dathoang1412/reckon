@@ -12,6 +12,10 @@ spaced repetition — before you forget it for good.
 It works fully offline for your own word list, and syncs across every
 machine you install it on when you're online.
 
+## Demo
+
+[![Watch the demo](https://img.youtube.com/vi/ecgWZwLxcyA/maxresdefault.jpg)](https://youtu.be/ecgWZwLxcyA)
+
 ## Why this exists
 
 Looking up a word usually means: alt-tab to a browser, open a new tab, type
