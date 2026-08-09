@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import {
   DeleteOutlined,
   ImportOutlined,
@@ -8,7 +8,6 @@ import {
   ThunderboltOutlined,
 } from "@ant-design/icons";
 import { Button, DatePicker, Empty, Image, Input, List, Modal, Select, Space, Tag, Typography } from "antd";
-import type { InputRef } from "antd";
 import dayjs, { type Dayjs } from "dayjs";
 import toast from "react-hot-toast";
 import type {
@@ -55,7 +54,6 @@ export default function App() {
   // close-then-reopen of the very same word.
   const [detailOpenSeq, setDetailOpenSeq] = useState(0);
   const [searchQuery, setSearchQuery] = useState("");
-  const searchInputRef = useRef<InputRef>(null);
   // Filters the saved list down to entries saved within this day range —
   // null means no filter (show everything), same "null = no cap" convention
   // used elsewhere in this file (see previewDefinition/limit comments).
@@ -191,14 +189,14 @@ export default function App() {
     });
   }, []);
 
-  // Ctrl+F (Cmd+F on mac) jumps straight to the saved-list filter box
-  // instead of doing nothing (Electron doesn't wire up a native find bar
-  // here), mirroring the browser shortcut users already reach for.
+  // Ctrl+F (Cmd+F on mac) opens the "Tra từ mới" lookup modal instead of
+  // doing nothing (Electron doesn't wire up a native find bar here),
+  // mirroring the browser shortcut users already reach for.
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "f") {
         e.preventDefault();
-        searchInputRef.current?.focus();
+        handleOpenSearchModal();
       }
     }
     window.addEventListener("keydown", onKeyDown);
@@ -582,11 +580,10 @@ export default function App() {
                   own purpose once the list is long. */}
               <div style={{ display: "flex", gap: 8, marginTop: 16 }}>
                 <Input.Search
-                  ref={searchInputRef}
                   allowClear
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="Tìm trong từ đã lưu... (Ctrl+F)"
+                  placeholder="Tìm trong từ đã lưu..."
                   style={{ flex: "0 1 65%" }}
                 />
                 <DatePicker.RangePicker
