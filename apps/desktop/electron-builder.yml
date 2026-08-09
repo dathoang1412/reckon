@@ -11,12 +11,14 @@ publish:
   provider: github
   owner: dathoang1412
   repo: reckon
-  # electron-builder defaults to creating a DRAFT release, invisible to
-  # both regular users browsing Releases and to electron-updater's GitHub
-  # provider (it only ever looks at published releases) — every prior
-  # release published fine because the old softprops/action-gh-release
-  # step did the actual publishing, not electron-builder itself.
-  releaseType: release
+  # Deliberately left as a draft here (electron-builder's default) instead
+  # of "release": un-drafting immediately makes the release + its assets
+  # visible to electron-updater, but electron-builder uploads assets one at
+  # a time (installer first, latest.yml last) — a user whose app happens to
+  # check for updates in that gap gets a 404 fetching latest.yml. The
+  # release.yml workflow's "Publish release" step un-drafts explicitly,
+  # after every asset (and the release notes) has finished uploading.
+  releaseType: draft
 files:
   - out/**/*
   - generated/**/*
