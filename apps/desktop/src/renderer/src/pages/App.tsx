@@ -1,6 +1,13 @@
 import { useEffect, useState } from "react";
-import { DeleteOutlined, ImportOutlined, PictureOutlined, SoundOutlined, ThunderboltOutlined } from "@ant-design/icons";
-import { Button, Card, DatePicker, Empty, Image, Input, List, Select, Space, Tag, Typography } from "antd";
+import {
+  DeleteOutlined,
+  ImportOutlined,
+  PictureOutlined,
+  SearchOutlined,
+  SoundOutlined,
+  ThunderboltOutlined,
+} from "@ant-design/icons";
+import { Button, DatePicker, Empty, Image, Input, List, Modal, Select, Space, Tag, Typography } from "antd";
 import dayjs, { type Dayjs } from "dayjs";
 import toast from "react-hot-toast";
 import type {
@@ -55,6 +62,12 @@ export default function App() {
   const [looking, setLooking] = useState(false);
   const [saving, setSaving] = useState(false);
   const [preview, setPreview] = useState<VocabPreview | null>(null);
+  // Look-up now lives in an overlay instead of inline above the saved list
+  // (see the "Tra từ mới" trigger button below) — open while typing a
+  // search, then transitions in place to show the result (still `preview`)
+  // once one comes back, so editing note/definition/image/tags happens in
+  // the same focused surface VocabDetailModal already uses for saved words.
+  const [searchModalOpen, setSearchModalOpen] = useState(false);
   // Bumped on every runSearch call — keys the ErrorBoundary around the
   // preview card's AI section (see previewSeq usage below) so re-searching
   // the same word after a crash remounts and self-heals instead of leaving
@@ -224,6 +237,18 @@ export default function App() {
     await runSearch(text);
   }
 
+  function handleOpenSearchModal() {
+    setSearchModalOpen(true);
+  }
+
+  // Resets back to the blank search step so reopening never shows a stale
+  // result from whatever was last looked up.
+  function handleCloseSearchModal() {
+    setSearchModalOpen(false);
+    setText("");
+    setPreview(null);
+  }
+
   // "Ý bạn là ...?" — re-runs the lookup with Google's spelling correction
   // instead of what was actually typed (see preview.spellingSuggestion).
   async function handleUseSpellingSuggestion(suggestion: string) {
@@ -346,6 +371,7 @@ export default function App() {
       if (Object.keys(patch).length > 0) await window.api.vocab.update(saved.id, patch);
       setText("");
       setPreview(null);
+      setSearchModalOpen(false);
       await refresh();
       toast.success("Đã lưu");
     } catch (err) {
@@ -526,242 +552,40 @@ export default function App() {
                 Copy a word anywhere, press the hotkey — or look one up here.
               </Typography.Paragraph>
 
-              <Space.Compact style={{ width: "100%", marginTop: 16 }}>
-                <Input
-                  value={text}
-                  onChange={(e) => setText(e.target.value)}
-                  onPressEnter={handleSearch}
-                  placeholder="Look up a word or phrase"
-                />
-                <Button type="primary" loading={looking} onClick={handleSearch}>
-                  Look up
+              <Space style={{ marginTop: 16 }}>
+                <Button type="primary" icon={<SearchOutlined />} onClick={handleOpenSearchModal}>
+                  Tra từ mới
                 </Button>
-              </Space.Compact>
-              <div style={{ marginTop: 8 }}>
-                <TranslateDirectionToggle size="small" />
-              </div>
-              <Button
-                type="dashed"
-                size="small"
-                icon={<ImportOutlined />}
-                onClick={() => setBulkExtractOpen(true)}
-                style={{ marginTop: 8, alignSelf: "flex-end" }}
-              >
-                Trích xuất từ đoạn văn
-              </Button>
+                <Button icon={<ImportOutlined />} onClick={() => setBulkExtractOpen(true)}>
+                  Trích xuất từ đoạn văn
+                </Button>
+              </Space>
 
               {/* Pinned above the scroll region below, not inside it — a
                   search box you have to scroll back up to reach defeats its
                   own purpose once the list is long. */}
-              <Input.Search
-                allowClear
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Tìm trong từ đã lưu..."
-                style={{ marginTop: 16 }}
-              />
-              <DatePicker.RangePicker
-                value={dateRange}
-                onChange={(range) => setDateRange(range && range[0] && range[1] ? [range[0], range[1]] : null)}
-                allowClear
-                style={{ marginTop: 8, width: "100%" }}
-                placeholder={["Từ ngày", "Đến ngày"]}
-              />
+              <div style={{ display: "flex", gap: 8, marginTop: 16 }}>
+                <Input.Search
+                  allowClear
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="Tìm trong từ đã lưu..."
+                  style={{ flex: "0 1 65%" }}
+                />
+                <DatePicker.RangePicker
+                  value={dateRange}
+                  onChange={(range) => setDateRange(range && range[0] && range[1] ? [range[0], range[1]] : null)}
+                  allowClear
+                  style={{ flex: "0 1 35%" }}
+                  placeholder={["Từ ngày", "Đến ngày"]}
+                />
+              </div>
 
-              {/* Everything below shares one scroll region — the preview
-                  card can grow arbitrarily tall (long dictionary entries),
-                  and without this it could push the entries list past the
-                  window's bottom edge with no way to reach it, since only
-                  this region (not the whole window) scrolls. */}
+              {/* Every saved word shares one scroll region — see the search
+                  Modal (rendered at the end of this component) for the
+                  not-yet-saved lookup/preview flow, which used to live
+                  inline here instead. */}
               <div style={{ flex: 1, minHeight: 0, overflowY: "auto", marginTop: 16 }}>
-                {preview && (
-                  <Card size="small" style={{ marginBottom: 16 }}>
-                    {preview.spellingSuggestion && (
-                      <Typography.Paragraph type="secondary" style={{ marginTop: 0, marginBottom: 12 }}>
-                        Ý bạn là:{" "}
-                        <Typography.Link onClick={() => handleUseSpellingSuggestion(preview.spellingSuggestion!)}>
-                          {preview.spellingSuggestion}
-                        </Typography.Link>
-                        ?
-                      </Typography.Paragraph>
-                    )}
-                    <Space align="start" style={{ width: "100%", justifyContent: "space-between" }}>
-                      <Space direction="vertical" size={4}>
-                        <span>
-                          <Tag color="blue">{preview.result.sourceLang}</Tag>
-                          {preview.result.sourceText}
-                          {preview.result.sourceLang !== "vi" && (
-                            <Button
-                              type="text"
-                              size="small"
-                              icon={<SoundOutlined />}
-                              onClick={() => speak(preview.result.sourceText, preview.result.sourceLang)}
-                            />
-                          )}
-                        </span>
-                        <span>
-                          <Tag color="green">{preview.result.targetLang}</Tag>
-                          {preview.result.targetText}
-                          {preview.result.targetLang !== "vi" && (
-                            <Button
-                              type="text"
-                              size="small"
-                              icon={<SoundOutlined />}
-                              onClick={() => speak(preview.result.targetText, preview.result.targetLang)}
-                            />
-                          )}
-                        </span>
-                        {preview.result.targetMeanings.length > 1 && (
-                          <Space size={[4, 4]} wrap>
-                            {preview.result.targetMeanings.slice(1).map((meaning) => (
-                              <Tag key={meaning} color="default">
-                                {meaning}
-                              </Tag>
-                            ))}
-                          </Space>
-                        )}
-                      </Space>
-                      <Button type="primary" loading={saving} onClick={handleSavePreview}>
-                        Lưu
-                      </Button>
-                    </Space>
-                    {preview.dictionary && <DictionaryPanel dictionary={preview.dictionary} />}
-                    <ErrorBoundary key={`def-${previewSeq}`}>
-                      <DefinitionChooser
-                        dictionaryDefinition={firstDictionaryDefinition(preview.dictionary)}
-                        aiDefinition={previewAiDefinition}
-                        aiLoading={previewAiDefinitionState.loading}
-                        aiError={previewAiDefinitionState.error}
-                        onGenerateAi={handleGeneratePreviewAiDefinition}
-                        selectedText={previewDefinition}
-                        onSelect={setPreviewDefinition}
-                      />
-                    </ErrorBoundary>
-
-                    {/* Available on the not-yet-saved preview, same as
-                        DefinitionChooser above — the picked image rides
-                        along in handleSavePreview()'s patch. */}
-                    <div
-                      style={{
-                        marginTop: 16,
-                        borderTop: `1px solid ${styleTokens.borderColorLight}`,
-                        paddingTop: 12,
-                      }}
-                    >
-                      <Space align="center" style={{ width: "100%", justifyContent: "space-between" }}>
-                        <Typography.Text strong>Ảnh minh họa</Typography.Text>
-                        <Button
-                          type="link"
-                          size="small"
-                          icon={<ThunderboltOutlined />}
-                          loading={previewImageSearching}
-                          onClick={handleSearchPreviewImages}
-                        >
-                          Tìm ảnh bằng AI
-                        </Button>
-                      </Space>
-                      {previewImageUrl && (
-                        <div style={{ marginTop: 4 }}>
-                          <div style={{ display: "flex", alignItems: "flex-start", gap: 8 }}>
-                            <Image
-                              src={previewImageUrl}
-                              alt=""
-                              width={80}
-                              height={80}
-                              style={{ objectFit: "cover", borderRadius: 6 }}
-                            />
-                            <Button
-                              type="text"
-                              size="small"
-                              danger
-                              icon={<DeleteOutlined />}
-                              onClick={handleClearPreviewImage}
-                            >
-                              Xóa ảnh
-                            </Button>
-                          </div>
-                          {previewImageCredit && (
-                            <Typography.Text type="secondary" style={{ display: "block", fontSize: 11, marginTop: 4 }}>
-                              Ảnh từ bài{" "}
-                              <Typography.Link href={previewImageCreditUrl ?? undefined} target="_blank">
-                                {previewImageCredit}
-                              </Typography.Link>{" "}
-                              trên Wikipedia
-                            </Typography.Text>
-                          )}
-                        </div>
-                      )}
-                      <Input
-                        value={previewImageUrl}
-                        onChange={(e) => handlePreviewImageUrlChange(e.target.value)}
-                        placeholder="Dán URL ảnh, hoặc bấm Tìm ảnh bằng AI ở trên..."
-                        prefix={<PictureOutlined style={{ color: styleTokens.borderColorLight }} />}
-                        style={{ marginTop: 4 }}
-                      />
-                      {previewImageCandidates && (
-                        <div style={{ marginTop: 8 }}>
-                          {previewImageCandidates.length === 0 ? (
-                            <Typography.Text type="secondary" style={{ fontSize: 12 }}>
-                              Không tìm thấy ảnh phù hợp.
-                            </Typography.Text>
-                          ) : (
-                            <>
-                              <Space size={6} wrap>
-                                {previewImageCandidates.map((c) => (
-                                  <img
-                                    key={c.id}
-                                    src={c.thumbUrl}
-                                    alt={c.title}
-                                    title={`Ảnh từ bài: ${c.title} (Wikipedia)`}
-                                    onClick={() => handlePickPreviewImage(c)}
-                                    style={{
-                                      width: 56,
-                                      height: 56,
-                                      objectFit: "cover",
-                                      borderRadius: 6,
-                                      cursor: "pointer",
-                                      border: `1px solid ${styleTokens.borderColorLight}`,
-                                    }}
-                                  />
-                                ))}
-                              </Space>
-                              <Typography.Text type="secondary" style={{ display: "block", fontSize: 11, marginTop: 4 }}>
-                                Ảnh từ Wikipedia — bấm để chọn.
-                              </Typography.Text>
-                            </>
-                          )}
-                        </div>
-                      )}
-                    </div>
-                    {/* Scoped and keyed by previewSeq — a render error here
-                        (e.g. malformed AI data) used to unmount the entire
-                        App tree via main.tsx's single top-level
-                        ErrorBoundary, bricking the whole window until a
-                        restart. Catching it here keeps the rest of the app
-                        (header, list, sidebar) usable and self-heals on the
-                        next search. */}
-                    <ErrorBoundary key={previewSeq}>
-                      <AiWordEnrichment
-                        aiExamples={previewAiExamples}
-                        aiNuance={previewAiNuance}
-                        aiRelatedWords={previewAiRelatedWords}
-                        sourceLang={preview.result.sourceLang}
-                        relatedWordsDisabledReason={
-                          preview.result.sourceLang === "en" || preview.result.targetLang === "en"
-                            ? null
-                            : "Chỉ hỗ trợ cho từ tiếng Anh"
-                        }
-                        examplesState={previewExamplesState}
-                        nuanceState={previewNuanceState}
-                        relatedState={previewRelatedState}
-                        onGenerateExamples={handleGeneratePreviewExamples}
-                        onGenerateNuance={handleGeneratePreviewNuance}
-                        onGenerateRelated={handleGeneratePreviewRelated}
-                      />
-                    </ErrorBoundary>
-                  </Card>
-                )}
-
                 {visibleEntries.length === 0 && (
                   <Empty description={query ? "Không tìm thấy từ nào" : "No lookups yet"} />
                 )}
@@ -891,6 +715,236 @@ export default function App() {
       <ErrorBoundary key={detailOpenSeq}>
         <VocabDetailModal entry={detailEntry} onClose={() => setDetailEntry(null)} onUpdate={handleUpdateEntry} />
       </ErrorBoundary>
+
+      {/* Overlay for looking up a not-yet-saved word — opened via the "Tra
+          từ mới" button above instead of an inline search bar. Two steps in
+          the same modal, told apart by `preview`: blank search form first,
+          then (once a lookup lands) the result/editing view that used to be
+          an inline Card mixed into the saved-words list. destroyOnHidden so
+          the search input remounts (and autoFocuses) fresh every time it's
+          reopened, and so a crash from one lookup's malformed AI data (see
+          detailOpenSeq's ErrorBoundary above for the same reasoning) can't
+          persist into the next one. */}
+      <Modal
+        title={preview ? null : "Tra từ mới"}
+        open={searchModalOpen}
+        onCancel={handleCloseSearchModal}
+        // Fixed in the modal's own footer (outside the scrollable result
+        // body below) instead of scrolling away with the content — a long
+        // dictionary entry/AI section used to carry the button out of view,
+        // forcing a scroll back up just to save.
+        footer={
+          preview && (
+            <Button type="primary" loading={saving} onClick={handleSavePreview}>
+              Lưu
+            </Button>
+          )
+        }
+        destroyOnHidden
+        centered
+        width={preview ? 640 : 420}
+      >
+        {!preview ? (
+          <>
+            <Space.Compact style={{ width: "100%" }}>
+              <Input
+                autoFocus
+                value={text}
+                onChange={(e) => setText(e.target.value)}
+                onPressEnter={handleSearch}
+                placeholder="Look up a word or phrase"
+              />
+              <Button type="primary" loading={looking} onClick={handleSearch}>
+                Look up
+              </Button>
+            </Space.Compact>
+            <div style={{ marginTop: 8 }}>
+              <TranslateDirectionToggle size="small" />
+            </div>
+          </>
+        ) : (
+          <div style={{ maxHeight: "70vh", overflowY: "auto", paddingRight: 4 }}>
+            {preview.spellingSuggestion && (
+              <Typography.Paragraph type="secondary" style={{ marginTop: 0, marginBottom: 12 }}>
+                Ý bạn là:{" "}
+                <Typography.Link onClick={() => handleUseSpellingSuggestion(preview.spellingSuggestion!)}>
+                  {preview.spellingSuggestion}
+                </Typography.Link>
+                ?
+              </Typography.Paragraph>
+            )}
+            <Space direction="vertical" size={4}>
+              <span>
+                <Tag color="blue">{preview.result.sourceLang}</Tag>
+                {preview.result.sourceText}
+                {preview.result.sourceLang !== "vi" && (
+                  <Button
+                    type="text"
+                    size="small"
+                    icon={<SoundOutlined />}
+                    onClick={() => speak(preview.result.sourceText, preview.result.sourceLang)}
+                  />
+                )}
+              </span>
+              <span>
+                <Tag color="green">{preview.result.targetLang}</Tag>
+                {preview.result.targetText}
+                {preview.result.targetLang !== "vi" && (
+                  <Button
+                    type="text"
+                    size="small"
+                    icon={<SoundOutlined />}
+                    onClick={() => speak(preview.result.targetText, preview.result.targetLang)}
+                  />
+                )}
+              </span>
+              {preview.result.targetMeanings.length > 1 && (
+                <Space size={[4, 4]} wrap>
+                  {preview.result.targetMeanings.slice(1).map((meaning) => (
+                    <Tag key={meaning} color="default">
+                      {meaning}
+                    </Tag>
+                  ))}
+                </Space>
+              )}
+            </Space>
+            {preview.dictionary && <DictionaryPanel dictionary={preview.dictionary} />}
+            <ErrorBoundary key={`def-${previewSeq}`}>
+              <DefinitionChooser
+                dictionaryDefinition={firstDictionaryDefinition(preview.dictionary)}
+                aiDefinition={previewAiDefinition}
+                aiLoading={previewAiDefinitionState.loading}
+                aiError={previewAiDefinitionState.error}
+                onGenerateAi={handleGeneratePreviewAiDefinition}
+                selectedText={previewDefinition}
+                onSelect={setPreviewDefinition}
+              />
+            </ErrorBoundary>
+
+            {/* Available on the not-yet-saved preview, same as
+                DefinitionChooser above — the picked image rides along in
+                handleSavePreview()'s patch. */}
+            <div
+              style={{
+                marginTop: 16,
+                borderTop: `1px solid ${styleTokens.borderColorLight}`,
+                paddingTop: 12,
+              }}
+            >
+              <Space align="center" style={{ width: "100%", justifyContent: "space-between" }}>
+                <Typography.Text strong>Ảnh minh họa</Typography.Text>
+                <Button
+                  type="link"
+                  size="small"
+                  icon={<ThunderboltOutlined />}
+                  loading={previewImageSearching}
+                  onClick={handleSearchPreviewImages}
+                >
+                  Tìm ảnh bằng AI
+                </Button>
+              </Space>
+              {previewImageUrl && (
+                <div style={{ marginTop: 4 }}>
+                  <div style={{ display: "flex", alignItems: "flex-start", gap: 8 }}>
+                    <Image
+                      src={previewImageUrl}
+                      alt=""
+                      width={80}
+                      height={80}
+                      style={{ objectFit: "cover", borderRadius: 6 }}
+                    />
+                    <Button
+                      type="text"
+                      size="small"
+                      danger
+                      icon={<DeleteOutlined />}
+                      onClick={handleClearPreviewImage}
+                    >
+                      Xóa ảnh
+                    </Button>
+                  </div>
+                  {previewImageCredit && (
+                    <Typography.Text type="secondary" style={{ display: "block", fontSize: 11, marginTop: 4 }}>
+                      Ảnh từ bài{" "}
+                      <Typography.Link href={previewImageCreditUrl ?? undefined} target="_blank">
+                        {previewImageCredit}
+                      </Typography.Link>{" "}
+                      trên Wikipedia
+                    </Typography.Text>
+                  )}
+                </div>
+              )}
+              <Input
+                value={previewImageUrl}
+                onChange={(e) => handlePreviewImageUrlChange(e.target.value)}
+                placeholder="Dán URL ảnh, hoặc bấm Tìm ảnh bằng AI ở trên..."
+                prefix={<PictureOutlined style={{ color: styleTokens.borderColorLight }} />}
+                style={{ marginTop: 4 }}
+              />
+              {previewImageCandidates && (
+                <div style={{ marginTop: 8 }}>
+                  {previewImageCandidates.length === 0 ? (
+                    <Typography.Text type="secondary" style={{ fontSize: 12 }}>
+                      Không tìm thấy ảnh phù hợp.
+                    </Typography.Text>
+                  ) : (
+                    <>
+                      <Space size={6} wrap>
+                        {previewImageCandidates.map((c) => (
+                          <img
+                            key={c.id}
+                            src={c.thumbUrl}
+                            alt={c.title}
+                            title={`Ảnh từ bài: ${c.title} (Wikipedia)`}
+                            onClick={() => handlePickPreviewImage(c)}
+                            style={{
+                              width: 56,
+                              height: 56,
+                              objectFit: "cover",
+                              borderRadius: 6,
+                              cursor: "pointer",
+                              border: `1px solid ${styleTokens.borderColorLight}`,
+                            }}
+                          />
+                        ))}
+                      </Space>
+                      <Typography.Text type="secondary" style={{ display: "block", fontSize: 11, marginTop: 4 }}>
+                        Ảnh từ Wikipedia — bấm để chọn.
+                      </Typography.Text>
+                    </>
+                  )}
+                </div>
+              )}
+            </div>
+            {/* Scoped and keyed by previewSeq — a render error here (e.g.
+                malformed AI data) used to unmount the entire App tree via
+                main.tsx's single top-level ErrorBoundary, bricking the whole
+                window until a restart. Catching it here keeps the rest of
+                the app (header, list, sidebar) usable and self-heals on the
+                next search. */}
+            <ErrorBoundary key={previewSeq}>
+              <AiWordEnrichment
+                aiExamples={previewAiExamples}
+                aiNuance={previewAiNuance}
+                aiRelatedWords={previewAiRelatedWords}
+                sourceLang={preview.result.sourceLang}
+                relatedWordsDisabledReason={
+                  preview.result.sourceLang === "en" || preview.result.targetLang === "en"
+                    ? null
+                    : "Chỉ hỗ trợ cho từ tiếng Anh"
+                }
+                examplesState={previewExamplesState}
+                nuanceState={previewNuanceState}
+                relatedState={previewRelatedState}
+                onGenerateExamples={handleGeneratePreviewExamples}
+                onGenerateNuance={handleGeneratePreviewNuance}
+                onGenerateRelated={handleGeneratePreviewRelated}
+              />
+            </ErrorBoundary>
+          </div>
+        )}
+      </Modal>
+
       <BulkExtractModal
         open={bulkExtractOpen}
         onClose={() => setBulkExtractOpen(false)}
