@@ -1,5 +1,5 @@
 import type { PrismaClient, VocabEntry } from "../../../../generated/client";
-import { nextReviewState } from "./srs";
+import { nextReviewState, type ReviewRating } from "./srs";
 
 export interface DueEntry extends VocabEntry {
   dueAt: Date | null;
@@ -46,9 +46,9 @@ export async function listDueEntries(
   return limit === null ? due : due.slice(0, limit);
 }
 
-export async function rateReview(prisma: PrismaClient, vocabId: string, remembered: boolean): Promise<void> {
+export async function rateReview(prisma: PrismaClient, vocabId: string, rating: ReviewRating): Promise<void> {
   const existing = await prisma.reviewState.findUnique({ where: { vocabId } });
-  const next = nextReviewState(existing ?? { easeFactor: 2.5, intervalDays: 0, repetitions: 0 }, remembered);
+  const next = nextReviewState(existing, rating);
 
   await prisma.reviewState.upsert({
     where: { vocabId },

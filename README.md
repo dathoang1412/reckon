@@ -99,7 +99,7 @@ flowchart TD
     D --> E{"Pick a definition:\ndictionary or AI"}
     E --> F["Optional AI enrichment\ngrounded in the picked definition:\nexamples · khi nào dùng · related words"]
     F --> G["Save\n(local SQLite via Prisma)"]
-    G --> H["SRS scheduling\n(ReviewState: due date, ease, interval)"]
+    G --> H["SRS scheduling\n(ReviewState: FSRS due date, stability, difficulty)"]
     H --> I["Review queue\nby due date, by set, or by a specific day"]
     G --> J["Sync push/pull\n(to the shared Postgres backend)"]
 ```

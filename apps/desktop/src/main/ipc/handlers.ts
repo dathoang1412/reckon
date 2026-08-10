@@ -25,6 +25,7 @@ import { searchImages } from "../services/vocab/image";
 import { chatJSON } from "../services/ai/groq";
 import { getLogHistory } from "../services/system/log";
 import { listDueEntries, rateReview } from "../services/review/review";
+import type { ReviewRating } from "../services/review/srs";
 import {
   getAutoSave,
   getDarkMode,
@@ -165,8 +166,8 @@ export function registerIpcHandlers({
     },
   );
 
-  ipcMain.handle("review:rate", async (_event, vocabId: string, remembered: boolean) => {
-    await rateReview(prisma, vocabId, remembered);
+  ipcMain.handle("review:rate", async (_event, vocabId: string, rating: ReviewRating) => {
+    await rateReview(prisma, vocabId, rating);
   });
 
   ipcMain.handle("auth:signup", async (_event, email: string, password: string) => {

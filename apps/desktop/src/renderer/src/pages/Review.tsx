@@ -1,8 +1,24 @@
 import { useEffect, useState } from "react";
-import { CheckOutlined, CloseOutlined, SoundOutlined } from "@ant-design/icons";
+import {
+  CheckOutlined,
+  CloseOutlined,
+  InfoCircleOutlined,
+  MehOutlined,
+  SmileOutlined,
+  SoundOutlined,
+} from "@ant-design/icons";
 import { Button, Card, DatePicker, Empty, Progress, Segmented, Select, Skeleton, Space, Tag, Typography } from "antd";
 import type { Dayjs } from "dayjs";
-import type { DueEntryRow, QuizQuestion, VocabSetRow } from "../../../preload/index";
+import type {
+  DictionaryInfo,
+  DueEntryRow,
+  QuizQuestion,
+  ReviewRating,
+  VocabEntryRow,
+  VocabSetRow,
+} from "../../../preload/index";
+import ErrorBoundary from "../components/ErrorBoundary";
+import VocabDetailModal from "../components/VocabDetailModal";
 import { speak } from "../lib/speak";
 
 // Mirrors App.tsx's activeSet convention (null = "Tất cả") — unlike the
@@ -20,6 +36,8 @@ type ReviewMode = "flashcard" | "quiz";
 
 const CORRECT_STYLE = { borderColor: "#52c41a", color: "#52c41a" };
 const WRONG_STYLE = { borderColor: "#ff4d4f", color: "#ff4d4f" };
+const HARD_STYLE = { borderColor: "#faad14", color: "#faad14" };
+const EASY_STYLE = { borderColor: "#52c41a", color: "#52c41a" };
 
 export default function Review() {
   const [queue, setQueue] = useState<DueEntryRow[] | null>(null);
@@ -47,6 +65,19 @@ export default function Review() {
   const [quizLoading, setQuizLoading] = useState(false);
   const [quizError, setQuizError] = useState<string | null>(null);
   const [selectedOption, setSelectedOption] = useState<number | null>(null);
+
+  // Phonetic transcription for the revealed answer, when available —
+  // prefetched alongside the quiz question (keyed on current?.id below) so
+  // it's already there the moment "Hiện đáp án" is clicked instead of
+  // popping in a beat later.
+  const [dictionary, setDictionary] = useState<DictionaryInfo | null>(null);
+
+  // "Xem chi tiết" icon on the revealed card opens the same detail modal
+  // App.tsx's saved-word list uses — same detailEntry/detailOpenSeq/
+  // ErrorBoundary pattern as there (see App.tsx's detailOpenSeq comment for
+  // why the ErrorBoundary needs a bump counter, not just entry.id).
+  const [detailEntry, setDetailEntry] = useState<VocabEntryRow | null>(null);
+  const [detailOpenSeq, setDetailOpenSeq] = useState(0);
 
   useEffect(() => {
     window.api.vocabSet.list().then(setSets);
@@ -97,11 +128,28 @@ export default function Review() {
     loadQuiz(current.id);
   }, [current?.id, mode]);
 
-  async function rate(remembered: boolean) {
+  // Same English-side detection as VocabDetailModal's dictionary fetch —
+  // the Free Dictionary API only covers English, so this stays null for
+  // vi/other-language cards instead of firing a lookup that can't match.
+  useEffect(() => {
+    setDictionary(null);
+    if (!current) return;
+    const englishWord =
+      current.sourceLang === "en" ? current.sourceText : current.targetLang === "en" ? current.targetText : null;
+    if (!englishWord) return;
+    window.api.dictionary.lookup(englishWord).then(setDictionary);
+  }, [current?.id]);
+
+  function handleUpdateEntry(updated: VocabEntryRow) {
+    setQueue((prev) => prev && prev.map((e) => (e.id === updated.id ? { ...e, ...updated } : e)));
+    setDetailEntry((prev) => (prev?.id === updated.id ? updated : prev));
+  }
+
+  async function rate(grade: ReviewRating) {
     if (!queue || queue.length === 0) return;
     setRating(true);
     try {
-      await window.api.review.rate(queue[0].id, remembered);
+      await window.api.review.rate(queue[0].id, grade);
       setQueue(queue.slice(1));
       setRevealed(false);
     } finally {
@@ -115,7 +163,7 @@ export default function Review() {
     // Brief pause so the correct/wrong coloring registers before the card
     // advances — same "explicit rating" spaced-repetition signal as
     // flashcard mode's Nhớ/Chưa nhớ buttons, just derived from the answer.
-    setTimeout(() => rate(index === quiz.correctIndex), 700);
+    setTimeout(() => rate(index === quiz.correctIndex ? "good" : "again"), 700);
   }
 
   const filtersRow = (
@@ -217,7 +265,17 @@ export default function Review() {
                   {card.targetLang !== "vi" && (
                     <Button icon={<SoundOutlined />} onClick={() => speak(card.targetText, card.targetLang)} />
                   )}
+                  <Button
+                    icon={<InfoCircleOutlined />}
+                    onClick={() => {
+                      setDetailEntry(card);
+                      setDetailOpenSeq((n) => n + 1);
+                    }}
+                  />
                 </Space>
+                {dictionary?.phonetic && (
+                  <Typography.Text type="secondary">/{dictionary.phonetic}/</Typography.Text>
+                )}
                 {card.targetMeanings.length > 1 && (
                   <Space size={[4, 4]} wrap style={{ justifyContent: "center" }}>
                     {card.targetMeanings.slice(1).map((meaning) => (
@@ -273,15 +331,24 @@ export default function Review() {
         </Space>
       </Card>
       {mode === "flashcard" && revealed && (
-        <Space style={{ width: "100%", justifyContent: "center", marginTop: 16 }} size="large">
-          <Button danger icon={<CloseOutlined />} loading={rating} onClick={() => rate(false)}>
-            Chưa nhớ
+        <Space style={{ width: "100%", justifyContent: "center", marginTop: 16 }} size="middle" wrap>
+          <Button danger icon={<CloseOutlined />} loading={rating} onClick={() => rate("again")}>
+            Quên
           </Button>
-          <Button type="primary" icon={<CheckOutlined />} loading={rating} onClick={() => rate(true)}>
-            Đã nhớ
+          <Button style={HARD_STYLE} icon={<MehOutlined />} loading={rating} onClick={() => rate("hard")}>
+            Khó
+          </Button>
+          <Button type="primary" icon={<CheckOutlined />} loading={rating} onClick={() => rate("good")}>
+            Nhớ
+          </Button>
+          <Button style={EASY_STYLE} icon={<SmileOutlined />} loading={rating} onClick={() => rate("easy")}>
+            Dễ
           </Button>
         </Space>
       )}
+      <ErrorBoundary key={detailOpenSeq}>
+        <VocabDetailModal entry={detailEntry} onClose={() => setDetailEntry(null)} onUpdate={handleUpdateEntry} />
+      </ErrorBoundary>
     </div>
   );
 }

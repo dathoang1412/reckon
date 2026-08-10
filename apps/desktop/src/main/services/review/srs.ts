@@ -1,47 +1,73 @@
-// Simplified SM-2 (Anki-style), reduced to a binary "remembered / forgot"
-// rating instead of the classic 0-5 quality score — keeps the flashcard UI
-// to two buttons while still spacing reviews out exponentially on success.
+import { createEmptyCard, fsrs, Rating, type Card, type Grade, type State } from "ts-fsrs";
+
+// Wire-safe rating vocabulary — a plain string union (not ts-fsrs's Rating
+// enum) so it can be declared independently in preload/types.ts without
+// the preload boundary importing ts-fsrs or any main-process type.
+export type ReviewRating = "again" | "hard" | "good" | "easy";
+
+const RATING_MAP: Record<ReviewRating, Grade> = {
+  again: Rating.Again,
+  hard: Rating.Hard,
+  good: Rating.Good,
+  easy: Rating.Easy,
+};
+
+// Mirrors ts-fsrs's Card shape field-for-field (see schema.prisma's
+// ReviewState model) so a row can be handed to/from ts-fsrs with just a
+// rename, no value transformation.
 export interface ReviewStateInput {
-  easeFactor: number;
-  intervalDays: number;
-  repetitions: number;
-}
-
-export interface ReviewStateResult extends ReviewStateInput {
+  stability: number;
+  difficulty: number;
+  elapsedDays: number;
+  scheduledDays: number;
+  learningSteps: number;
+  reps: number;
+  lapses: number;
+  state: number;
   dueAt: Date;
+  lastReviewedAt: Date | null;
 }
 
-const MIN_EASE_FACTOR = 1.3;
-const EASE_PENALTY = 0.2;
+export type ReviewStateResult = ReviewStateInput;
 
+const scheduler = fsrs();
+
+// state = null means "never reviewed" -> start from a fresh FSRS card
+// (via createEmptyCard) instead of a zeroed-out ReviewStateInput, so
+// brand-new cards get FSRS's own initial stability/difficulty rather than
+// literal zeros.
 export function nextReviewState(
-  state: ReviewStateInput,
-  remembered: boolean,
+  state: ReviewStateInput | null,
+  rating: ReviewRating,
   now: Date = new Date(),
 ): ReviewStateResult {
-  if (!remembered) {
-    return {
-      repetitions: 0,
-      intervalDays: 1,
-      easeFactor: Math.max(MIN_EASE_FACTOR, state.easeFactor - EASE_PENALTY),
-      dueAt: addDays(now, 1),
-    };
-  }
+  const card: Card = state
+    ? {
+        due: state.dueAt,
+        stability: state.stability,
+        difficulty: state.difficulty,
+        elapsed_days: state.elapsedDays,
+        scheduled_days: state.scheduledDays,
+        learning_steps: state.learningSteps,
+        reps: state.reps,
+        lapses: state.lapses,
+        state: state.state as State,
+        last_review: state.lastReviewedAt ?? undefined,
+      }
+    : createEmptyCard(now);
 
-  const repetitions = state.repetitions + 1;
-  const intervalDays =
-    repetitions === 1 ? 1 : repetitions === 2 ? 6 : Math.round(state.intervalDays * state.easeFactor);
+  const { card: next } = scheduler.next(card, now, RATING_MAP[rating]);
 
   return {
-    repetitions,
-    intervalDays,
-    easeFactor: state.easeFactor,
-    dueAt: addDays(now, intervalDays),
+    stability: next.stability,
+    difficulty: next.difficulty,
+    elapsedDays: next.elapsed_days,
+    scheduledDays: next.scheduled_days,
+    learningSteps: next.learning_steps,
+    reps: next.reps,
+    lapses: next.lapses,
+    state: next.state,
+    dueAt: next.due,
+    lastReviewedAt: next.last_review ?? now,
   };
-}
-
-function addDays(date: Date, days: number): Date {
-  const result = new Date(date);
-  result.setDate(result.getDate() + days);
-  return result;
 }

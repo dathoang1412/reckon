@@ -68,6 +68,11 @@ export interface DueEntryRow extends VocabEntryRow {
   dueAt: string | null;
 }
 
+// Mirrors main/services/review/srs.ts's ReviewRating — declared
+// independently (not imported) since preload never imports main-process
+// code directly, same as every other type in this file.
+export type ReviewRating = "again" | "hard" | "good" | "easy";
+
 export interface VocabSetRow {
   id: string;
   name: string;

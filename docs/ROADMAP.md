@@ -46,8 +46,8 @@ reckoff/ (pnpm monorepo)
    (last-write-wins, tie-break theo `deviceId`).
 4. Server lưu mọi loại record vào 1 bảng generic `SyncRecord` (kind-agnostic)
    — thêm entity mới ở client không cần migrate server.
-5. User ôn tập (`Review.tsx`) → thuật toán SM-2 đơn giản (`srs.ts`) tính lại
-   `dueAt`/`easeFactor` mỗi lần đánh giá nhớ/không nhớ.
+5. User ôn tập (`Review.tsx`) → thuật toán FSRS (`srs.ts`, dùng `ts-fsrs`)
+   tính lại `dueAt`/`stability`/`difficulty` mỗi lần đánh giá Quên/Khó/Nhớ/Dễ.
 
 ## 3. Database hiện tại
 
@@ -57,7 +57,7 @@ reckoff/ (pnpm monorepo)
 |---|---|---|
 | `VocabEntry` | `id, sourceText, sourceLang, targetText, targetMeanings, targetLang, definition, note, tags, setId, createdAt, updatedAt, deviceId, deletedAt` | soft-delete qua `deletedAt`. **`definition`/`note`/`tags` đã có cột nhưng chưa có UI đọc/ghi** — xem mục 5.A. |
 | `VocabSet` | `id, name, updatedAt, deviceId, deletedAt` | folder/nhóm từ, 1 entry chỉ thuộc 1 set |
-| `ReviewState` | `vocabId, easeFactor, intervalDays, repetitions, dueAt, lastReviewedAt` | trạng thái SRS, 1 dòng/entry, chỉ tồn tại sau khi ôn lần đầu |
+| `ReviewState` | `vocabId, stability, difficulty, elapsedDays, scheduledDays, learningSteps, reps, lapses, state, dueAt, lastReviewedAt` | trạng thái SRS (FSRS `Card`), 1 dòng/entry, chỉ tồn tại sau khi ôn lần đầu |
 | `SyncState` | `id (=1), lastPulledAt` | singleton, đánh dấu lần pull cuối |
 
 ### 3.2 Server (Postgres — `apps/server/prisma/schema.prisma`)
@@ -84,7 +84,7 @@ quyết đầu tiên nếu muốn phát hành cho nhiều người dùng thật.
 - [x] Lưu lịch sử tra cứu, xem/xoá/gộp theo set trong cửa sổ chính, xem chi tiết trong modal
 - [x] Danh sách từ đã lưu **nhóm theo ngày lưu** (Hôm nay/Hôm qua/ngày cụ thể), có giờ lưu
 - [x] Vocabulary sets (folder), gán/đổi set cho từng entry
-- [x] Spaced repetition (SM-2 đơn giản) + flashcard review queue
+- [x] Spaced repetition (FSRS, `ts-fsrs`) + flashcard review queue (4 mức Quên/Khó/Nhớ/Dễ)
 - [x] Chạy nền qua system tray (không thoát khi đóng cửa sổ), icon/logo riêng
 - [x] Đồng bộ 2 chiều thủ công (nút "Sync now") qua NestJS + Postgres, `createdAt` đã được đồng bộ đầy đủ (không chỉ local)
 - [x] Conflict resolution last-write-wins dùng chung giữa client/server (`packages/shared`)

@@ -71,12 +71,20 @@ model SyncState {
 // Spaced-repetition state for a VocabEntry. Kept as a separate table
 // (not a relation) so it stays optional per entry, matching the rest
 // of the schema's loosely-coupled style — a row only exists once a
-// user starts reviewing that word.
+// user starts reviewing that word. Fields mirror ts-fsrs's Card shape
+// field-for-field (camelCase) so a row round-trips into a Card with just
+// a rename, no value transformation (see main/services/review/srs.ts).
 model ReviewState {
   vocabId        String    @id
-  easeFactor     Float     @default(2.5)
-  intervalDays   Int       @default(0)
-  repetitions    Int       @default(0)
+  stability      Float     @default(0)
+  difficulty     Float     @default(0)
+  elapsedDays    Int       @default(0)
+  scheduledDays  Int       @default(0)
+  learningSteps  Int       @default(0)
+  reps           Int       @default(0)
+  lapses         Int       @default(0)
+  // ts-fsrs State enum ordinal: New=0, Learning=1, Review=2, Relearning=3
+  state          Int       @default(0)
   dueAt          DateTime
   lastReviewedAt DateTime?
 }

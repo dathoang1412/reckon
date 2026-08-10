@@ -28,7 +28,8 @@
     "react-dom": "^18.3.1",
     "react-hot-toast": "^2.6.0",
     "react-hotkeys-hook": "^5.3.3",
-    "recharts": "^3.10.1"
+    "recharts": "^3.10.1",
+    "ts-fsrs": "^5.4.1"
   },
   "devDependencies": {
     "@types/node": "^22.20.1",
