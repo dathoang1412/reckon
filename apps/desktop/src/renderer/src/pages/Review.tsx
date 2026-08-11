@@ -14,6 +14,7 @@ import type {
   DueEntryRow,
   QuizQuestion,
   ReviewRating,
+  ReviewStateSnapshot,
   VocabEntryRow,
   VocabSetRow,
 } from "../../../preload/index";
@@ -33,6 +34,13 @@ const NO_LIMIT = "__no_limit__";
 const LIMIT_OPTIONS = [10, 20, 30, 50];
 
 type ReviewMode = "flashcard" | "quiz";
+
+// One entry per rate() call this session, so Ctrl+Z can pop the most recent
+// one and put the card back at the front of the queue — see undo() below.
+interface UndoEntry {
+  card: DueEntryRow;
+  previous: ReviewStateSnapshot | null;
+}
 
 const CORRECT_STYLE = { borderColor: "#52c41a", color: "#52c41a" };
 const WRONG_STYLE = { borderColor: "#ff4d4f", color: "#ff4d4f" };
@@ -79,6 +87,11 @@ export default function Review() {
   const [detailEntry, setDetailEntry] = useState<VocabEntryRow | null>(null);
   const [detailOpenSeq, setDetailOpenSeq] = useState(0);
 
+  // Cleared whenever the due-queue itself is refetched (set/limit/date
+  // change) — an undo from a previous queue wouldn't have anywhere sensible
+  // to reinsert the card.
+  const [undoStack, setUndoStack] = useState<UndoEntry[]>([]);
+
   useEffect(() => {
     window.api.vocabSet.list().then(setSets);
     window.api.settings.getReviewLimit().then(setLimit);
@@ -87,6 +100,7 @@ export default function Review() {
   useEffect(() => {
     if (limit === undefined) return;
     setQueue(null);
+    setUndoStack([]);
     const from = reviewDate?.startOf("day").toISOString();
     const to = reviewDate?.endOf("day").toISOString();
     window.api.review.due(limit, setId ?? undefined, from, to).then((due) => {
@@ -147,15 +161,45 @@ export default function Review() {
 
   async function rate(grade: ReviewRating) {
     if (!queue || queue.length === 0) return;
+    const cardToRate = queue[0];
     setRating(true);
     try {
-      await window.api.review.rate(queue[0].id, grade);
+      const previous = await window.api.review.rate(cardToRate.id, grade);
+      setUndoStack((stack) => [...stack, { card: cardToRate, previous }]);
       setQueue(queue.slice(1));
       setRevealed(false);
     } finally {
       setRating(false);
     }
   }
+
+  // Ctrl+Z: reverts the most recent rating — restores its ReviewState (FSRS
+  // stability/difficulty/dueAt/etc.) to what it was before that rating, and
+  // puts the card back at the front of the queue so it can be re-rated.
+  async function undo() {
+    if (rating || undoStack.length === 0) return;
+    const last = undoStack[undoStack.length - 1];
+    setUndoStack((stack) => stack.slice(0, -1));
+    setRating(true);
+    try {
+      await window.api.review.undo(last.card.id, last.previous);
+      setQueue((prev) => [last.card, ...(prev ?? [])]);
+      setRevealed(true);
+    } finally {
+      setRating(false);
+    }
+  }
+
+  useEffect(() => {
+    function onKeyDown(e: KeyboardEvent) {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "z") {
+        e.preventDefault();
+        undo();
+      }
+    }
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [undoStack, rating]);
 
   function handleQuizAnswer(index: number) {
     if (selectedOption !== null || !quiz) return;
@@ -167,8 +211,8 @@ export default function Review() {
   }
 
   const filtersRow = (
-    <>
-      <Space.Compact style={{ width: "100%", marginBottom: 8 }}>
+    <div style={{ display: "flex", gap: 8, marginBottom: 16, flexWrap: "wrap" }}>
+      <Space.Compact style={{ flex: "1 1 220px" }}>
         <Select
           value={setId ?? ALL_SETS}
           onChange={(value) => setSetId(value === ALL_SETS ? null : value)}
@@ -193,10 +237,10 @@ export default function Review() {
         value={reviewDate}
         onChange={setReviewDate}
         allowClear
-        style={{ width: "100%", marginBottom: 16 }}
-        placeholder="Ôn theo ngày (thay vì đến hạn)"
+        style={{ flex: "1 1 160px" }}
+        placeholder="Ôn theo ngày"
       />
-    </>
+    </div>
   );
 
   const modeSelector = (
@@ -345,6 +389,11 @@ export default function Review() {
             Dễ
           </Button>
         </Space>
+      )}
+      {undoStack.length > 0 && (
+        <Typography.Text type="secondary" style={{ display: "block", textAlign: "center", marginTop: 8 }}>
+          Ctrl+Z để hoàn tác lượt chấm trước
+        </Typography.Text>
       )}
       <ErrorBoundary key={detailOpenSeq}>
         <VocabDetailModal entry={detailEntry} onClose={() => setDetailEntry(null)} onUpdate={handleUpdateEntry} />

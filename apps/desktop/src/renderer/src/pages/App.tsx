@@ -38,6 +38,7 @@ import { styleTokens } from "../theme";
 import Profile from "./Profile";
 import Review from "./Review";
 import Settings from "./Settings";
+import Stats from "./Stats";
 
 const UNASSIGNED = "__unassigned__";
 
@@ -509,6 +510,12 @@ export default function App() {
             <div style={{ maxWidth: 480, width: "100%", margin: "0 auto", padding: "1rem" }}>
               <Review />
             </div>
+          </div>
+        )}
+
+        {view === "stats" && (
+          <div style={{ flex: 1, minHeight: 0, overflowY: "auto" }}>
+            <Stats />
           </div>
         )}
 

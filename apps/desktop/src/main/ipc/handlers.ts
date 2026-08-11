@@ -24,7 +24,14 @@ import { lookupEnglishWord } from "../services/vocab/dictionary";
 import { searchImages } from "../services/vocab/image";
 import { chatJSON } from "../services/ai/groq";
 import { getLogHistory } from "../services/system/log";
-import { listDueEntries, rateReview } from "../services/review/review";
+import {
+  getReviewState,
+  getReviewStats,
+  listDueEntries,
+  rateReview,
+  undoReview,
+  type ReviewStateSnapshot,
+} from "../services/review/review";
 import type { ReviewRating } from "../services/review/srs";
 import {
   getAutoSave,
@@ -167,7 +174,23 @@ export function registerIpcHandlers({
   );
 
   ipcMain.handle("review:rate", async (_event, vocabId: string, rating: ReviewRating) => {
-    await rateReview(prisma, vocabId, rating);
+    return rateReview(prisma, vocabId, rating);
+  });
+
+  // Reverts the ReviewState change from a previous "review:rate" call —
+  // see Review.tsx's Ctrl+Z handling.
+  ipcMain.handle("review:undo", async (_event, vocabId: string, previous: ReviewStateSnapshot | null) => {
+    await undoReview(prisma, vocabId, previous);
+  });
+
+  // Powers VocabDetailModal's small FSRS summary badge.
+  ipcMain.handle("review:state", async (_event, vocabId: string) => {
+    return getReviewState(prisma, vocabId);
+  });
+
+  // Powers the "Thống kê" page.
+  ipcMain.handle("review:stats", async () => {
+    return getReviewStats(prisma);
   });
 
   ipcMain.handle("auth:signup", async (_event, email: string, password: string) => {

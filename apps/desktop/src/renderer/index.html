@@ -41,6 +41,13 @@
         --chart-tooltip-shadow: rgba(0, 0, 0, 0.08);
         --chart-tick: #999999;
         --chart-cursor: rgba(0, 0, 0, 0.04);
+        /* Categorical (FSRS review-state) chart series — validated with the
+           data-viz skill's palette validator (adjacent-pair CVD/contrast
+           checks) for the Stats page's state-distribution bar. */
+        --fsrs-new: #2a78d6;
+        --fsrs-learning: #eb6834;
+        --fsrs-review: #1baf7a;
+        --fsrs-relearning: #eda100;
       }
       :root[data-theme="dark"] {
         --bg: #16181d;
@@ -56,6 +63,10 @@
         --chart-tooltip-shadow: rgba(0, 0, 0, 0.4);
         --chart-tick: #888888;
         --chart-cursor: rgba(255, 255, 255, 0.06);
+        --fsrs-new: #3987e5;
+        --fsrs-learning: #d95926;
+        --fsrs-review: #199e70;
+        --fsrs-relearning: #c98500;
       }
 
       html,

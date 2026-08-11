@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type ChangeEvent } from "react";
 import { UserOutlined } from "@ant-design/icons";
-import { Avatar, Button, Input, Space, Typography } from "antd";
+import { Avatar, Button, Image, Input, Space, Typography } from "antd";
 import toast from "react-hot-toast";
 import ActivityChart from "../components/ActivityChart";
 import PageShell from "../components/PageShell";
@@ -51,6 +51,7 @@ export default function Profile({
   const [email, setEmail] = useState<string | null>(null);
   const [name, setName] = useState("");
   const [avatarBase64, setAvatarBase64] = useState<string | null>(null);
+  const [avatarPreviewOpen, setAvatarPreviewOpen] = useState(false);
   const [savingProfile, setSavingProfile] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [entries, setEntries] = useState<VocabEntryRow[]>([]);
@@ -118,7 +119,24 @@ export default function Profile({
       {authed ? (
         <>
           <Space align="center" size={16} style={{ marginTop: 8 }}>
-            <Avatar size={64} src={avatarBase64 ?? undefined} icon={!avatarBase64 && <UserOutlined />} />
+            <Avatar
+              size={64}
+              src={avatarBase64 ?? undefined}
+              icon={!avatarBase64 && <UserOutlined />}
+              style={avatarBase64 ? { cursor: "pointer" } : undefined}
+              onClick={() => avatarBase64 && setAvatarPreviewOpen(true)}
+            />
+            {/* The Avatar itself has no click-to-zoom, so it only triggers
+                this hidden Image's controlled preview (antd's built-in
+                lightbox) — same "click a picture to see it full-size"
+                pattern as VocabDetailModal's illustration image. */}
+            {avatarBase64 && (
+              <Image
+                src={avatarBase64}
+                style={{ display: "none" }}
+                preview={{ visible: avatarPreviewOpen, onVisibleChange: setAvatarPreviewOpen }}
+              />
+            )}
             <div>
               <input
                 ref={fileInputRef}

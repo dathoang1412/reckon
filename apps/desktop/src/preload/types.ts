@@ -73,6 +73,49 @@ export interface DueEntryRow extends VocabEntryRow {
 // code directly, same as every other type in this file.
 export type ReviewRating = "again" | "hard" | "good" | "easy";
 
+// Mirrors main/services/review/review.ts's ReviewStateSnapshot — the
+// pre-rating ReviewState row, returned from review.rate() so it can be
+// handed back to review.undo() to revert that exact rating (Ctrl+Z in
+// Review.tsx). null means the card had no ReviewState row yet.
+export interface ReviewStateSnapshot {
+  stability: number;
+  difficulty: number;
+  elapsedDays: number;
+  scheduledDays: number;
+  learningSteps: number;
+  reps: number;
+  lapses: number;
+  state: number;
+  dueAt: string;
+  lastReviewedAt: string | null;
+}
+
+// Mirrors main/services/review/review.ts's ReviewStateCounts/ForecastBucket/
+// ReviewStats — powers the "Thống kê" page (Stats.tsx).
+export interface ReviewStateCounts {
+  new: number;
+  learning: number;
+  review: number;
+  relearning: number;
+}
+
+export interface ForecastBucket {
+  key: string;
+  label: string;
+  count: number;
+}
+
+export interface ReviewStats {
+  totalVocab: number;
+  dueNow: number;
+  stateCounts: ReviewStateCounts;
+  avgStability: number | null;
+  avgDifficulty: number | null;
+  totalReps: number;
+  totalLapses: number;
+  forecast: ForecastBucket[];
+}
+
 export interface VocabSetRow {
   id: string;
   name: string;

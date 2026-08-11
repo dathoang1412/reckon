@@ -6,6 +6,7 @@ import type { DictionaryInfo, ImageCandidate, TagSuggestion, VocabEntryRow } fro
 import AiWordEnrichment from "./AiWordEnrichment";
 import DefinitionChooser, { firstDictionaryDefinition } from "./DefinitionChooser";
 import DictionaryPanel from "./DictionaryPanel";
+import ReviewStateBadge from "./ReviewStateBadge";
 import WordChat from "./WordChat";
 import { dayLabel, timeLabel } from "../lib/date";
 import { speak } from "../lib/speak";
@@ -298,6 +299,10 @@ export default function VocabDetailModal({
                 ))}
               </Space>
             )}
+
+            <div style={{ marginTop: 8 }}>
+              <ReviewStateBadge vocabId={entry.id} />
+            </div>
 
             {loading && <Spin style={{ display: "block", margin: "16px 0" }} />}
             {dictionary && <DictionaryPanel dictionary={dictionary} />}
