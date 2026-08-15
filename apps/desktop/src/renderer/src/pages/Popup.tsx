@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, type ReactNode, type UIEvent } from "react";
 import {
   ApartmentOutlined,
   DeleteOutlined,
@@ -117,6 +117,8 @@ function fromPreview(data: TranslationResultData): DisplayEntry {
 // fixed `height` (not `maxHeight`) on the tab content below so every tab
 // measures the same, and switching tabs never jumps the window's height.
 const MAX_CONTENT_HEIGHT = 288;
+// See browseRenderLimit above.
+const BROWSE_RENDER_BATCH_SIZE = 50;
 
 type TabKey = "dict" | "examples" | "nuance" | "related" | "chat" | "browse";
 type AiFeature = "examples" | "nuance" | "related";
@@ -504,6 +506,12 @@ export default function Popup() {
   // be wasted work.
   const [browseEntries, setBrowseEntries] = useState<VocabEntryRow[] | null>(null);
   const [browseFilter, setBrowseFilter] = useState("");
+  // Caps how many rows of the (already filtered) browse list are mounted at
+  // once — grown in batches as the fixed-height tab body (see
+  // MAX_CONTENT_HEIGHT) is scrolled toward its bottom, mirroring App.tsx's
+  // saved-list rendering so a large saved list doesn't render every row
+  // into this small popup at once.
+  const [browseRenderLimit, setBrowseRenderLimit] = useState(BROWSE_RENDER_BATCH_SIZE);
 
   const contentRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<InputRef>(null);
@@ -692,6 +700,13 @@ export default function Popup() {
     await runPreview(suggestion);
   }
 
+  // Clicking a synonym/antonym/word-form in the related-words tab re-runs
+  // the lookup for that word, same as picking a spelling suggestion.
+  async function handleRelatedWordClick(word: string) {
+    setSearchText(word);
+    await runPreview(word);
+  }
+
   // Jumping to a word from the browse list works exactly like a fresh
   // lookup landing on "dict" (see onTranslationResult above), just sourced
   // from the local list instead of a new translate/dictionary round-trip —
@@ -862,12 +877,31 @@ export default function Popup() {
     window.api.vocab.list().then(setBrowseEntries);
   }, [activeTab, browseEntries]);
 
+  // Narrowing the filter should start back at the first render batch, same
+  // reasoning as App.tsx's list.
+  useEffect(() => {
+    setBrowseRenderLimit(BROWSE_RENDER_BATCH_SIZE);
+  }, [browseFilter]);
+
   const isEnglishPair = !!entry && (entry.sourceLang === "en" || entry.targetLang === "en");
 
   const browseQuery = browseFilter.trim().toLowerCase();
   const filteredBrowseEntries = browseEntries?.filter(
     (row) => !browseQuery || row.sourceText.toLowerCase().includes(browseQuery) || row.targetText.toLowerCase().includes(browseQuery),
   );
+  const renderedBrowseEntries = filteredBrowseEntries?.slice(0, browseRenderLimit);
+  const hasMoreBrowseEntries = (renderedBrowseEntries?.length ?? 0) < (filteredBrowseEntries?.length ?? 0);
+
+  // Shared by every tab body (see MAX_CONTENT_HEIGHT below) since they all
+  // live under the same scroll container — only grows browseRenderLimit
+  // when the browse tab is actually the one open.
+  function handleTabBodyScroll(e: UIEvent<HTMLDivElement>) {
+    if (activeTab !== "browse" || !hasMoreBrowseEntries) return;
+    const el = e.currentTarget;
+    if (el.scrollHeight - el.scrollTop - el.clientHeight < 200) {
+      setBrowseRenderLimit((n) => n + BROWSE_RENDER_BATCH_SIZE);
+    }
+  }
 
   return (
     <div
@@ -964,7 +998,10 @@ export default function Popup() {
               alive and self-heals the moment the tab remounts (switch away
               and back, or the next successful generate). */}
           <ErrorBoundary key={activeTab}>
-          <div style={{ padding: 16, overflowY: "auto", height: MAX_CONTENT_HEIGHT }}>
+          <div
+            style={{ padding: 16, overflowY: "auto", height: MAX_CONTENT_HEIGHT }}
+            onScroll={handleTabBodyScroll}
+          >
             {activeTab === "dict" && (
               <TranslationTab
                 entry={entry}
@@ -1052,7 +1089,9 @@ export default function Popup() {
                         </Typography.Text>
                         <div>
                           {entry.aiRelatedWords.synonyms.map((w) => (
-                            <Tag key={w}>{w}</Tag>
+                            <Tag key={w} onClick={() => handleRelatedWordClick(w)} style={{ cursor: "pointer" }}>
+                              {w}
+                            </Tag>
                           ))}
                         </div>
                       </div>
@@ -1064,7 +1103,12 @@ export default function Popup() {
                         </Typography.Text>
                         <div>
                           {entry.aiRelatedWords.antonyms.map((w) => (
-                            <Tag key={w} color="default">
+                            <Tag
+                              key={w}
+                              color="default"
+                              onClick={() => handleRelatedWordClick(w)}
+                              style={{ cursor: "pointer" }}
+                            >
                               {w}
                             </Tag>
                           ))}
@@ -1078,7 +1122,12 @@ export default function Popup() {
                         </Typography.Text>
                         <div>
                           {safeForms(entry.aiRelatedWords.forms).map((f, i) => (
-                            <Tag key={i} color="blue">
+                            <Tag
+                              key={i}
+                              color="blue"
+                              onClick={() => handleRelatedWordClick(f.word)}
+                              style={{ cursor: "pointer" }}
+                            >
                               {f.word} {f.pos && <Typography.Text type="secondary">({f.pos})</Typography.Text>}
                             </Tag>
                           ))}
@@ -1119,7 +1168,7 @@ export default function Popup() {
                   </Typography.Text>
                 ) : (
                   <Space direction="vertical" size={2} style={{ width: "100%" }}>
-                    {(filteredBrowseEntries ?? []).map((row) => (
+                    {(renderedBrowseEntries ?? []).map((row) => (
                       <div
                         key={row.id}
                         className="entry-row"
@@ -1135,6 +1184,14 @@ export default function Popup() {
                         </Typography.Text>
                       </div>
                     ))}
+                    {hasMoreBrowseEntries && (
+                      <Typography.Text
+                        type="secondary"
+                        style={{ display: "block", textAlign: "center", marginTop: 6, fontSize: 11 }}
+                      >
+                        Đang tải thêm...
+                      </Typography.Text>
+                    )}
                   </Space>
                 )}
               </div>

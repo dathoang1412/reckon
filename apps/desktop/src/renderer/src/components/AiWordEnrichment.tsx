@@ -28,6 +28,7 @@ export default function AiWordEnrichment({
   onGenerateExamples,
   onGenerateNuance,
   onGenerateRelated,
+  onWordClick,
 }: {
   aiExamples: AiExample[];
   aiNuance: string | null;
@@ -44,6 +45,10 @@ export default function AiWordEnrichment({
   onGenerateExamples: () => void;
   onGenerateNuance: () => void;
   onGenerateRelated: () => void;
+  // Re-runs the lookup for a related word (synonym/antonym/form) when the
+  // caller supports jumping to a new search from here — omitted where the
+  // surface has no search to jump to (e.g. a saved entry's detail view).
+  onWordClick?: (word: string) => void;
 }) {
   return (
     <>
@@ -110,7 +115,13 @@ export default function AiWordEnrichment({
                 </Typography.Text>
                 <div>
                   {aiRelatedWords.synonyms.map((w) => (
-                    <Tag key={w}>{w}</Tag>
+                    <Tag
+                      key={w}
+                      onClick={() => onWordClick?.(w)}
+                      style={onWordClick ? { cursor: "pointer" } : undefined}
+                    >
+                      {w}
+                    </Tag>
                   ))}
                 </div>
               </div>
@@ -122,7 +133,12 @@ export default function AiWordEnrichment({
                 </Typography.Text>
                 <div>
                   {aiRelatedWords.antonyms.map((w) => (
-                    <Tag key={w} color="default">
+                    <Tag
+                      key={w}
+                      color="default"
+                      onClick={() => onWordClick?.(w)}
+                      style={onWordClick ? { cursor: "pointer" } : undefined}
+                    >
                       {w}
                     </Tag>
                   ))}
@@ -136,7 +152,12 @@ export default function AiWordEnrichment({
                 </Typography.Text>
                 <div>
                   {safeForms(aiRelatedWords.forms).map((f, i) => (
-                    <Tag key={i} color="blue">
+                    <Tag
+                      key={i}
+                      color="blue"
+                      onClick={() => onWordClick?.(f.word)}
+                      style={onWordClick ? { cursor: "pointer" } : undefined}
+                    >
                       {f.word} {f.pos && <Typography.Text type="secondary">({f.pos})</Typography.Text>}
                     </Tag>
                   ))}

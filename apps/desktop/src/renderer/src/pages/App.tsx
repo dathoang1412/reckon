@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, type UIEvent } from "react";
 import {
   DeleteOutlined,
   ImportOutlined,
@@ -41,6 +41,9 @@ import Settings from "./Settings";
 import Stats from "./Stats";
 
 const UNASSIGNED = "__unassigned__";
+// How many saved-entry rows render at once, and how many more load per
+// scroll-triggered batch — see renderLimit above.
+const RENDER_BATCH_SIZE = 50;
 
 export default function App() {
   const [authed, setAuthed] = useState<boolean | null>(null);
@@ -59,6 +62,13 @@ export default function App() {
   // null means no filter (show everything), same "null = no cap" convention
   // used elsewhere in this file (see previewDefinition/limit comments).
   const [dateRange, setDateRange] = useState<[Dayjs, Dayjs] | null>(null);
+  // Caps how many of the (already client-side-filtered) saved entries get
+  // mounted into the DOM at once — the full `entries` array still backs
+  // search/date filtering and the sidebar's counts, only the visible list
+  // itself grows in batches as the user scrolls, so a large saved list
+  // doesn't pay for rendering thousands of List.Item rows up front. Reset
+  // to the initial batch whenever the filtered set changes below.
+  const [renderLimit, setRenderLimit] = useState(RENDER_BATCH_SIZE);
   const [text, setText] = useState("");
   const [looking, setLooking] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -141,6 +151,14 @@ export default function App() {
     refresh();
     refreshSets();
   }, []);
+
+  // Whatever set/search/date filter narrows the list down to, start back at
+  // the first render batch — otherwise switching filters after scrolling
+  // deep into one list would carry over a render limit sized for the old,
+  // unrelated result set.
+  useEffect(() => {
+    setRenderLimit(RENDER_BATCH_SIZE);
+  }, [activeSet, searchQuery, dateRange]);
 
   // Keeps this window's list (and the detail modal, if it's open on the
   // affected word) live across every vocab CRUD, whether it originated here
@@ -269,6 +287,23 @@ export default function App() {
   async function handleUseSpellingSuggestion(suggestion: string) {
     setText(suggestion);
     await runSearch(suggestion);
+  }
+
+  // Clicking a synonym/antonym/word-form in the related-words section
+  // re-runs the lookup for that word, same as picking a spelling suggestion.
+  async function handleRelatedWordClick(word: string) {
+    setText(word);
+    await runSearch(word);
+  }
+
+  // Same, but from a saved entry's detail modal (VocabDetailModal) — that
+  // modal only shows a saved entry, so jumping to a new word means leaving
+  // it and opening the search overlay on that word instead.
+  async function handleRelatedWordClickFromDetail(word: string) {
+    setDetailEntry(null);
+    setText(word);
+    setSearchModalOpen(true);
+    await runSearch(word);
   }
 
   async function handleSearchPreviewImages() {
@@ -485,18 +520,35 @@ export default function App() {
     return dayLabel(latest.createdAt);
   }
 
+  // Only the first `renderLimit` of visibleEntries actually get mounted —
+  // see the onScroll handler below the list, which grows renderLimit as the
+  // user nears the bottom.
+  const renderedEntries = visibleEntries.slice(0, renderLimit);
+  const hasMoreEntries = renderedEntries.length < visibleEntries.length;
+
   // Groups consecutive same-day entries under one header — entries stay in
   // their existing (updatedAt desc) order within a group instead of being
   // re-sorted by createdAt, so moving/editing an entry doesn't reshuffle it
   // out of the day it was actually saved on.
   const entryGroups: { key: string; label: string; items: VocabEntryRow[] }[] = [];
-  for (const entry of visibleEntries) {
+  for (const entry of renderedEntries) {
     const key = dayKey(entry.createdAt);
     const lastGroup = entryGroups[entryGroups.length - 1];
     if (lastGroup && lastGroup.key === key) {
       lastGroup.items.push(entry);
     } else {
       entryGroups.push({ key, label: dayLabel(entry.createdAt), items: [entry] });
+    }
+  }
+
+  // Grows renderLimit in batches as the scroll region nears its bottom —
+  // the 200px threshold gives the next batch time to mount before the user
+  // actually hits the end and sees blank space.
+  function handleEntryListScroll(e: UIEvent<HTMLDivElement>) {
+    const el = e.currentTarget;
+    if (!hasMoreEntries) return;
+    if (el.scrollHeight - el.scrollTop - el.clientHeight < 200) {
+      setRenderLimit((n) => n + RENDER_BATCH_SIZE);
     }
   }
 
@@ -606,7 +658,10 @@ export default function App() {
                   Modal (rendered at the end of this component) for the
                   not-yet-saved lookup/preview flow, which used to live
                   inline here instead. */}
-              <div style={{ flex: 1, minHeight: 0, overflowY: "auto", marginTop: 16 }}>
+              <div
+                style={{ flex: 1, minHeight: 0, overflowY: "auto", marginTop: 16 }}
+                onScroll={handleEntryListScroll}
+              >
                 {visibleEntries.length === 0 && (
                   <Empty description={query ? "Không tìm thấy từ nào" : "No lookups yet"} />
                 )}
@@ -699,6 +754,14 @@ export default function App() {
                     />
                   </div>
                 ))}
+                {hasMoreEntries && (
+                  <Typography.Text
+                    type="secondary"
+                    style={{ display: "block", textAlign: "center", margin: "12px 0", fontSize: styleTokens.secondaryFontSize }}
+                  >
+                    Đang tải thêm... ({renderedEntries.length}/{visibleEntries.length})
+                  </Typography.Text>
+                )}
               </div>
             </div>
 
@@ -734,7 +797,12 @@ export default function App() {
           top-level ErrorBoundary comment above for why this used to brick
           the whole window instead of just this modal. */}
       <ErrorBoundary key={detailOpenSeq}>
-        <VocabDetailModal entry={detailEntry} onClose={() => setDetailEntry(null)} onUpdate={handleUpdateEntry} />
+        <VocabDetailModal
+          entry={detailEntry}
+          onClose={() => setDetailEntry(null)}
+          onUpdate={handleUpdateEntry}
+          onSearchWord={handleRelatedWordClickFromDetail}
+        />
       </ErrorBoundary>
 
       {/* Overlay for looking up a not-yet-saved word — opened via the "Tra
@@ -960,6 +1028,7 @@ export default function App() {
                 onGenerateExamples={handleGeneratePreviewExamples}
                 onGenerateNuance={handleGeneratePreviewNuance}
                 onGenerateRelated={handleGeneratePreviewRelated}
+                onWordClick={handleRelatedWordClick}
               />
             </ErrorBoundary>
           </div>

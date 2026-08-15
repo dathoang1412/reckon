@@ -21,10 +21,15 @@ export default function VocabDetailModal({
   entry,
   onClose,
   onUpdate,
+  onSearchWord,
 }: {
   entry: VocabEntryRow | null;
   onClose: () => void;
   onUpdate: (entry: VocabEntryRow) => void;
+  // Clicking a synonym/antonym/word-form below hands the word up to App.tsx,
+  // which closes this modal and opens a fresh lookup for it — this modal
+  // only shows an already-saved entry, it has no search of its own to jump to.
+  onSearchWord?: (word: string) => void;
 }) {
   const [dictionary, setDictionary] = useState<DictionaryInfo | null>(null);
   const [loading, setLoading] = useState(false);
@@ -508,6 +513,7 @@ export default function VocabDetailModal({
               onGenerateExamples={handleGenerateExamples}
               onGenerateNuance={handleExplainNuance}
               onGenerateRelated={handleSuggestRelatedWords}
+              onWordClick={onSearchWord}
             />
 
             <div style={{ marginTop: 16, borderTop: `1px solid ${styleTokens.borderColorLight}`, paddingTop: 12 }}>

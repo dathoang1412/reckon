@@ -49,6 +49,17 @@ if (!app.requestSingleInstanceLock()) {
   });
 
   app.whenReady().then(async () => {
+    // Registered before the splash window loads (next line) — its renderer
+    // shares the same entry as the main window and calls settings:getDarkMode
+    // on mount, which would otherwise race ipcMain.handle registration below.
+    registerIpcHandlers({
+      registerHotkey: (accelerator) => hotkeyManager.register(accelerator),
+      registerSearchHotkey: (accelerator) => searchHotkeyManager.register(accelerator),
+      registerGrammarHotkey: (accelerator) => grammarHotkeyManager.register(accelerator),
+      checkForUpdates: () => updater.checkNow(),
+      quitAndInstallUpdate: () => updater.quitAndInstall(),
+    });
+
     createSplashWindow();
 
     const prisma = getPrisma();
@@ -70,13 +81,6 @@ if (!app.requestSingleInstanceLock()) {
       logError("app", `[startup] sync backend not ready yet: ${err instanceof Error ? err.message : String(err)}`);
     }
 
-    registerIpcHandlers({
-      registerHotkey: (accelerator) => hotkeyManager.register(accelerator),
-      registerSearchHotkey: (accelerator) => searchHotkeyManager.register(accelerator),
-      registerGrammarHotkey: (accelerator) => grammarHotkeyManager.register(accelerator),
-      checkForUpdates: () => updater.checkNow(),
-      quitAndInstallUpdate: () => updater.quitAndInstall(),
-    });
     openMainWindow();
     mainWindow?.once("ready-to-show", () => closeSplashWindow());
     trayRef = createTray({
