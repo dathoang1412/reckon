@@ -488,14 +488,18 @@ export default function App() {
 
   if (authed === null) return null;
 
-  const bySet = activeSet === null ? entries : entries.filter((e) => e.setId === activeSet);
+  const query = searchQuery.trim().toLowerCase();
+  // A search query looks across every saved word, not just the currently
+  // selected "Bộ từ" — otherwise a word saved under a different set (or
+  // left unassigned) silently fails to turn up while that set is active,
+  // even though it's genuinely in the saved list.
+  const bySet = query || activeSet === null ? entries : entries.filter((e) => e.setId === activeSet);
   const byDate = dateRange
     ? bySet.filter((e) => {
         const created = dayjs(e.createdAt);
         return !created.isBefore(dateRange[0], "day") && !created.isAfter(dateRange[1], "day");
       })
     : bySet;
-  const query = searchQuery.trim().toLowerCase();
   const visibleEntries = query
     ? byDate.filter(
         (e) =>
