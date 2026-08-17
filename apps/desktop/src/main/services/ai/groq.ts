@@ -1,10 +1,12 @@
 import { getGroqApiKey } from "../../utils/settings";
 
 const GROQ_URL = "https://api.groq.com/openai/v1/chat/completions";
+// llama-3.3-70b-versatile was decommissioned by Groq on 2026-08-16; this is
+// their recommended replacement (see console.groq.com/docs/deprecations).
 // Good quality/speed balance for the short, structured completions every
 // feature in ai.ts needs (a few sentences to a short list) — none of them
 // need a bigger/slower model.
-const MODEL = "llama-3.3-70b-versatile";
+const MODEL = "openai/gpt-oss-120b";
 
 export class GroqNotConfiguredError extends Error {
   constructor() {
