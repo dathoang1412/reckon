@@ -35,6 +35,7 @@ import {
 import type { ReviewRating } from "../services/review/srs";
 import {
   getAutoSave,
+  getAutoSpeakOnReveal,
   getDarkMode,
   getGrammarHotkey,
   getGroqApiKey,
@@ -43,6 +44,7 @@ import {
   getSearchHotkey,
   getTranslateDirection,
   setAutoSave,
+  setAutoSpeakOnReveal,
   setDarkMode,
   setGrammarHotkey,
   setGroqApiKey,
@@ -382,6 +384,12 @@ export function registerIpcHandlers({
 
   ipcMain.handle("settings:setReviewLimit", (_event, value: number | null) => {
     setReviewLimit(value);
+  });
+
+  ipcMain.handle("settings:getAutoSpeakOnReveal", () => getAutoSpeakOnReveal());
+
+  ipcMain.handle("settings:setAutoSpeakOnReveal", (_event, value: boolean) => {
+    setAutoSpeakOnReveal(value);
   });
 
   ipcMain.handle("settings:getDarkMode", () => getDarkMode());

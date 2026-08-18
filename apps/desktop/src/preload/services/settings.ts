@@ -21,6 +21,9 @@ export const settings = {
     ipcRenderer.invoke("settings:setTranslateDirection", value) as Promise<void>,
   getReviewLimit: () => ipcRenderer.invoke("settings:getReviewLimit") as Promise<number | null>,
   setReviewLimit: (value: number | null) => ipcRenderer.invoke("settings:setReviewLimit", value) as Promise<void>,
+  getAutoSpeakOnReveal: () => ipcRenderer.invoke("settings:getAutoSpeakOnReveal") as Promise<boolean>,
+  setAutoSpeakOnReveal: (value: boolean) =>
+    ipcRenderer.invoke("settings:setAutoSpeakOnReveal", value) as Promise<void>,
   getDarkMode: () => ipcRenderer.invoke("settings:getDarkMode") as Promise<boolean>,
   setDarkMode: (value: boolean) => ipcRenderer.invoke("settings:setDarkMode", value) as Promise<void>,
 };

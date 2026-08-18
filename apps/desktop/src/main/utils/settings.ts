@@ -37,6 +37,10 @@ interface SettingsSchema {
   // ("ôn hết của ngày đó", review everything currently due) instead of
   // stopping after a fixed count. See services/review/review.ts's listDueEntries.
   reviewLimit: number | null;
+  // Review.tsx: when true, revealing a flashcard's answer automatically
+  // speaks the target-language text instead of requiring a manual click on
+  // the speaker button.
+  autoSpeakOnReveal: boolean;
   // See renderer/src/theme.ts's getThemeConfig and index.html's CSS vars —
   // this is the one source of truth every window (main + popup) reads on
   // boot and gets pushed a live update for for whenever Settings changes it
@@ -61,6 +65,7 @@ function getStore(): Store<SettingsSchema> {
         autoSave: true,
         translateDirection: "auto",
         reviewLimit: 20,
+        autoSpeakOnReveal: false,
         darkMode: false,
       },
     });
@@ -122,6 +127,14 @@ export function getReviewLimit(): number | null {
 
 export function setReviewLimit(value: number | null): void {
   getStore().set("reviewLimit", value);
+}
+
+export function getAutoSpeakOnReveal(): boolean {
+  return getStore().get("autoSpeakOnReveal");
+}
+
+export function setAutoSpeakOnReveal(value: boolean): void {
+  getStore().set("autoSpeakOnReveal", value);
 }
 
 export function getDarkMode(): boolean {

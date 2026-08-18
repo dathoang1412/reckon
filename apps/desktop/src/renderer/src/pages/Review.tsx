@@ -7,7 +7,20 @@ import {
   SmileOutlined,
   SoundOutlined,
 } from "@ant-design/icons";
-import { Button, Card, DatePicker, Empty, Progress, Segmented, Select, Skeleton, Space, Tag, Typography } from "antd";
+import {
+  Button,
+  Card,
+  DatePicker,
+  Empty,
+  Progress,
+  Segmented,
+  Select,
+  Skeleton,
+  Space,
+  Switch,
+  Tag,
+  Typography,
+} from "antd";
 import type { Dayjs } from "dayjs";
 import type {
   DictionaryInfo,
@@ -67,6 +80,11 @@ export default function Review() {
 
   const [mode, setMode] = useState<ReviewMode>("flashcard");
 
+  // Persisted like `limit` above — auto-plays the target-language audio the
+  // moment a flashcard's answer is revealed, so the user doesn't have to
+  // reach for the speaker button on every card.
+  const [autoSpeak, setAutoSpeak] = useState(false);
+
   // Not persisted/cached — a fresh question every time keeps quiz mode from
   // just becoming "guess the same 4 options again".
   const [quiz, setQuiz] = useState<QuizQuestion | null>(null);
@@ -95,7 +113,13 @@ export default function Review() {
   useEffect(() => {
     window.api.vocabSet.list().then(setSets);
     window.api.settings.getReviewLimit().then(setLimit);
+    window.api.settings.getAutoSpeakOnReveal().then(setAutoSpeak);
   }, []);
+
+  function handleAutoSpeakChange(value: boolean) {
+    setAutoSpeak(value);
+    window.api.settings.setAutoSpeakOnReveal(value);
+  }
 
   useEffect(() => {
     if (limit === undefined) return;
@@ -116,6 +140,14 @@ export default function Review() {
   }
 
   const current = queue && queue.length > 0 ? queue[0] : null;
+
+  // Fires once per reveal (not on every re-render while revealed stays
+  // true) since it's keyed on card.id + revealed rather than depending on
+  // `speak` itself.
+  useEffect(() => {
+    if (!autoSpeak || !revealed || mode !== "flashcard" || !current) return;
+    speak(current.targetText, current.targetLang);
+  }, [autoSpeak, revealed, mode, current?.id]);
 
   function loadQuiz(vocabId: string) {
     setQuiz(null);
@@ -252,8 +284,17 @@ export default function Review() {
         { label: "Thẻ ghi nhớ", value: "flashcard" },
         { label: "Trắc nghiệm (AI)", value: "quiz" },
       ]}
-      style={{ marginBottom: 16 }}
+      style={{ marginBottom: 8 }}
     />
+  );
+
+  const autoSpeakToggle = (
+    <Space align="center" style={{ marginBottom: 16 }}>
+      <Switch size="small" checked={autoSpeak} onChange={handleAutoSpeakChange} />
+      <Typography.Text type="secondary">
+        <SoundOutlined /> Tự động phát âm khi hiện đáp án
+      </Typography.Text>
+    </Space>
   );
 
   if (queue === null) {
@@ -282,6 +323,7 @@ export default function Review() {
     <div style={{ maxWidth: 480, margin: "2rem auto", padding: "0 1rem" }}>
       {filtersRow}
       {modeSelector}
+      {mode === "flashcard" && autoSpeakToggle}
       <Progress percent={Math.round((reviewed / total) * 100)} showInfo={false} />
       <Typography.Text type="secondary">
         {reviewed}/{total}
